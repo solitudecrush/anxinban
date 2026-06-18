@@ -1,0 +1,54 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Project docs / environment ###
+# Python virtual environment used by simulation scripts
+docs/venv/
+# APK/binary artifacts stored in docs
+docs/*.apk
+docs/*.apk.*
+# Empty screenshot folder placeholder
+docs/测试截图/
+
+### Build artifacts ###
+# Maven output (already covered by target/ above, keep explicit)
+target/
+# Gradle/Android build outputs from subprojects
+build/
+.dart_tool/
+.gradle/
+*.class
+*.jar
+*.war
+*.ear

@@ -1,0 +1,355 @@
+根据对 Web 端和 App 端代码的全面排查，以下是整理后的完整数据字典。
+
+---
+
+# 智慧养老系统 Mock 数据字典
+
+> **数据来源**
+> - Web 端：`webAdmin/js/mock-data.js`、`webAdmin/js/utils.js`、`webAdmin/index.html`
+> - App 端：`front/lib/services/api_service.dart`、`front/lib/screens/health_record_screen.dart`、`front/lib/services/emergency_contact_store.dart`、`front/lib/screens/profile_screen.dart`
+
+---
+
+## 1. 用户数据（工作人员 / 家属）
+
+### 1.1 工作人员账号（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| username | String | 登录账号 | `"shequ01"` |
+| password | String | 登录密码 | `"123456"` |
+| name | String | 姓名 | `"张建国"` |
+| role | String | 角色 | `"社区管理员"` |
+| phone | String | 手机号 | `"13800138001"` |
+
+> **枚举值 role**：`"社区管理员"`、`"护理员"`、`"医生"`、`"家属"`、`"志愿者"`
+
+### 1.2 家属用户资料（App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| name | String | 姓名 | `"曾姐"` |
+| age | Int | 年龄 | `76` |
+| gender | String | 性别 | `"女"` |
+| familyPhone | String | 家属联系电话 | `"13887654321"` |
+| address | String | 住址 | `"6号楼 6-201"` |
+
+> **枚举值 gender**：`"男"`、`"女"`
+
+### 1.3 登录演示数据（Web & App）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| username | String | 默认账号 | `"shequ01"` |
+| password | String | 默认密码 | `"123456"` |
+| verifyCode | String | 演示验证码 | `"123456"` |
+
+---
+
+## 2. 老人数据
+
+### 2.1 老人基本信息
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 老人唯一标识 | `100` |
+| name | String | 老人姓名 | `"曾姐"` |
+| age | Int | 年龄 | `76` |
+| gender | String | 性别 | `"女"` |
+| building | String | 所在楼栋 | `"6号楼"` |
+| room | String | 房间号 | `"6-201"` |
+| status | String | 健康状态编码 | `"normal"` |
+| health | String | 健康状态文本 | `"正常"` |
+| phone | String | 老人手机号 | `"13912345678"` |
+| contact | String | 紧急联系人及关系 | `"曾小明（子）"` |
+| contactPhone | String | 紧急联系人电话 | `"13887654321"` |
+| hasCamera | Boolean | 是否有室内摄像头 | `true` |
+| cameraAuthUntil | Int (Timestamp) | 监控授权到期时间戳（0 表示无权限） | `0` |
+| cameraPending | Boolean | 是否有待审批的监控申请 | `false` |
+| lastOnline | String (DateTime) | 最后在线时间 | `"2026-05-27 18:30"` |
+
+> **枚举值 status**：`"normal"`（正常）、`"warning"`（关注）、`"danger"` / `"critical"`（高危）
+
+---
+
+## 3. 健康数据
+
+### 3.1 实时健康数据（最新体征）
+
+**Web 端结构**（嵌套在老人对象中）：
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| bp | String | 血压（收缩压/舒张压） | `"125/82"` |
+| hr | Int | 心率（bpm） | `72` |
+| spo2 | Int | 血氧饱和度（%） | `98` |
+| temp | Double | 体温（℃） | `36.5` |
+| insomnia | String | 失眠等级 | `"无"` |
+| sleepTime | String | 入睡时间 | `"22:00"` |
+
+**App 端结构**（API 返回格式）：
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| temperature | Double | 体温（℃） | `36.5` |
+| heartRate | Int | 心率（bpm） | `72` |
+| systolic | Int | 收缩压（mmHg） | `125` |
+| diastolic | Int | 舒张压（mmHg） | `82` |
+| measuredAt | String (ISO8601) | 测量时间 | `"2026-05-27T18:30:00.000Z"` |
+
+> **枚举值 insomnia**：`"无"`、`"轻度"`、`"中度"`、`"重度"`
+
+### 3.2 历史健康趋势（App 端）
+
+按 `day` / `week` / `month` 三个维度存储，每个数据点结构：
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| label | String | 时间标签 | `"08:00"` / `"周一"` / `"第1周"` |
+| temperature | Double | 体温（℃） | `36.5` |
+| heartRate | Int | 心率（bpm） | `76` |
+| systolic | Int | 收缩压（mmHg） | `128` |
+| diastolic | Int | 舒张压（mmHg） | `84` |
+
+### 3.3 AI 智能分析（App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| summary | String | 健康总结 | `"今日老人各项体征指标总体平稳..."` |
+| suggestion | String | 健康建议 | `"建议保持当前作息，适当增加午休时间..."` |
+| fromLlm | Boolean | 是否来自大模型分析 | `false` |
+
+### 3.4 健康档案（App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| hospitalizations | String | 住院史（多行文本） | `"2019年3月：因肺炎住院一周\n2021年8月：摔倒导致髋骨骨折，手术治疗"` |
+| medicalHistory | String | 既往病史 | `"高血压（10年）\n2型糖尿病（5年）\n骨质疏松"` |
+| allergies | String | 过敏史 | `"青霉素过敏\n花粉过敏（季节性）"` |
+| medications | String | 常用药物 | `"阿司匹林肠溶片 100mg/日\n二甲双胍 500mg 每日两次"` |
+| bloodType | String | 血型 | `"O型"` |
+| remarks | String | 备注 | `"听力轻度下降，需大声交流。记忆力有所减退。"` |
+
+### 3.5 健康异常告警规则（App 端）
+
+| 告警类型编码 | 说明 |
+|--------------|------|
+| `heartRateHigh` | 心率过高 |
+| `heartRateLow` | 心率过低 |
+| `temperatureHigh` | 体温过高 |
+| `temperatureLow` | 体温过低 |
+| `pressureHigh` | 血压过高 |
+| `pressureLow` | 血压过低 |
+
+---
+
+## 4. 告警数据
+
+### 4.1 通用告警（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 告警唯一标识 | `1` |
+| elderId | Int | 关联老人 ID | `3` |
+| elderName | String | 老人姓名 | `"张德明"` |
+| type | String | 告警类型 | `"摔倒告警"` |
+| time | String (DateTime) | 告警时间 | `"2026-05-22 18:30"` |
+| status | String | 处理状态 | `"pending"` |
+| location | String | 发生位置 | `"2号楼 2-301 客厅"` |
+| handler | String | 处理人（已处理时存在） | `"张建国"` |
+| handleTime | String (DateTime) | 处理时间（已处理时存在） | `"2026-05-22 19:35"` |
+
+> **枚举值 status**：`"pending"`（待处理）、`"handled"`（已处理）
+
+### 4.2 陌生人闯入告警（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 告警唯一标识 | `101` |
+| elderId | Int | 关联老人 ID | `3` |
+| elderName | String | 老人姓名 | `"张德明"` |
+| building | String | 楼栋 | `"3号楼"` |
+| unit | String | 单元 | `"1单元"` |
+| room | String | 房间号 | `"3-401"` |
+| time | String (DateTime) | 告警时间 | `"2026-05-22 14:35"` |
+| status | String | 处理状态 | `"pending"` |
+| location | String | 详细位置 | `"3号楼 3-401 客厅"` |
+| snapshot | String (URL/Base64) | 抓拍快照（SVG dataURL） | `data:image/svg+xml,...` |
+| handler | String | 处理人 | `""` |
+| handleTime | String | 处理时间 | `""` |
+
+---
+
+## 5. 工单数据
+
+### 5.1 工单信息（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | String | 工单唯一编号 | `"WO20260522001"` |
+| elderId | Int | 关联老人 ID | `3` |
+| elderName | String | 老人姓名 | `"张德明"` |
+| type | String | 工单类型 | `"上门护理"` |
+| createTime | String (DateTime) | 创建时间 | `"2026-05-22 08:00"` |
+| status | String | 处理状态 | `"处理中"` |
+| assignee | String | 处理人员 | `"张建国"` |
+| assigneePhone | String | 处理人员电话 | `"13800138001"` |
+| description | String | 工单描述 | `"日常身体检查与用药提醒"` |
+| fromFamily | Boolean | 是否来自家属申请 | `false` |
+| finishTime | String (DateTime) | 完成时间（已完成时存在） | `"2026-05-22 11:30"` |
+
+> **枚举值 status**：`"待分配"`、`"处理中"`、`"已完成"`
+
+### 5.2 服务申请（App 端家属提交）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| elderId | Int | 关联老人 ID | `100` |
+| elderName | String | 老人姓名 | `"曾姐"` |
+| familyName | String | 家属姓名 | `"曾小明"` |
+| familyPhone | String | 家属电话 | `"13887654321"` |
+| type | String | 申请类型 | `"上门看护"` |
+| content | String | 申请内容描述 | `"父亲最近腿脚不便..."` |
+| requestTime | String (DateTime) | 申请时间 | `"2026-05-23 09:30"` |
+| status | String | 处理状态 | `"pending"` |
+
+> **枚举值 type（App 端）**：`"上门看护"`、`"设备维修"`、`"健康咨询"`、`"紧急求助"`、`"生活物资代购"`
+> **枚举值 status（App 端）**：`"pending"`（待处理）、`"converted"`（已受理）、`"completed"`（已完成）、`"ignored"`（已拒绝）
+
+---
+
+## 6. 家属申请数据
+
+### 6.1 家属服务申请（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 申请唯一标识 | `1` |
+| elderId | Int | 关联老人 ID | `3` |
+| elderName | String | 老人姓名 | `"张德明"` |
+| familyName | String | 家属姓名 | `"张伟"` |
+| familyPhone | String | 家属电话 | `"13500666666"` |
+| type | String | 申请类型 | `"上门看护"` |
+| content | String | 申请内容 | `"父亲最近腿脚不便，请求上门护理"` |
+| requestTime | String (DateTime) | 申请时间 | `"2026-05-23 09:30"` |
+| status | String | 处理状态 | `"pending"` |
+
+> **枚举值 status**：`"pending"`（待处理）、`"approved"`（已通过）、`"rejected"`（已拒绝）
+
+### 6.2 监控查看申请（Web 端 & App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 申请唯一标识 | `1` |
+| elderId | Int | 关联老人 ID | `1` |
+| elderName | String | 老人姓名 | `"李建国"` |
+| staffName | String | 申请人姓名 | `"张建国"` |
+| staffPhone | String | 申请人电话 | `"13800138001"` |
+| reason | String | 申请查看原因 | `"老人今日未按时起床，需查看情况"` |
+| requestTime | String (DateTime) | 申请时间 | `"2026-05-26 08:30"` |
+| status | String | 审批状态 | `"pending"` |
+| expiresAt | Int (Timestamp) | 查看权限有效期（批准后的过期时间戳） | `0` |
+| approvedAt | Int (Timestamp) | 批准时间戳 | `0` |
+
+> **枚举值 status**：`"pending"`（待审批）、`"approved"`（已同意）、`"rejected"`（已拒绝）、`"none"`（无申请）
+
+---
+
+## 7. 设备数据
+
+### 7.1 设备信息（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 设备唯一标识 | `1` |
+| name | String | 设备名称 | `"智能手环-李"` |
+| type | String | 设备类型 | `"手环"` |
+| building | String | 所在楼栋 | `"1号楼"` |
+| room | String | 房间号 | `"1-201"` |
+| online | Boolean | 在线状态 | `true` |
+| battery | Int | 电量百分比 | `78` |
+
+> **枚举值 type**：`"手环"`、`"床垫传感器"`、`"摄像头"`、`"门禁"`、`"烟感"`
+
+### 7.2 3D 场景建筑数据（Web 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| name | String | 楼栋名称 | `"1号楼"` |
+| x | Int | X 轴坐标 | `-45` |
+| z | Int | Z 轴坐标 | `-35` |
+
+---
+
+## 8. 通知数据
+
+### 8.1 通知列表（Web 端 & App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 通知唯一标识 | `1` |
+| type | String | 通知类型 | `"intrusion"` |
+| title | String | 通知标题 | `"陌生人闯入告警"` |
+| content | String | 通知内容 | `"3号楼 3-401 检测到陌生人闯入..."` |
+| time | String (DateTime) | 通知时间 | `"2026-05-22 14:35"` |
+| read | Boolean | 是否已读 | `false` |
+| building | String | 关联楼栋（可选） | `"3号楼"` |
+| room | String | 关联房间（可选） | `"3-401"` |
+| orderId | String | 关联工单 ID（可选） | `"WO20260522004"` |
+| requestId | Int | 关联申请 ID（可选） | `1` |
+| elderId | Int | 关联老人 ID（可选） | `100` |
+
+> **枚举值 type**：`"intrusion"`（闯入告警）、`"camera"`（监控申请）、`"service"`（服务申请）
+
+---
+
+## 9. 紧急联系人数据（App 端）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | String | 唯一标识 | `"ec_xxx"` |
+| name | String | 联系人姓名 | `"李叔叔"` |
+| phone | String | 联系人电话 | `"13800138000"` |
+
+---
+
+## 10. 统计数据（Web 端）
+
+### 10.1 近 7 天告警趋势
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| dates | Array<String> | 日期标签数组 | `["05-16", "05-17", "05-18", "05-19", "05-20", "05-21", "05-22"]` |
+| values | Array<Int> | 每日告警数量 | `[3, 2, 4, 5, 2, 3, 6]` |
+
+### 10.2 告警类型分布
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| name | String | 告警类型名称 | `"摔倒告警"` |
+| value | Int | 该类型数量 | `5` |
+
+---
+
+## 11. 审计日志（Web 端动态生成）
+
+| 字段名 | 类型 | 说明 | 示例值 |
+|--------|------|------|--------|
+| id | Int | 日志唯一标识 | `1750000000000` |
+| user | String | 操作人员 | `"张建国"` |
+| time | String (DateTime) | 操作时间 | `"2026-05-22 10:30"` |
+| action | String | 操作类型 | `"处理告警"` |
+| detail | String | 操作详情 | `"处理了张德明的摔倒告警"` |
+| snapshot | String (URL) | 快照图片（可选） | `""` |
+
+> **枚举值 action**：`"查看老人详情"`、`"查看监控"`、`"处理告警"`、`"创建工单"`、`"分配工单"`、`"完成工单"`、`"登录系统"`
+
+---
+
+## 补充说明
+
+1. **血压字段差异**：Web 端使用字符串 `bp`（如 `"125/82"`），App 端 API 返回拆分为 `systolic` 和 `diastolic` 两个整型字段。建议后端同时支持两种格式，或统一为拆分的整型字段。
+2. **老人 ID 绑定**：App 端当前固定绑定 `id = 100` 的老人（"曾姐"），Web 端管理全部老人数据。
+3. **时间格式**：Web 端主要使用 `"yyyy-MM-dd HH:mm"` 字符串；App 端 API 主要使用 ISO8601 格式（`DateTime.now().toIso8601String()`）。
+4. **监控权限**：`cameraAuthUntil` 为 0 表示无权限，非 0 值表示权限到期的时间戳。
+5. **状态编码统一建议**：Web 端和 App 端的工单/申请状态编码存在差异，建议后端统一状态枚举值。
