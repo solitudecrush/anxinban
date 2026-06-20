@@ -35,7 +35,7 @@ public class EmergencyContactService {
     public EmergencyContactDto createContact(EmergencyContactDto dto) {
         EmergencyContact entity = convertToEntity(dto);
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         EmergencyContact saved = emergencyContactRepository.save(entity);
         return convertToDto(saved);
     }
@@ -76,7 +76,7 @@ public class EmergencyContactService {
         if (dto.getRelation() != null) existing.setRelation(dto.getRelation());
         if (dto.getIsPrimary() != null) existing.setIsPrimary(dto.getIsPrimary());
         if (dto.getSortOrder() != null) existing.setSortOrder(dto.getSortOrder());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         EmergencyContact saved = emergencyContactRepository.save(existing);
         return convertToDto(saved);
     }

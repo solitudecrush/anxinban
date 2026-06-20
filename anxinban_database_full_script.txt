@@ -1,0 +1,1394 @@
+-- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
+--
+-- Host: localhost    Database: anxinban
+-- ------------------------------------------------------
+-- Server version	8.0.46-0ubuntu0.22.04.2
+-- ============================================================
+-- 安心伴（anxinban）智慧家居系统 - 完整数据库脚本
+-- ============================================================
+-- 数据库名称：anxinban
+-- 数据库引擎：MySQL 8.0
+-- 字符集：utf8mb4
+-- 脚本内容：35 张表的 CREATE TABLE 建表语句 + INSERT 全量数据
+-- 生成时间：2026-06-20
+-- 说明：每张表前附有中文注释，说明表的业务用途
+-- ============================================================
+-- 
+-- SET NAMES utf8mb4;
+-- CREATE DATABASE IF NOT EXISTS `anxinban` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- USE `anxinban`;
+--
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `agent_conversation`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【agent_conversation】Agent 会话记录表 — 存储用户与 AI Agent 的对话历史
+-- ============================================================
+CREATE TABLE `agent_conversation` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `conversation_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `agent_type` varchar(255) DEFAULT NULL,
+  `user_text` varchar(255) DEFAULT NULL,
+  `intent` varchar(255) DEFAULT NULL,
+  `agent_reply` varchar(255) DEFAULT NULL,
+  `risk_level` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `conversation_id` (`conversation_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='智能体对话表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `agent_conversation`
+--
+
+LOCK TABLES `agent_conversation` WRITE;
+/*!40000 ALTER TABLE `agent_conversation` DISABLE KEYS */;
+INSERT INTO `agent_conversation` (`id`, `conversation_id`, `elder_id`, `agent_type`, `user_text`, `intent`, `agent_reply`, `risk_level`, `created_at`) VALUES (1,'conv_001','elder_001','local_agent','今天血压怎么样？','query_health','您今天血压为135/85，处于正常范围。记得按时服药哦。','low','2025-05-17 08:30:00'),(2,'conv_002','elder_002','local_agent','我有点不舒服，胸口闷。','report_discomfort','已为您联系医护人员，请保持冷静，深呼吸。','high','2025-05-17 09:10:00'),(3,'conv_003','elder_003','cloud_agent','给我播放点轻音乐。','control_music','正在为您播放轻音乐，音量已调至适中。','low','2025-05-17 10:00:00'),(4,'conv_004','elder_001','cloud_agent','帮我打开客厅的灯。','light-control','好的，已为您打开客厅灯光。','low','2025-05-17 09:30:00'),(5,'conv_005','elder_004','local_agent','我的眼镜找不到了。','find-item','已为您启动摄像头查找，请在摄像头可视范围内。','low','2025-05-17 08:15:00'),(6,'conv_006','elder_005','cloud_agent','救命！','emergency','已收到紧急呼叫，正在通知工作人员和家属。','critical','2025-05-16 23:00:00'),(7,'6e78caf4-8900-4989-84dd-05333a09224c','elder_001','user','hello',NULL,NULL,NULL,'2026-06-18 12:59:41');
+/*!40000 ALTER TABLE `agent_conversation` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `agent_intent_log`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【agent_intent_log】Agent 意图日志表 — 记录 AI Agent 每次意图识别的详细日志
+-- ============================================================
+CREATE TABLE `agent_intent_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `intent_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `source` varchar(255) DEFAULT NULL,
+  `user_text` varchar(255) DEFAULT NULL,
+  `intent` varchar(255) DEFAULT NULL,
+  `confidence` double NOT NULL COMMENT '置信度',
+  `handled_by` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `intent_id` (`intent_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='意图识别日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `agent_intent_log`
+--
+
+LOCK TABLES `agent_intent_log` WRITE;
+/*!40000 ALTER TABLE `agent_intent_log` DISABLE KEYS */;
+INSERT INTO `agent_intent_log` (`id`, `intent_id`, `elder_id`, `source`, `user_text`, `intent`, `confidence`, `handled_by`, `created_at`) VALUES (1,'intent_001','elder_001','voice','今天血压怎么样？','query_health',0.95,'local_agent','2025-05-17 08:30:00'),(2,'intent_002','elder_002','voice','我有点不舒服，胸口闷。','report_discomfort',0.88,'local_agent','2025-05-17 09:10:00'),(3,'intent_003','elder_003','app','给我播放点轻音乐。','control_music',0.92,'cloud_agent','2025-05-17 10:00:00'),(4,'intent_004','elder_001','voice','帮我打开客厅的灯。','light-control',0.96,'cloud_agent','2025-05-17 09:30:00'),(5,'intent_005','elder_004','voice','我的眼镜找不到了。','find-item',0.85,'local_agent','2025-05-17 08:15:00'),(6,'intent_006','elder_005','voice','救命！','emergency',0.98,'cloud_agent','2025-05-16 23:00:00'),(7,'intent_007','elder_001','app','今天天气怎么样？','chat',0.78,'cloud_agent','2025-05-17 07:00:00'),(8,'intent_008','elder_002','voice','把窗帘打开。','curtain-control',0.91,'local_agent','2025-05-17 08:00:00');
+/*!40000 ALTER TABLE `agent_intent_log` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ai_advice`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【ai_advice】AI 建议表 — 存储 AI 生成的健康建议内容
+-- ============================================================
+CREATE TABLE `ai_advice` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `advice_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `advice_type` varchar(255) DEFAULT NULL,
+  `input_summary` varchar(255) DEFAULT NULL,
+  `advice_content` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `advice_id` (`advice_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI建议表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ai_advice`
+--
+
+LOCK TABLES `ai_advice` WRITE;
+/*!40000 ALTER TABLE `ai_advice` DISABLE KEYS */;
+INSERT INTO `ai_advice` (`id`, `advice_id`, `elder_id`, `advice_type`, `input_summary`, `advice_content`, `created_at`) VALUES (1,'adv_001','elder_001','health','近期血压偏高，血糖波动较大','建议增加血压监测频率，每日早晚各一次；调整饮食结构，减少盐分摄入；适当增加户外散步时间。','2025-05-17 08:30:00'),(2,'adv_002','elder_002','fall_prevention','近期有跌倒记录，骨质疏松','建议在卫生间和卧室安装防滑垫；夜间保持走廊照明；穿戴防滑鞋；定期进行骨密度检查。','2025-05-17 09:30:00'),(3,'adv_003','elder_003','cognitive','记忆力减退，轻度认知障碍','建议进行认知训练，如记忆卡片游戏；保持社交活动；规律作息；定期复查认知功能。','2025-05-17 10:00:00'),(4,'adv_004','elder_004','diabetes','糖尿病足恢复期，血糖控制','建议每日检查足部皮肤状况；保持足部清洁干燥；穿宽松舒适的鞋子；定期测量血糖。','2025-05-17 08:00:00'),(5,'adv_005','elder_005','rehabilitation','脑梗后遗症，行动不便','建议坚持每日康复训练；家属协助进行肢体活动；定期复查脑部影像；注意血压控制。','2025-05-17 09:00:00');
+/*!40000 ALTER TABLE `ai_advice` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ai_analysis_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【ai_analysis_record】AI 分析记录表 — 保存每次 AI 健康分析的完整结果，供家属 APP 和社区大屏展示
+-- ============================================================
+CREATE TABLE `ai_analysis_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `community_suggestion` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `elder_reply` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `family_notice` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `model` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `need_alarm` bit(1) DEFAULT NULL,
+  `need_work_order` bit(1) DEFAULT NULL,
+  `record_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `risk_level` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `risk_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `source` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `suggestion` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `work_order_type` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `analyzed_at` datetime(6) DEFAULT NULL,
+  `generated_alarm_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `scope` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKox8am24xu0c6wvbvtx6mhjsvb` (`record_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ai_analysis_record`
+--
+
+LOCK TABLES `ai_analysis_record` WRITE;
+/*!40000 ALTER TABLE `ai_analysis_record` DISABLE KEYS */;
+INSERT INTO `ai_analysis_record` (`id`, `community_suggestion`, `created_at`, `elder_id`, `elder_reply`, `family_notice`, `model`, `need_alarm`, `need_work_order`, `record_id`, `risk_level`, `risk_reason`, `source`, `suggestion`, `work_order_type`, `analyzed_at`, `generated_alarm_id`, `scope`) VALUES (1,'系统触发高风险告警，已生成紧急工单编号GR-20250409-001。请社区工作人员立即联系家属确认情况，尽快上门探访并检测生命体征，记录老人当前状态及现场处理过程。如家属无法联系，按应急预案联动急救服务。处理完毕后需在工单系统闭环记录结果，包括到达时间、处置措施、老人现状及后续跟进计划。','2026-06-19 09:36:54.150044','elder_001','您的身体数据有些波动，不用担心，系统已经通知了家人和社区工作人员，他们会尽快联系您。请您尽量保持平静，适时休息，多喝温水。','【紧急提示】监测到老人elder_001血氧饱和度低至88%，心率125次/分，体温38.5℃。多项指标异常，疑似存在急性健康风险，建议立即确认老人状况，必要时拨打急救电话或前往医疗机构就诊。','',_binary '',_binary '','ar_3231a91b','高风险','血氧饱和度88%低于安全阈值92%，心率125次/分超过110次/分的警戒值，同时体温38.5℃偏高。多项指标异常且存在持续恶化风险，结合缺氧和发热状态，提示可能存在急性健康事件。','python_ai_service','','紧急巡检',NULL,NULL,NULL),(2,'告警触发紧急工单，社区工作人员需即刻响应上门巡检，确认老人安全，协助家属处理，并在工单系统记录处置结果。','2026-06-19 09:58:38.739410','elder_001','您的身体数据有些波动，请先放松，保持平静，我们会马上通知家人关注您。如有头晕、胸闷等不适，请尽量告知身边人。','老人的实时监测显示血氧仅88%、心率125次/分、体温38.5℃，存在急性健康风险，请立即联系老人确认状况，必要时拨打急救电话。','',_binary '',_binary '','ar_3ed45798','高风险','血氧饱和度严重偏低（88%）、心率过快（125次/分）且体温偏高（38.5℃），多项生命体征同时异常，提示潜在急性健康风险。','python_ai_service','告警触发紧急工单，社区工作人员需即刻响应上门巡检，确认老人安全，协助家属处理，并在工单系统记录处置结果。','紧急巡检',NULL,NULL,NULL),(3,'检测到多重告警，建议生成紧急巡检工单，安排工作人员上门查看并同步通知签约医生，完成处置后记录处理闭环。','2026-06-19 10:37:29.987514','elder_001','您的健康数据有些波动，我们会马上联系您确认情况，请您先静卧休息，如感到气短或不适请按紧急按钮。','老人健康数据出现严重异常：血氧 88%、心率 125、体温 38.5℃，可能存在呼吸系统感染或循环问题，请立即联系老人并尽快协助就医。','',_binary '',_binary '','ar_c53a5200','高风险','血氧饱和度降至 88%，远低于安全范围；心率持续偏高 125 次/分；体温 38.5℃ 提示发热。多项指标同时严重异常，需立即关注。','python_ai_service','检测到多重告警，建议生成紧急巡检工单，安排工作人员上门查看并同步通知签约医生，完成处置后记录处理闭环。','紧急巡检',NULL,NULL,NULL),(4,'已触发中风险健康关注规则。建议生成健康关注工单，由社区健康管理员近期上门或视频随访，核查血氧和心率波动原因，记录老人症状及转归。如后续仍持续异常或出现其他风险因素，需升级为紧急巡检工单。','2026-06-19 12:22:29.726492','elder_001','您最近的指标有些波动，血氧略低，心跳稍快。建议您先坐下休息，保持平静，适当开窗通风。我们会联系家人和社区关注您的情况，别担心。','老人elder_001当前血氧91%、心率112次/分，略偏离正常范围，体温正常，无跌倒报告。建议及时安抚老人休息，观察是否有胸闷、气短等不适，必要时可联系社区卫生服务中心做进一步检查。','',_binary '\0',_binary '','ar_402b4d4a','中风险','血氧饱和度偏低（91%），心率偏快（112次/分），但体温正常，无跌倒迹象。长时间偏低可能提示供氧不足或心脏负荷增加，需要进一步关注。','python_ai_service','已触发中风险健康关注规则。建议生成健康关注工单，由社区健康管理员近期上门或视频随访，核查血氧和心率波动原因，记录老人症状及转归。如后续仍持续异常或出现其他风险因素，需升级为紧急巡检工单。','健康关注',NULL,NULL,NULL),(5,'系统告警转紧急工单，请立即安排人员上门核实老人状况，检查是否跌倒及生命体征，携带急救设备，处理完成后记录结果并反馈闭环。','2026-06-19 12:27:31.066577','elder_001','我们已注意到您的情况，请保持放松，尽量平卧或安稳休息，不要随意移动。工作人员和家属会马上来协助您，请放心。','紧急提醒：系统监测到老人可能跌倒，且血氧和心率异常。请立即尝试联系老人，并尽快前往查看或联系社区工作人员。','',_binary '',_binary '','ar_b487583e','高风险','传感器提示疑似跌倒，老人处于长时间静止状态，同时血氧偏低（91%）、心率偏快（112次/分），存在较高健康风险，需要立即关注。','python_ai_service','系统告警转紧急工单，请立即安排人员上门核实老人状况，检查是否跌倒及生命体征，携带急救设备，处理完成后记录结果并反馈闭环。','紧急巡检',NULL,NULL,NULL),(6,'生成健康关注工单：上门或远程核实老人心率偏高的原因，重点检查血氧监测设备佩戴与运行状态，记录现场情况，处理完毕后反馈闭环，如设备异常安排运维备换。','2026-06-19 12:51:41.265039','elder_001','老人家，您的心跳有点快，先坐下休息一会儿，慢慢深呼吸。您手上的设备可能没戴好，血氧没测到，请轻轻调整一下手环位置。不紧张，我们持续关注您。','【健康提醒】家人您好，老人elder_001当前心率偏高（112次/分），血氧数据缺失（显示为0），可能为设备佩戴或信号问题。暂时未触发紧急报警，但需您尽快确认老人情况，协助检查手环佩戴，安抚情绪。如有不适请及时联系我们。','',_binary '\0',_binary '','ar_467face5','中风险','心率112次/分，高于110的阈值；血氧数据为0，可能传感器脱落或佩戴异常，需排除设备问题。','python_ai_service','生成健康关注工单：上门或远程核实老人心率偏高的原因，重点检查血氧监测设备佩戴与运行状态，记录现场情况，处理完毕后反馈闭环，如设备异常安排运维备换。','健康关注',NULL,NULL,NULL),(7,'已触发健康关注工单，建议社区工作人员上门或电话随访，确认老人状态，指导测量，并记录结果。若持续异常则升级处置。','2026-06-19 12:52:19.491476','elder_001','您的健康数据有些波动，心率有点快，血氧稍低。建议您休息一下，保持平静，再测一下血氧。如果不舒服，随时联系我们。','老人elder_001出现血氧偏低（91%）和心率偏快（112次/分），虽暂无跌倒等紧急情况，但可能存在健康风险，请家属多加关注，必要时陪同就医。','',_binary '\0',_binary '','ar_4a3c1aab','中风险','血氧饱和度偏低（91%），心率偏高（112次/分），需关注呼吸和心血管状态。','python_ai_service','已触发健康关注工单，建议社区工作人员上门或电话随访，确认老人状态，指导测量，并记录结果。若持续异常则升级处置。','健康关注',NULL,NULL,NULL),(8,'该老人血氧和心率异常，自动生成健康关注工单。请社区健康管家在24小时内进行随访，评估老人状况，并记录随访结果。若随访发现其他异常，可升级为紧急巡检。','2026-06-19 12:52:49.731876','elder_001','您的健康监测有些小波动，血氧和心率稍微不太稳定，请注意休息。如有不适，我们会及时联系您。','老人elder_001近期监测显示血氧91%、心率112次/分，属于中风险。暂时无需紧急处理，但建议家属关注老人身体状况，必要时联系社区。','',_binary '\0',_binary '','ar_f6c885fe','中风险','血氧饱和度偏低（91%），心率偏快（112次/分），虽未达紧急阈值，但需要关注。','python_ai_service','该老人血氧和心率异常，自动生成健康关注工单。请社区健康管家在24小时内进行随访，评估老人状况，并记录随访结果。若随访发现其他异常，可升级为紧急巡检。','健康关注',NULL,NULL,NULL),(9,'告警已触发，自动生成紧急巡检工单。请工作人员立即上门查看长辈状态，协助家属决策是否送医。现场处理结果需在30分钟内回传，完成工单闭环记录。','2026-06-19 12:53:03.067514','elder_001','您目前的健康数据有些波动，请不必紧张，我们已通知家人和照护人员，很快就会有人来关心您，请保持平静，休息片刻。','紧急提醒：长辈当前血氧85%、心率140次/分、体温38.5℃，多项生命体征异常，存在高风险，请立即联系确认情况，必要时呼叫急救。','',_binary '',_binary '','ar_a1014a6b','高风险','血氧饱和度低至85%，心率过快140次/分，体温偏高38.5℃，存在严重健康隐患，需立即干预。','python_ai_service','告警已触发，自动生成紧急巡检工单。请工作人员立即上门查看长辈状态，协助家属决策是否送医。现场处理结果需在30分钟内回传，完成工单闭环记录。','紧急巡检',NULL,NULL,NULL),(10,'高风险告警：血氧偏低、心率过快、体温偏高，立即转紧急工单，安排社区人员上门或协助联系120，处理结果需记录闭环。','2026-06-19 12:54:40.312882','elder_001','您的健康数据有些异常，请保持镇定，马上会有人员联系您，我们会帮助您。','家属您好，老人elder_001目前血氧85%、心率140次/分、体温38.5℃，情况紧急，建议立即就医，我们已启动工单处理。','',_binary '',_binary '','ar_3d82ee56','高风险','血氧85%，心率140次/分，体温38.5℃，多项指标异常，急需医疗评估','python_ai_service','高风险告警：血氧偏低、心率过快、体温偏高，立即转紧急工单，安排社区人员上门或协助联系120，处理结果需记录闭环。','紧急巡检',NULL,NULL,NULL),(11,'疑似跌倒高风险告警，已自动生成紧急巡检工单，请工作人员立即携带急救设备前往查看，确认老人状况并做好防护，处理完成后记录结果并闭环。','2026-06-19 13:00:52.136678','elder_001','我们注意到您可能有跌倒风险，已紧急通知家人和社区人员，请不要担心，保持当前姿势，稍后会有人帮助您。','老人疑似跌倒且长时间未动，血氧91%、心率112次/分，属于高风险情况，请立即联系老人或前往查看，同时社区已启动紧急工单。','',_binary '',_binary '','ar_0b0616e4','高风险','传感器提示疑似跌倒，存在长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在紧急健康风险。','python_ai_service','疑似跌倒高风险告警，已自动生成紧急巡检工单，请工作人员立即携带急救设备前往查看，确认老人状况并做好防护，处理完成后记录结果并闭环。','紧急巡检',NULL,NULL,NULL),(12,'告警已自动转紧急工单，请立即派员上门查看老人情况，确认跌倒伤情及生命体征，必要时拨打急救电话，处理完毕后记录结果并闭环反馈。','2026-06-19 13:01:33.704278','elder_001','您可能摔倒了，请先不要着急活动，我们正在联系您的家人和社区人员过来看看。','紧急提示：系统监测到老人疑似跌倒并长时间静止，当前血氧91%、心率112次/分，存在健康风险，请立即尝试联系老人或前往查看。','',_binary '',_binary '','ar_3d1d6dde','高风险','传感器检测到疑似跌倒，长时间静止未起身，同时血氧91%低于正常范围，心率112次/分偏快，需警惕呼吸循环异常与跌倒损伤叠加风险。','python_ai_service','告警已自动转紧急工单，请立即派员上门查看老人情况，确认跌倒伤情及生命体征，必要时拨打急救电话，处理完毕后记录结果并闭环反馈。','紧急巡检',NULL,NULL,NULL),(13,'紧急巡检工单已生成，请立刻派遣工作人员确认老人跌倒情况并协助处理，事后录入处理结果并闭环工单。','2026-06-19 13:01:41.264504','elder_001','我们已留意您的情况，请保持平静，服务人员正在赶来，尽量不要移动。','预警：老人疑似跌倒且长时间静止，血氧偏低（91%），心率偏快（112次/分）。建议立即联系老人或前往查看，社区已安排紧急上门。','',_binary '',_binary '','ar_f711bb52','高风险','传感器提示疑似跌倒，长时间静止，血氧饱和度91%（低于92%），心率112次/分（高于110次/分），存在紧急风险。','python_ai_service','紧急巡检工单已生成，请立刻派遣工作人员确认老人跌倒情况并协助处理，事后录入处理结果并闭环工单。','紧急巡检',NULL,NULL,NULL),(14,'高风险事件触发紧急工单，请立即派员上门查看，确认老人安全状况并提供现场帮助。处理时需携带急救包，关注呼吸与意识状况，记录到达时间、处置措施及结果，处理完成后在系统内闭环记录并反馈。','2026-06-19 13:01:52.774282','elder_001','您已静止较长时间，设备检测到可能摔倒，请稍等，我们正在联系家人和社区工作人员来帮助您，请别担心。','紧急提醒：老人当前疑似跌倒且长时间静止，监测到血氧91%、心率112次/分，存在高风险情况。请立即尝试联系老人并前往查看，如无法联系请马上通知社区工作人员并准备协助。','',_binary '',_binary '','ar_b97122ab','高风险','传感器提示疑似跌倒，存在长时间静止未起身，同时伴有血氧偏低（91%）与心率偏高（112次/分），综合风险较高，需立即关注。','python_ai_service','高风险事件触发紧急工单，请立即派员上门查看，确认老人安全状况并提供现场帮助。处理时需携带急救包，关注呼吸与意识状况，记录到达时间、处置措施及结果，处理完成后在系统内闭环记录并反馈。','紧急巡检',NULL,NULL,NULL),(15,'触发高风险告警，血氧、心率、体温三项指标危急，请立即生成紧急巡检工单，上门核实并协助拨打120，处理过程记录闭环，必要时启动应急预案。','2026-06-19 13:02:02.089719','elder_001','您当前身体指标有些异常，请保持平静，我们正在联系家人和社区服务人员尽快前往协助，请稍候，不要紧张。','紧急提醒：老人血氧仅85%，心率140次/分，体温38.5℃，情况危急，建议立即拨打急救电话并前往查看，社区已同步响应。','',_binary '',_binary '','ar_15a83e6a','高风险','血氧85%远低于正常值，心率140次/分显著偏快，体温38.5℃偏高，三项关键指标同时异常，可能存在急性健康风险，需立即关注。','python_ai_service','触发高风险告警，血氧、心率、体温三项指标危急，请立即生成紧急巡检工单，上门核实并协助拨打120，处理过程记录闭环，必要时启动应急预案。','紧急巡检',NULL,NULL,NULL),(16,'告警已转紧急巡检工单，社区人员需立即上门查看，携带急救设备，确认老人状况后记录处置结果并闭环。','2026-06-19 13:11:12.619495','elder_001','您还好吗？我们已收到报警，马上有人去帮您，请不要担心，保持原地休息。','紧急提醒：老人可能摔倒，血氧偏低、心率快，已处于高风险状态，请立即联系或前往查看。','',_binary '',_binary '','ar_ccc2bfad','高风险','血氧91%偏低，心率112次/分偏高，疑似跌倒且长时间静止，综合判断为高风险紧急情况。','python_ai_service','告警已转紧急巡检工单，社区人员需立即上门查看，携带急救设备，确认老人状况后记录处置结果并闭环。','紧急巡检',NULL,NULL,NULL),(17,'告警已自动转为紧急巡检工单，请立即上门核查老人安全状况，检查跌倒风险与生命体征，处置后将结果记录归档。','2026-06-19 13:13:47.332590','elder_001','我们已收到提醒，正在赶来，请您保持平稳呼吸，不要移动。','紧急提醒：老人疑似跌倒且长时间未起身，同时血氧偏低、心率偏高，请立即尝试联系老人并前往查看，我们已同步通知社区人员。','',_binary '',_binary '','ar_7e10c0cf','高风险','传感器提示疑似跌倒，且存在长时间静止；生命体征异常：血氧91%（低于92%），心率112次/分（高于110次/分）。综合判断为高风险，需立即关注。','python_ai_service','告警已自动转为紧急巡检工单，请立即上门核查老人安全状况，检查跌倒风险与生命体征，处置后将结果记录归档。','紧急巡检',NULL,NULL,NULL),(18,'立即派员上门紧急巡检，携带急救设备，确认老人状况并安抚，记录处理结果，形成工单闭环。','2026-06-19 13:15:21.309908','elder_001','您可能有些不适，已通知家人和社区工作人员前往帮助，请保持平稳，不要贸然移动。','紧急：老人可能发生跌倒，血氧偏低、心率偏高，请立刻联系确认情况。','',_binary '',_binary '','ar_8dff23e2','高风险','老人疑似跌倒且长时间静止，血氧偏低（91%），心率偏高（112次/分），存在较高健康风险。','python_ai_service','立即派员上门紧急巡检，携带急救设备，确认老人状况并安抚，记录处理结果，形成工单闭环。','紧急巡检',NULL,NULL,NULL),(19,'高风险事件：老人疑似跌倒且生命体征异常。已自动生成紧急巡检工单，请工作人员立即上门核查，协助家属处理，并记录处理结果与闭环信息。','2026-06-19 13:16:50.029092','elder_001','我们注意到您可能跌倒了，已经通知您的家人和社区人员，请不要慌张，保持当前姿势，等待帮助。','紧急提醒：监测到老人可能跌倒并长时间未动，血氧91%、心率112次/分，请立即联系老人并前往查看，必要时呼叫急救。','',_binary '',_binary '','ar_d3bf3657','高风险','疑似跌倒后长时间静止，同时血氧低至91%、心率高达112次/分，存在紧急健康风险。','python_ai_service','高风险事件：老人疑似跌倒且生命体征异常。已自动生成紧急巡检工单，请工作人员立即上门核查，协助家属处理，并记录处理结果与闭环信息。','紧急巡检',NULL,NULL,NULL),(20,'设备数据持续异常，请转设备检查工单，安排人员上门确认佩戴及设备运行情况，工单处理完成后记录结果。','2026-06-20 01:14:15.779018','elder_001','您的健康数据没传上来，请看看手环是不是戴好了。','老人elder_001的健康监测设备未检测到心率和血氧数据，可能未正确佩戴或设备异常，请协助查看并确认佩戴状态。','',_binary '\0',_binary '','ar_9696cc61','低风险','心率、血氧数据均为0，疑似设备未佩戴、脱落或传感器故障，未能获取有效健康数据。','python_ai_service','设备数据持续异常，请转设备检查工单，安排人员上门确认佩戴及设备运行情况，工单处理完成后记录结果。','设备检查',NULL,NULL,NULL),(21,'本次数据无异常，无需后续处理，记录为正常巡查结果。','2026-06-20 01:14:18.523790','elder_001','您好，您的健康数据一切正常，请继续保持良好的状态哦。','老人各项健康指标正常，无异常提醒，请放心。','',_binary '\0',_binary '\0','ar_712e31b2','正常','当前传感器数据未检测到异常指标，心率、血氧、体温均在正常范围，未检测到跌倒或长时间静止情况。','python_ai_service','本次数据无异常，无需后续处理，记录为正常巡查结果。','无需工单',NULL,NULL,NULL),(22,'转健康关注工单，安排人员联系老人确认身体状况，同时检查血氧监测设备是否正常，记录处理结果。','2026-06-20 01:14:45.947759','elder_001','您的身体数据有些波动，请不要紧张，适当休息，若感到不适随时联系我们。','长辈心率偏高（112次/分），血氧数据异常（0），请注意观察，如持续异常建议测量或就医。','',_binary '\0',_binary '','ar_5ee2161a','中风险','心率 112 次/分，高于正常范围；血氧数值异常（0），可能为设备信号问题。','python_ai_service','转健康关注工单，安排人员联系老人确认身体状况，同时检查血氧监测设备是否正常，记录处理结果。','健康关注',NULL,NULL,NULL),(23,'设备数据缺失，建议安排上门或远程指导确认佩戴状态，如设备故障需更换，生成设备检查工单并记录处理结果，实现闭环管理。','2026-06-20 01:14:53.822243','elder_001','您的健康设备可能没戴好，请检查手环是否贴紧皮肤，稍后就会恢复正常监测。','老人健康监测设备可能离线，心率和血氧未采集到数据，体温正常37.4℃，无跌倒报告。建议联系老人确认设备佩戴情况。','',_binary '\0',_binary '','ar_8317272c','低风险','心率和血氧数据均为0，可能为设备佩戴异常或信号中断，体温37.4℃正常，无跌倒迹象。','python_ai_service','设备数据缺失，建议安排上门或远程指导确认佩戴状态，如设备故障需更换，生成设备检查工单并记录处理结果，实现闭环管理。','设备检查',NULL,NULL,NULL),(24,'健康关注工单：请安排社区卫生人员电话或上门确认老人状况，重点核查血氧与心率异常原因，记录处理结果。若老人出现呼吸困难、意识改变等紧急情况，立即升级为紧急巡检并联系家属。','2026-06-20 01:15:07.314906','elder_001','您的健康数据有些波动，不用太紧张，建议先休息一下，我们很快会联系您确认情况。','老人当前血氧偏低（91%）、心率偏快（112次/分），已触发健康关注。请留意老人是否有胸闷、气促、头晕等不适，并保持联系。','',_binary '\0',_binary '','ar_e833f6da','中风险','血氧饱和度偏低（91%），心率偏快（112次/分），可能存在心肺负荷增加，需持续关注。','python_ai_service','健康关注工单：请安排社区卫生人员电话或上门确认老人状况，重点核查血氧与心率异常原因，记录处理结果。若老人出现呼吸困难、意识改变等紧急情况，立即升级为紧急巡检并联系家属。','健康关注',NULL,NULL,NULL),(25,'已生成健康关注工单，请社区工作人员及时上门或电话随访，确认老人状态，记录行动结果并闭环反馈。','2026-06-20 01:15:13.641894','elder_001','伯伯/阿姨，您稍微休息一下，注意深呼吸。我们已经收到您的健康数据，会尽快联系家人，请别担心。','家人您好，系统监测到老人血氧偏低（91%）且心率偏快（112次/分），建议您主动联系老人询问身体感受，必要时咨询医生，适当调整活动。','',_binary '\0',_binary '','ar_1fcc722c','中风险','血氧 91% 低于 92%，心率 112 次/分高于 110，可能存在缺氧和心脏负担加重风险，但当前未触发跌倒或体温异常。','python_ai_service','已生成健康关注工单，请社区工作人员及时上门或电话随访，确认老人状态，记录行动结果并闭环反馈。','健康关注',NULL,NULL,NULL),(26,'系统已生成健康关注工单，工作人员将上门或电话随访，了解老人情况，必要时引导就医，处理结果请录入闭环。','2026-06-20 01:15:20.321271','elder_001','您的心率有些快，血氧稍低，请先放松休息，我们会持续关注。如有不适请及时告知。','老人当前健康数据出现异常：血氧91%，心率112次/分，已触发健康关注。建议您关注老人状态，如有胸闷、气短等症状及时联系。','',_binary '\0',_binary '','ar_6040bcca','中风险','血氧饱和度偏低(91%)且心率偏快(112次/分)，需关注呼吸与循环功能。','python_ai_service','系统已生成健康关注工单，工作人员将上门或电话随访，了解老人情况，必要时引导就医，处理结果请录入闭环。','健康关注',NULL,NULL,NULL),(27,'已生成健康关注工单，请社区工作人员电话回访或上门查看老人状态，记录回访结果并闭环处理。','2026-06-20 01:15:25.363958','elder_001','您的心率和血氧有些波动，请先休息，我们会持续关注您的情况。','老人健康监测显示血氧偏低、心率偏快，建议家属致电询问老人有无不适，必要时联系社区协助。','',_binary '\0',_binary '','ar_2da7da20','中风险','血氧饱和度偏低（91%），心率偏高（112次/分），提示可能存在循环系统负担，需关注。','python_ai_service','已生成健康关注工单，请社区工作人员电话回访或上门查看老人状态，记录回访结果并闭环处理。','健康关注',NULL,NULL,NULL),(28,'告警已转为紧急巡检工单，需立即上门查看老人状态并协助起身，抵达后优先检测生命体征，如有异常及时送医并联系家属。处理完成后记录现场情况、老人反馈及后续关注计划，形成闭环。','2026-06-20 01:15:46.183388','elder_001','我们正在关注您的安全，请先不要慌张，保持安静，服务人员已在路上，很快会帮助您。','【紧急】老人疑似跌倒且长时间静止，血氧偏低（91%）、心率偏高（112次/分），请尽快确认老人情况，必要时联系急救，社区已同步派遣人员上门。','',_binary '',_binary '','ar_971e6764','高风险','传感器提示疑似跌倒，且老人长时间未起身。同时血氧91%偏低，心率112次/分偏高，存在呼吸循环异常风险，需立即关注。','python_ai_service','告警已转为紧急巡检工单，需立即上门查看老人状态并协助起身，抵达后优先检测生命体征，如有异常及时送医并联系家属。处理完成后记录现场情况、老人反馈及后续关注计划，形成闭环。','紧急巡检',NULL,NULL,NULL),(29,'系统告警转紧急工单，请立即安排人员上门巡检，确认老人状态，记录处理结果并闭环。','2026-06-20 01:15:58.092996','elder_001','系统注意到您可能有些不适，已联系家人和社区人员前来协助，请您保持平静，不要移动身体。','老人在未知位置出现疑似跌倒、长时间静止，当前血氧91%、心率112次/分，存在健康风险，请立即确认老人状况并前往查看。','',_binary '',_binary '','ar_7750a8f8','高风险','疑似跌倒、长时间静止伴血氧偏低（91%）及心率偏高（112次/分），存在健康风险','python_ai_service','系统告警转紧急工单，请立即安排人员上门巡检，确认老人状态，记录处理结果并闭环。','紧急巡检',NULL,NULL,NULL),(30,'告警已转紧急巡检工单。请工作人员立即携带急救设备前往查看，确认跌倒情况并评估生命体征，必要时协助拨打急救电话。处理完毕后记录现场情况及采取措施，完成闭环。','2026-06-20 01:21:40.920943','elder_001','我们注意到您可能不小心摔倒了，请不要慌张，保持镇静，我们已经通知了家人和社区工作人员，他们很快会来帮助您。','紧急提醒：监测到老人疑似跌倒，目前长时间静止，血氧91%、心率112次/分，存在高风险。请立即查看或联系社区工作人员确认情况。','',_binary '',_binary '','ar_87e9b2b4','高风险','传感器提示疑似跌倒、长时间静止，同时血氧饱和度91%低于正常值、心率112次/分偏高，存在严重健康风险。','python_ai_service','告警已转紧急巡检工单。请工作人员立即携带急救设备前往查看，确认跌倒情况并评估生命体征，必要时协助拨打急救电话。处理完毕后记录现场情况及采取措施，完成闭环。','紧急巡检',NULL,NULL,NULL),(31,'立即启动紧急巡检工单，安排人员上门查看老人状况；同时关注血氧和心率变化，必要时联系急救；处理完毕后记录结果，形成闭环。','2026-06-20 01:23:15.907181','elder_001','我们已注意到您的情况，请尽量保持镇静，不要移动，工作人员正在赶来帮助您。','紧急提醒：老人疑似跌倒并处于静止状态，血氧91%、心率112，请尽快确认老人安全，或联系社区工作人员。','',_binary '',_binary '','ar_7a1aa39b','高风险','传感器提示疑似跌倒且长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在潜在安全风险。','python_ai_service','立即启动紧急巡检工单，安排人员上门查看老人状况；同时关注血氧和心率变化，必要时联系急救；处理完毕后记录结果，形成闭环。','紧急巡检',NULL,NULL,NULL),(32,'告警已生成紧急巡检工单，请工作人员立即前往查看老人情况，确认跌倒及健康状况，协助家属处理，巡查后记录结果并闭环。','2026-06-20 01:24:37.749911','elder_001','我们注意到您可能发生了跌倒，已经通知家人和社区工作人员，请保持冷静，尽量不要移动，等待帮助。','老人可能发生跌倒，检测到长时间静止、血氧偏低、心率偏快，情况紧急，请尽快联系老人或前往查看，已通知社区紧急处理。','',_binary '',_binary '','ar_c87adb6e','高风险','传感器提示疑似跌倒，处于长时间静止状态，血氧91%低于92%，心率112次/分高于110，综合判断为高风险。','python_ai_service','告警已生成紧急巡检工单，请工作人员立即前往查看老人情况，确认跌倒及健康状况，协助家属处理，巡查后记录结果并闭环。','紧急巡检',NULL,NULL,NULL),(33,'告警已生成紧急工单，请立即安排工作人员上门巡检，确认老人状态，记录现场处置情况，完成后反馈工单结果，实现闭环处理。','2026-06-20 01:25:02.648357','elder_001','我们正在关注您的情况，请保持平静，不要移动，如有不适请等待帮助。','紧急提示：老人可能跌倒，且长时间静止，同时血氧91%、心率112次/分，请立即尝试联系老人并前往查看或通知社区协助。','',_binary '',_binary '','ar_b22186ad','高风险','传感器提示疑似跌倒，存在长时间静止状态，血氧偏低（91%）且心率过快（112次/分），需紧急确认安全状况。','python_ai_service','告警已生成紧急工单，请立即安排工作人员上门巡检，确认老人状态，记录现场处置情况，完成后反馈工单结果，实现闭环处理。','紧急巡检',NULL,NULL,NULL);
+/*!40000 ALTER TABLE `ai_analysis_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `alarm_event`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【alarm_event】告警事件表 — 存储系统产生的告警事件（与 alert 表互补）
+-- ============================================================
+CREATE TABLE `alarm_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `alarm_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `device_id` varchar(255) DEFAULT NULL,
+  `alarm_type` varchar(255) NOT NULL,
+  `alarm_level` varchar(255) NOT NULL,
+  `alarm_status` varchar(255) DEFAULT NULL,
+  `description` varchar(255) NOT NULL COMMENT '描述',
+  `building` varchar(255) DEFAULT NULL,
+  `room_number` varchar(255) DEFAULT NULL,
+  `unit` varchar(255) DEFAULT NULL,
+  `snapshot_url` varchar(255) NOT NULL DEFAULT '' COMMENT '抓拍快照URL',
+  `handler` varchar(255) DEFAULT NULL,
+  `handler_name` varchar(255) DEFAULT NULL,
+  `handle_remark` varchar(255) NOT NULL DEFAULT '' COMMENT '处理备注',
+  `is_read` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已读',
+  `created_at` datetime NOT NULL COMMENT '发生时间',
+  `resolved_at` datetime NOT NULL DEFAULT '1970-01-01 00:00:00' COMMENT '解决时间(未处理用占位)',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `location` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `alarm_id` (`alarm_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报警事件表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `alarm_event`
+--
+
+LOCK TABLES `alarm_event` WRITE;
+/*!40000 ALTER TABLE `alarm_event` DISABLE KEYS */;
+INSERT INTO `alarm_event` (`id`, `alarm_id`, `elder_id`, `device_id`, `alarm_type`, `alarm_level`, `alarm_status`, `description`, `building`, `room_number`, `unit`, `snapshot_url`, `handler`, `handler_name`, `handle_remark`, `is_read`, `created_at`, `resolved_at`, `update_time`, `location`) VALUES (1,'alarm_001','elder_001','dev_001','heart_rate','high','handled','心率持续偏高，超过阈值120bpm','1号楼','1-201','1单元','','staff_001','','test',0,'2025-05-17 09:20:00','2025-05-17 02:00:00','2026-06-18 12:59:59',NULL),(2,'alarm_002','elder_002','dev_004','fall','critical','pending','检测到跌倒行为，请立即确认','2号楼','2-301','2单元','','','','',0,'2025-05-17 09:15:00','1970-01-01 00:00:00','2025-05-17 09:15:00',NULL),(3,'alarm_003','elder_001','dev_002','intrusion','high','handled','客厅检测到陌生人闯入','1号楼','1-201','1单元','/uploads/snapshot/alarm_003.jpg','staff_001','张建国','已确认是访客',1,'2025-05-16 20:00:00','2025-05-17 08:30:00','2025-05-17 08:30:00',NULL),(4,'alarm_004','elder_003','dev_009','inactive','low','handled','床垫传感器离线超过12小时','3号楼','3-401','3单元','','staff_002','李秀英','已上门检查，设备恢复在线',1,'2025-05-16 10:00:00','2025-05-17 08:00:00','2025-05-17 08:00:00',NULL),(5,'alarm_005','elder_002','dev_006','smoke','critical','pending','厨房烟感检测到烟雾浓度超标','2号楼','2-301','2单元','/uploads/snapshot/alarm_005.jpg','','','',0,'2025-05-17 08:00:00','1970-01-01 00:00:00','2025-05-17 08:05:00',NULL),(6,'alarm_006','elder_005','dev_012','emergency-call','critical','pending','手表紧急呼叫触发，心率异常110bpm','5号楼','5-502','5单元','','','','',0,'2025-05-16 23:00:00','1970-01-01 00:00:00','2025-05-16 23:01:00',NULL),(7,'alarm_007','elder_004','dev_011','fall','high','pending','卧室摄像头检测到疑似摔倒行为','4号楼','4-102','4单元','/uploads/snapshot/alarm_007.jpg','','','',0,'2025-05-17 07:00:00','1970-01-01 00:00:00','2025-05-17 07:05:00',NULL),(8,'alarm_008','elder_001','dev_003','fingerprint-fail','medium','pending','指纹连续识别失败3次，已抓拍陌生人','1号楼','1-201','1单元','/uploads/snapshot/alarm_008.jpg','','','',0,'2025-05-17 06:30:00','1970-01-01 00:00:00','2025-05-17 06:35:00',NULL),(9,'alarm_e4ee3618','elder_001','dev_001','fall','critical','pending','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-18 13:16:25','1969-12-31 16:00:00','2026-06-18 13:16:25',NULL),(10,'alarm_49ea4bef','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-18 13:18:30','1969-12-31 16:00:00','2026-06-18 13:19:10',NULL),(11,'alarm_4276038d','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-18 13:30:38','1969-12-31 16:00:00','2026-06-18 13:30:38',NULL),(12,'alarm_32561a97','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-18 13:31:24','1969-12-31 16:00:00','2026-06-18 13:31:24',NULL),(13,'alarm_e829cfd8','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-18 13:44:07','1969-12-31 16:00:00','2026-06-18 13:44:08',NULL),(14,'alarm_0330113f','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-19 01:01:43','1969-12-31 16:00:00','2026-06-19 01:01:43',NULL),(15,'alarm_ee7305b3','elder_001','dev_001','fall','critical','handled','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','1号楼','1-201','','','','','',0,'2026-06-19 01:06:17','1969-12-31 16:00:00','2026-06-19 01:06:17',NULL),(16,'alarm_c7e34608','elder_001','dev_001','health_abnormal','normal','pending','血氧偏低(91%)、心率偏高(112bpm)','1号楼','1-201','','','','','',0,'2026-06-19 02:23:42','1969-12-31 16:00:00','2026-06-19 02:23:42',NULL),(17,'alarm_1e85e45f','elder_001','dev_001','health_abnormal','critical','pending','血氧偏低(91%)、心率偏高(112bpm)','1号楼','1-201','','','','','',0,'2026-06-19 02:26:10','1969-12-31 16:00:00','2026-06-19 02:26:10',NULL),(18,'alarm_2ad038bb','elder_001','dev_001','health_abnormal','critical','handled','血氧偏低(91%)、心率偏高(112bpm)','1号楼','1-201','','','','','',0,'2026-06-19 02:27:39','1969-12-31 16:00:00','2026-06-19 12:54:20',NULL),(19,'alarm_2fcab5b6','elder_001','dev_001','health_abnormal','critical','handled','血氧偏低(91%)、心率偏高(112bpm)','1号楼','1-201','','','','','',0,'2026-06-19 02:29:01','1969-12-31 16:00:00','2026-06-19 11:39:56',NULL),(20,'alarm_c1cebbe2','elder_001','dev_001','health_abnormal','critical','handled','血氧饱和度88%低于安全阈值92%，心率125次/分超过110次/分的警戒值，同时体温38.5℃偏高。多项指标异常且存在持续恶化风险，结合缺氧和发热状态，提示可能存在急性健康事件。','1号楼','1-201','','','','','',0,'2026-06-19 09:36:45','1969-12-31 16:00:00','2026-06-19 09:41:20',NULL),(21,'alarm_b8bde81e','elder_001','dev_001','health_abnormal','critical','handled','血氧饱和度严重偏低（88%）、心率过快（125次/分）且体温偏高（38.5℃），多项生命体征同时异常，提示潜在急性健康风险。','1号楼','1-201','','','','','',0,'2026-06-19 09:58:28','1969-12-31 16:00:00','2026-06-19 09:58:58',NULL),(22,'alarm_bd8b9563','elder_001','dev_001','health_abnormal','critical','handled','血氧饱和度降至 88%，远低于安全范围；心率持续偏高 125 次/分；体温 38.5℃ 提示发热。多项指标同时严重异常，需立即关注。','1号楼','1-201','','','','','',0,'2026-06-19 10:37:16','1969-12-31 16:00:00','2026-06-19 10:37:39',NULL),(23,'alarm_7d2e5a9e','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒，老人处于长时间静止状态，同时血氧偏低（91%）、心率偏快（112次/分），存在较高健康风险，需要立即关注。','1号楼','1-201','','','','','',0,'2026-06-19 12:27:26','1969-12-31 16:00:00','2026-06-19 12:28:30',NULL),(24,'alarm_e4295987','elder_001','dev_001','health_abnormal','critical','handled','血氧饱和度低至85%，心率过快140次/分，体温偏高38.5℃，存在严重健康隐患，需立即干预。','1号楼','1-201','','','','','',0,'2026-06-19 12:52:55','1969-12-31 16:00:00','2026-06-19 12:53:27',NULL),(25,'alarm_9fa929df','elder_001','dev_001','health_abnormal','critical','pending','血氧85%，心率140次/分，体温38.5℃，多项指标异常，急需医疗评估','1号楼','1-201','','','','','',0,'2026-06-19 12:54:30','1969-12-31 16:00:00','2026-06-19 12:54:30',NULL),(26,'alarm_2a9cdda4','elder_001','dev_001','fall','critical','pending','传感器提示疑似跌倒，存在长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在紧急健康风险。','1号楼','1-201','','','','','',0,'2026-06-19 13:00:47','1969-12-31 16:00:00','2026-06-19 13:00:47',NULL),(27,'alarm_0b171839','elder_001','dev_001','fall','critical','pending','传感器检测到疑似跌倒，长时间静止未起身，同时血氧91%低于正常范围，心率112次/分偏快，需警惕呼吸循环异常与跌倒损伤叠加风险。','1号楼','1-201','','','','','',0,'2026-06-19 13:01:27','1969-12-31 16:00:00','2026-06-19 13:01:27',NULL),(28,'alarm_ae891b50','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒，长时间静止，血氧饱和度91%（低于92%），心率112次/分（高于110次/分），存在紧急风险。','1号楼','1-201','','','','','',0,'2026-06-19 13:01:34','1969-12-31 16:00:00','2026-06-19 13:01:41',NULL),(29,'alarm_d5df8672','elder_001','dev_001','fall','critical','pending','传感器提示疑似跌倒，存在长时间静止未起身，同时伴有血氧偏低（91%）与心率偏高（112次/分），综合风险较高，需立即关注。','1号楼','1-201','','','','','',0,'2026-06-19 13:01:46','1969-12-31 16:00:00','2026-06-19 13:01:46',NULL),(30,'alarm_5180c126','elder_001','dev_001','health_abnormal','critical','pending','血氧85%远低于正常值，心率140次/分显著偏快，体温38.5℃偏高，三项关键指标同时异常，可能存在急性健康风险，需立即关注。','1号楼','1-201','','','','','',0,'2026-06-19 13:01:53','1969-12-31 16:00:00','2026-06-19 13:01:53',NULL),(31,'alarm_3a8b2825','elder_001','dev_001','fall','critical','pending','血氧91%偏低，心率112次/分偏高，疑似跌倒且长时间静止，综合判断为高风险紧急情况。','1号楼','1-201','','','','','',0,'2026-06-19 13:11:09','1969-12-31 16:00:00','2026-06-19 13:11:09',NULL),(32,'alarm_dbf96462','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒，且存在长时间静止；生命体征异常：血氧91%（低于92%），心率112次/分（高于110次/分）。综合判断为高风险，需立即关注。','1号楼','1-201','','','','','',0,'2026-06-19 13:13:43','1969-12-31 16:00:00','2026-06-19 13:13:51',NULL),(33,'alarm_c5ee29e8','elder_001','dev_001','fall','critical','handled','老人疑似跌倒且长时间静止，血氧偏低（91%），心率偏高（112次/分），存在较高健康风险。','1号楼','1-201','','','','','',0,'2026-06-19 13:15:15','1969-12-31 16:00:00','2026-06-19 13:15:25',NULL),(34,'alarm_367f136d','elder_001','dev_001','fall','critical','handled','疑似跌倒后长时间静止，同时血氧低至91%、心率高达112次/分，存在紧急健康风险。','1号楼','1-201','','','','','',0,'2026-06-19 13:16:45','1969-12-31 16:00:00','2026-06-19 13:16:53',NULL),(35,'alarm_3f0dc081','elder_001','dev_001','fall','critical','pending','传感器提示疑似跌倒，且老人长时间未起身。同时血氧91%偏低，心率112次/分偏高，存在呼吸循环异常风险，需立即关注。','1号楼','1-201','','','','','',0,'2026-06-20 01:15:42','1969-12-31 16:00:00','2026-06-20 01:15:42',NULL),(36,'alarm_da2a649c','elder_001','dev_001','fall','critical','pending','疑似跌倒、长时间静止伴血氧偏低（91%）及心率偏高（112次/分），存在健康风险','1号楼','1-201','','','','','',0,'2026-06-20 01:15:53','1969-12-31 16:00:00','2026-06-20 01:15:53',NULL),(37,'alarm_04629189','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒、长时间静止，同时血氧饱和度91%低于正常值、心率112次/分偏高，存在严重健康风险。','1号楼','1-201','','','','','',0,'2026-06-20 01:21:35','1969-12-31 16:00:00','2026-06-20 01:25:13',NULL),(38,'alarm_c80662f3','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒且长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在潜在安全风险。','1号楼','1-201','','','','','',0,'2026-06-20 01:23:12','1969-12-31 16:00:00','2026-06-20 01:23:16',NULL),(39,'alarm_ae09954b','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒，处于长时间静止状态，血氧91%低于92%，心率112次/分高于110，综合判断为高风险。','1号楼','1-201','','','','','',0,'2026-06-20 01:24:31','1969-12-31 16:00:00','2026-06-20 01:24:38','客厅'),(40,'alarm_6daec3a1','elder_001','dev_001','fall','critical','handled','传感器提示疑似跌倒，存在长时间静止状态，血氧偏低（91%）且心率过快（112次/分），需紧急确认安全状况。','1号楼','1-201','','','staff_001','社区工作人员','已上门确认，老人无碍',1,'2026-06-20 01:24:59','2026-06-20 01:25:11','2026-06-20 01:38:40','客厅');
+/*!40000 ALTER TABLE `alarm_event` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `alarm_process`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【alarm_process】告警处理记录表 — 记录每次告警的处理过程和结果
+-- ============================================================
+CREATE TABLE `alarm_process` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `process_id` varchar(255) NOT NULL,
+  `alarm_id` varchar(255) NOT NULL,
+  `handler_id` varchar(255) DEFAULT NULL,
+  `handler_type` varchar(255) DEFAULT NULL,
+  `action` varchar(255) DEFAULT NULL COMMENT '处理动作',
+  `result` varchar(255) DEFAULT NULL COMMENT '处理结果',
+  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+  `process_time` datetime DEFAULT NULL COMMENT '处理时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `process_id` (`process_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='告警处理表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `alarm_process`
+--
+
+LOCK TABLES `alarm_process` WRITE;
+/*!40000 ALTER TABLE `alarm_process` DISABLE KEYS */;
+INSERT INTO `alarm_process` (`id`, `process_id`, `alarm_id`, `handler_id`, `handler_type`, `action`, `result`, `remark`, `process_time`) VALUES (1,'proc_001','alarm_003','staff_001','staff','上门核实','confirmed','已确认是访客，非陌生人闯入','2025-05-17 08:30:00'),(2,'proc_002','alarm_004','staff_002','staff','上门检修','resolved','已更换床垫传感器电池，设备恢复在线','2025-05-17 08:00:00'),(3,'proc_003','alarm_002','staff_001','staff','紧急上门','in_progress','正在赶往现场，老人意识清醒','2025-05-17 09:20:00'),(4,'proc_004','alarm_001','staff_003','staff','电话确认','pending','已电话联系老人，老人表示无不适，继续观察','2025-05-17 09:25:00'),(5,'proc_005','alarm_005','staff_002','staff','紧急处理','pending','已赶往现场，烟感已停止报警，正在排查原因','2025-05-17 08:05:00');
+/*!40000 ALTER TABLE `alarm_process` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `alert`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【alert】告警表 — 存储 AI / 传感器产生的各类告警（AlarmEvent 实体）
+-- ============================================================
+CREATE TABLE `alert` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `alarm_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `building` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `device_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `handle_note` text COLLATE utf8mb4_unicode_ci,
+  `handle_time` datetime(6) DEFAULT NULL,
+  `handler_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `handler_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_read` bit(1) DEFAULT NULL,
+  `location` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `occur_time` datetime(6) DEFAULT NULL,
+  `risk_level` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `room_number` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `snapshot_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unit` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKgsilvibllcalomcoa704wu9m2` (`alarm_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `alert`
+--
+
+LOCK TABLES `alert` WRITE;
+/*!40000 ALTER TABLE `alert` DISABLE KEYS */;
+INSERT INTO `alert` (`id`, `alarm_id`, `building`, `created_at`, `description`, `device_id`, `elder_id`, `handle_note`, `handle_time`, `handler_id`, `handler_name`, `is_read`, `location`, `occur_time`, `risk_level`, `room_number`, `snapshot_url`, `status`, `type`, `unit`, `updated_at`) VALUES (1,'alarm_001','1号楼','2026-06-20 17:45:37.000000','检测到老人在卧室发生跌倒','dev_001','elder_001',NULL,NULL,NULL,NULL,_binary '\0','卧室','2026-06-20 17:45:37.000000','high','101',NULL,'pending','fall',NULL,'2026-06-20 17:45:37.000000'),(2,'alarm_002','2号楼','2026-06-20 17:45:37.000000','心率异常：130bpm，超出正常范围','dev_002','elder_002',NULL,NULL,NULL,NULL,_binary '\0','客厅','2026-06-20 17:45:37.000000','high','205',NULL,'pending','heart_rate',NULL,'2026-06-20 17:45:37.000000'),(3,'alarm_003','3号楼','2026-06-20 17:45:37.000000','血压偏高：160/95mmHg','dev_003','elder_003',NULL,NULL,NULL,NULL,_binary '','卧室','2026-06-20 17:45:37.000000','medium','310',NULL,'pending','blood_pressure',NULL,'2026-06-20 17:45:37.000000'),(4,'alarm_004','4号楼','2026-06-20 17:45:37.000000','老人按下手表SOS紧急呼叫','dev_004','elder_004',NULL,NULL,NULL,NULL,_binary '\0','室外','2026-06-20 17:45:37.000000','high','402',NULL,'pending','emergency-call',NULL,'2026-06-20 17:45:37.000000'),(5,'alarm_005','5号楼','2026-06-20 17:45:37.000000','长时间无活动检测：超过6小时未检测到活动','dev_005','elder_005',NULL,NULL,NULL,NULL,_binary '\0','客厅','2026-06-20 17:45:37.000000','medium','508',NULL,'pending','inactive',NULL,'2026-06-20 17:45:37.000000'),(6,'alarm_006','1号楼','2026-06-20 17:45:37.000000','厨房烟雾浓度超标，疑似火灾','dev_006','elder_001',NULL,NULL,NULL,NULL,_binary '','厨房','2026-06-20 17:45:37.000000','high','101',NULL,'handled','smoke',NULL,'2026-06-20 17:45:37.000000'),(7,'alarm_007','2号楼','2026-06-20 17:45:37.000000','体温偏高：38.2℃，可能发热','dev_007','elder_002',NULL,NULL,NULL,NULL,_binary '\0','卧室','2026-06-20 17:45:37.000000','low','205',NULL,'pending','temperature',NULL,'2026-06-20 17:45:37.000000'),(8,'alarm_008','3号楼','2026-06-20 17:45:37.000000','门锁异常：指纹验证失败超过5次','dev_008','elder_003',NULL,NULL,NULL,NULL,_binary '\0','门口','2026-06-20 17:45:37.000000','high','310',NULL,'pending','intrusion',NULL,'2026-06-20 17:45:37.000000');
+/*!40000 ALTER TABLE `alert` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `app_notification`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【app_notification】APP 通知表 — 存储推送给家属 APP 的消息通知（Notification 实体）
+-- ============================================================
+CREATE TABLE `app_notification` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `building` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `camera_request_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `content` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_read` bit(1) DEFAULT NULL,
+  `notification_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `notify_time` datetime(6) DEFAULT NULL,
+  `room` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `work_order_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKs220ujdylag2xpt6xbodbxtfj` (`notification_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `app_notification`
+--
+
+LOCK TABLES `app_notification` WRITE;
+/*!40000 ALTER TABLE `app_notification` DISABLE KEYS */;
+/*!40000 ALTER TABLE `app_notification` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `blood_pressure`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【blood_pressure】血压记录表 — 存储老人血压测量数据
+-- ============================================================
+CREATE TABLE `blood_pressure` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bp_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `systolic` int NOT NULL COMMENT '收缩压',
+  `diastolic` int NOT NULL COMMENT '舒张压',
+  `timestamp` datetime NOT NULL COMMENT '测量时间',
+  `created_at` datetime NOT NULL COMMENT '入库时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bp_id` (`bp_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='血压记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `blood_pressure`
+--
+
+LOCK TABLES `blood_pressure` WRITE;
+/*!40000 ALTER TABLE `blood_pressure` DISABLE KEYS */;
+INSERT INTO `blood_pressure` (`id`, `bp_id`, `elder_id`, `systolic`, `diastolic`, `timestamp`, `created_at`) VALUES (1,'bp_001','elder_001',135,85,'2025-05-17 08:30:00','2025-05-17 08:31:00'),(2,'bp_002','elder_001',132,84,'2025-05-16 08:30:00','2025-05-16 08:31:00'),(3,'bp_003','elder_002',145,90,'2025-05-17 07:00:00','2025-05-17 07:01:00'),(4,'bp_004','elder_002',148,92,'2025-05-16 07:00:00','2025-05-16 07:01:00'),(5,'bp_005','elder_003',128,82,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(6,'bp_006','elder_003',125,80,'2025-05-16 08:00:00','2025-05-16 08:01:00'),(7,'bp_007','elder_004',138,88,'2025-05-17 07:30:00','2025-05-17 07:31:00'),(8,'bp_008','elder_005',150,95,'2025-05-16 22:00:00','2025-05-16 22:01:00'),(9,'bp_009','elder_004',140,86,'2025-05-16 07:30:00','2025-05-16 07:31:00');
+/*!40000 ALTER TABLE `blood_pressure` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `camera_request`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【camera_request】摄像头请求表 — 家属发起查看老人摄像头的授权请求（MonitorRequest 实体）
+-- ============================================================
+CREATE TABLE `camera_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `approved_at` bigint DEFAULT NULL,
+  `camera_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expired_at` datetime(6) DEFAULT NULL,
+  `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reject_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `request_time` datetime(6) DEFAULT NULL,
+  `staff_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `staff_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_phone` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UK12iu4bvh938mgo05pvdkaebgx` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `camera_request`
+--
+
+LOCK TABLES `camera_request` WRITE;
+/*!40000 ALTER TABLE `camera_request` DISABLE KEYS */;
+/*!40000 ALTER TABLE `camera_request` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `camera_view_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【camera_view_record】监控查看记录表 — 记录家属每次实际查看监控的审计日志
+-- ============================================================
+CREATE TABLE `camera_view_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `camera_request_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `camera_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `duration` int NOT NULL,
+  `staff_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `view_time` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `camera_view_record`
+--
+
+LOCK TABLES `camera_view_record` WRITE;
+/*!40000 ALTER TABLE `camera_view_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `camera_view_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `cloud_agent`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【cloud_agent】云端 Agent 配置表 — 存储云端 AI Agent 的配置信息
+-- ============================================================
+CREATE TABLE `cloud_agent` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `agent_id` varchar(255) NOT NULL,
+  `agent_type` varchar(255) DEFAULT NULL,
+  `status` varchar(255) DEFAULT NULL,
+  `last_heartbeat` datetime NOT NULL COMMENT '最后心跳时间',
+  `ip` varchar(255) DEFAULT NULL,
+  `device_count` int NOT NULL DEFAULT '0' COMMENT '设备总数',
+  `connected_devices` int NOT NULL DEFAULT '0' COMMENT '已连接设备数',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `agent_id` (`agent_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='云端智能体表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `cloud_agent`
+--
+
+LOCK TABLES `cloud_agent` WRITE;
+/*!40000 ALTER TABLE `cloud_agent` DISABLE KEYS */;
+INSERT INTO `cloud_agent` (`id`, `agent_id`, `agent_type`, `status`, `last_heartbeat`, `ip`, `device_count`, `connected_devices`, `created_at`, `update_time`) VALUES (1,'CLOUD-01','cloud_agent','online','2025-05-17 09:55:00','10.0.0.1',17,14,'2025-01-05 08:00:00','2025-05-17 09:55:00'),(2,'CLOUD-02','cloud_agent','online','2025-05-17 09:50:00','10.0.0.2',0,0,'2025-01-05 08:00:00','2025-05-17 09:50:00'),(3,'CLOUD-03','cloud_agent','offline','2025-05-16 18:00:00','10.0.0.3',5,0,'2025-02-01 08:00:00','2025-05-16 18:00:00');
+/*!40000 ALTER TABLE `cloud_agent` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `companion_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【companion_record】陪伴交互记录表 — 存储 AI 陪伴机器人与老人的对话记录
+-- ============================================================
+CREATE TABLE `companion_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(6) NOT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `emotion` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `emotion_color` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `interaction_time` datetime(6) NOT NULL,
+  `summary` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `companion_record`
+--
+
+LOCK TABLES `companion_record` WRITE;
+/*!40000 ALTER TABLE `companion_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `companion_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `device`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【device】设备表 — 存储老人家中或社区的智能硬件设备信息（Device 实体）
+-- ============================================================
+CREATE TABLE `device` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `device_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `device_type` varchar(255) NOT NULL,
+  `device_name` varchar(255) DEFAULT NULL,
+  `location` varchar(255) NOT NULL COMMENT '安装位置',
+  `building` varchar(255) DEFAULT NULL,
+  `room` varchar(255) DEFAULT NULL,
+  `status` varchar(255) DEFAULT NULL,
+  `battery_level` int NOT NULL DEFAULT '0' COMMENT '电量(摄像头等有线设备填0)',
+  `last_online_time` datetime NOT NULL COMMENT '最后在线时间',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `battery` int DEFAULT NULL,
+  `last_online` datetime(6) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `online` bit(1) DEFAULT NULL,
+  `type` varchar(255) NOT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `device_id` (`device_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `device`
+--
+
+LOCK TABLES `device` WRITE;
+/*!40000 ALTER TABLE `device` DISABLE KEYS */;
+INSERT INTO `device` (`id`, `device_id`, `elder_id`, `device_type`, `device_name`, `location`, `building`, `room`, `status`, `battery_level`, `last_online_time`, `created_at`, `update_time`, `battery`, `last_online`, `name`, `online`, `type`, `updated_at`) VALUES (1,'dev_001','elder_001','手环','智能手环','随身佩戴','1号楼','1-201','online',78,'2025-05-17 09:45:00','2025-01-10 09:00:00','2025-05-17 09:45:00',NULL,NULL,NULL,NULL,'',NULL),(2,'dev_002','elder_001','摄像头','客厅摄像头','客厅','1号楼','1-201','online',0,'2025-05-17 09:00:00','2025-01-10 09:00:00','2025-05-17 09:00:00',NULL,NULL,NULL,NULL,'',NULL),(3,'dev_003','elder_001','摄像头','门口摄像头','门口','1号楼','1-201','online',0,'2025-05-17 08:30:00','2025-01-10 09:00:00','2025-05-17 08:30:00',NULL,NULL,NULL,NULL,'',NULL),(4,'dev_004','elder_002','手环','智能手环','随身佩戴','2号楼','2-301','online',62,'2025-05-17 09:50:00','2025-01-15 10:30:00','2025-05-17 09:50:00',NULL,NULL,NULL,NULL,'',NULL),(5,'dev_005','elder_002','摄像头','客厅摄像头','客厅','2号楼','2-301','online',0,'2025-05-17 09:15:00','2025-01-15 10:30:00','2025-05-17 09:15:00',NULL,NULL,NULL,NULL,'',NULL),(6,'dev_006','elder_002','烟感','厨房烟感','厨房','2号楼','2-301','online',0,'2025-05-17 09:00:00','2025-01-15 10:30:00','2025-05-17 09:00:00',NULL,NULL,NULL,NULL,'',NULL),(7,'dev_007','elder_003','手环','智能手环','随身佩戴','3号楼','3-401','online',45,'2025-05-17 08:30:00','2025-02-01 14:00:00','2025-05-17 08:30:00',NULL,NULL,NULL,NULL,'',NULL),(8,'dev_008','elder_003','摄像头','客厅摄像头','客厅','3号楼','3-401','online',0,'2025-05-17 09:15:00','2025-02-01 14:00:00','2025-05-17 09:15:00',NULL,NULL,NULL,NULL,'',NULL),(9,'dev_009','elder_003','床垫传感器','智能床垫','卧室','3号楼','3-401','offline',0,'2025-05-15 22:00:00','2025-02-01 14:00:00','2025-05-15 22:00:00',NULL,NULL,NULL,NULL,'',NULL),(10,'dev_010','elder_004','手环','智能手环','随身佩戴','4号楼','4-102','online',55,'2025-05-17 08:00:00','2025-03-01 09:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'',NULL),(11,'dev_011','elder_004','摄像头','卧室摄像头','卧室','4号楼','4-102','online',0,'2025-05-17 07:30:00','2025-03-01 09:00:00','2025-05-17 07:30:00',NULL,NULL,NULL,NULL,'',NULL),(12,'dev_012','elder_005','手环','智能手环','随身佩戴','5号楼','5-502','online',30,'2025-05-16 22:00:00','2025-03-15 10:00:00','2025-05-16 22:00:00',NULL,NULL,NULL,NULL,'',NULL),(13,'dev_013','elder_001','门锁','智能指纹门锁','大门','1号楼','1-201','online',85,'2025-05-17 09:30:00','2025-01-10 09:00:00','2025-05-17 09:30:00',NULL,NULL,NULL,NULL,'',NULL),(14,'dev_014','elder_002','窗帘','智能窗帘电机','卧室','2号楼','2-301','online',0,'2025-05-17 09:00:00','2025-01-15 10:30:00','2025-05-17 09:00:00',NULL,NULL,NULL,NULL,'',NULL),(15,'dev_015','elder_001','灯光','智能吸顶灯','客厅','1号楼','1-201','online',0,'2025-05-17 09:00:00','2025-01-10 09:00:00','2025-05-17 09:00:00',NULL,NULL,NULL,NULL,'',NULL),(16,'dev_016','elder_004','蜂鸣器','紧急报警蜂鸣器','客厅','4号楼','4-102','online',0,'2025-05-17 08:00:00','2025-03-01 09:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'',NULL),(17,'dev_017','elder_005','烟感','客厅烟感','客厅','5号楼','5-502','online',0,'2025-05-16 22:00:00','2025-03-15 10:00:00','2025-05-16 22:00:00',NULL,NULL,NULL,NULL,'',NULL);
+/*!40000 ALTER TABLE `device` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `elder_user`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【elder_user】老人档案表 — 核心实体，存储老人基本信息、健康状态、摄像头授权状态
+-- ============================================================
+CREATE TABLE `elder_user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `elder_id` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `age` int NOT NULL COMMENT '年龄',
+  `gender` varchar(255) DEFAULT NULL,
+  `address` varchar(255) NOT NULL COMMENT '住址',
+  `building` varchar(255) DEFAULT NULL,
+  `room_number` varchar(255) DEFAULT NULL,
+  `phone` varchar(255) DEFAULT NULL,
+  `password` varchar(255) NOT NULL COMMENT '密码',
+  `health_status` varchar(255) DEFAULT NULL,
+  `health_status_text` varchar(255) DEFAULT NULL,
+  `health_note` varchar(255) NOT NULL COMMENT '健康备注/标签',
+  `family_phone` varchar(255) DEFAULT NULL,
+  `community_id` varchar(255) DEFAULT NULL,
+  `avatar` varchar(255) NOT NULL COMMENT '头像URL',
+  `has_camera` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否有摄像头',
+  `camera_auth_until` bigint NOT NULL DEFAULT '0' COMMENT '监控授权到期时间戳',
+  `camera_pending` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否有待审批监控申请',
+  `last_online` datetime NOT NULL COMMENT '最后在线时间',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `camera_auth_type` varchar(255) DEFAULT NULL,
+  `contact_name` varchar(255) DEFAULT NULL,
+  `contact_phone` varchar(255) DEFAULT NULL,
+  `room` varchar(255) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `elder_id` (`elder_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='老人用户表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `elder_user`
+--
+
+LOCK TABLES `elder_user` WRITE;
+/*!40000 ALTER TABLE `elder_user` DISABLE KEYS */;
+INSERT INTO `elder_user` (`id`, `elder_id`, `name`, `age`, `gender`, `address`, `building`, `room_number`, `phone`, `password`, `health_status`, `health_status_text`, `health_note`, `family_phone`, `community_id`, `avatar`, `has_camera`, `camera_auth_until`, `camera_pending`, `last_online`, `created_at`, `update_time`, `camera_auth_type`, `contact_name`, `contact_phone`, `room`, `updated_at`) VALUES (1,'elder_001','张三',78,'男','北京市朝阳区建国路88号','1号楼','1-201','13912345601','123456','warning','关注','高血压,糖尿病','13800138002','community_001','/uploads/avatar/elder_001.jpg',1,0,0,'2025-05-17 09:00:00','2025-01-10 09:00:00','2025-05-17 10:00:00',NULL,NULL,NULL,NULL,NULL),(2,'elder_002','李四',82,'女','北京市海淀区中关村大街1号','2号楼','2-301','13912345602','123456','danger','高危','心脏病,骨质疏松','13900139002','community_001','/uploads/avatar/elder_002.jpg',1,0,1,'2025-05-17 08:30:00','2025-01-15 10:30:00','2025-05-17 10:00:00',NULL,NULL,NULL,NULL,NULL),(3,'elder_003','王五',75,'男','北京市西城区金融街2号','3号楼','3-401','13912345603','123456','normal','正常','轻度认知障碍','13700137002','community_001','/uploads/avatar/elder_003.jpg',1,0,0,'2025-05-17 08:30:00','2025-02-01 14:00:00','2025-05-17 10:00:00',NULL,NULL,NULL,NULL,NULL),(4,'elder_004','赵六',80,'女','北京市东城区东直门外大街10号','4号楼','4-102','13912345604','123456','warning','关注','糖尿病,关节炎','13600136002','community_001','/uploads/avatar/elder_004.jpg',1,0,0,'2025-05-17 07:00:00','2025-03-01 09:00:00','2025-05-17 10:00:00',NULL,NULL,NULL,NULL,NULL),(5,'elder_005','孙七',76,'男','北京市丰台区南三环中路12号','5号楼','5-502','13912345605','123456','danger','高危','脑梗后遗症,高血压','13500135002','community_001','/uploads/avatar/elder_005.jpg',0,0,1,'2025-05-16 22:00:00','2025-03-15 10:00:00','2025-05-17 09:00:00',NULL,NULL,NULL,NULL,NULL),(6,'100','默认老人',80,'男','北京市朝阳区默认地址','1号楼','1-001','13900000000','123456','normal','正常','无','13800000000','community_001','/uploads/avatar/default.png',1,0,0,'2025-01-01 08:00:00','2025-01-01 08:00:00','2025-01-01 08:00:00',NULL,NULL,NULL,NULL,NULL);
+/*!40000 ALTER TABLE `elder_user` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `elderly`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【elderly】老人信息表（旧版/备用）— 当前为空，新版使用 elder_user 表
+-- ============================================================
+CREATE TABLE `elderly` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `address` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `age` int DEFAULT NULL,
+  `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `building` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `camera_auth_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `camera_auth_until` datetime(6) DEFAULT NULL,
+  `camera_pending` bit(1) DEFAULT NULL,
+  `community_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `contact_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `contact_phone` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `family_phone` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gender` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `has_camera` bit(1) DEFAULT NULL,
+  `health_note` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `health_status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `health_status_text` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_online` datetime(6) DEFAULT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `phone` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `room` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKfak04dgt0m6650ga2ijk6e3a6` (`elder_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `elderly`
+--
+
+LOCK TABLES `elderly` WRITE;
+/*!40000 ALTER TABLE `elderly` DISABLE KEYS */;
+/*!40000 ALTER TABLE `elderly` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `emergency_contact`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【emergency_contact】紧急联系人表 — 存储老人的紧急联系人信息
+-- ============================================================
+CREATE TABLE `emergency_contact` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `contact_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `phone` varchar(255) DEFAULT NULL,
+  `relation` varchar(255) DEFAULT NULL,
+  `is_primary` tinyint(1) DEFAULT '0' COMMENT '是否主要联系人',
+  `sort_order` int DEFAULT '0' COMMENT '排序',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `contact_id` (`contact_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='紧急联系人表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `emergency_contact`
+--
+
+LOCK TABLES `emergency_contact` WRITE;
+/*!40000 ALTER TABLE `emergency_contact` DISABLE KEYS */;
+INSERT INTO `emergency_contact` (`id`, `contact_id`, `elder_id`, `name`, `phone`, `relation`, `is_primary`, `sort_order`, `created_at`, `update_time`, `updated_at`) VALUES (1,'contact_001','elder_001','张小明','13800138011','儿子',1,0,'2025-01-10 09:00:00','2025-05-17 10:00:00',NULL),(2,'contact_002','elder_001','张小红','13800138012','女儿',0,1,'2025-01-10 09:00:00','2025-05-17 10:00:00',NULL),(3,'contact_003','elder_002','李小红','13900139012','女儿',1,0,'2025-01-15 10:30:00','2025-05-17 10:00:00',NULL),(4,'contact_004','elder_002','李小刚','13900139013','儿子',0,1,'2025-01-15 10:30:00','2025-05-17 10:00:00',NULL),(5,'contact_005','elder_003','王小刚','13700137013','侄子',1,0,'2025-02-01 14:00:00','2025-05-17 10:00:00',NULL),(6,'contact_006','elder_004','赵小花','13600136014','女儿',1,0,'2025-03-01 09:00:00','2025-05-17 10:00:00',NULL),(7,'contact_007','elder_005','孙小强','13500135015','孙子',1,0,'2025-03-15 10:00:00','2025-05-17 10:00:00',NULL);
+/*!40000 ALTER TABLE `emergency_contact` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `family_request`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【family_request】家属服务申请表 — 存储家属通过 APP 提交的服务申请（ServiceRequest 实体）
+-- ============================================================
+CREATE TABLE `family_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `content` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `converted_work_order_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `family_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `family_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `family_phone` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reject_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `request_time` datetime(6) DEFAULT NULL,
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UK57m2398aphxdowhuf2swkm47p` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `family_request`
+--
+
+LOCK TABLES `family_request` WRITE;
+/*!40000 ALTER TABLE `family_request` DISABLE KEYS */;
+/*!40000 ALTER TABLE `family_request` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `family_user`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【family_user】家属用户表 — 存储家属 APP 端用户账号信息（FamilyUser 实体）
+-- ============================================================
+CREATE TABLE `family_user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `family_id` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `phone` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL COMMENT '密码',
+  `elder_id` varchar(255) DEFAULT NULL,
+  `relation` varchar(255) DEFAULT NULL,
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像URL',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `family_id` (`family_id`),
+  UNIQUE KEY `phone` (`phone`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='家属表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `family_user`
+--
+
+LOCK TABLES `family_user` WRITE;
+/*!40000 ALTER TABLE `family_user` DISABLE KEYS */;
+INSERT INTO `family_user` (`id`, `family_id`, `name`, `phone`, `password`, `elder_id`, `relation`, `avatar`, `created_at`, `update_time`, `updated_at`) VALUES (1,'family_001','张小明','13800138011','123456','elder_001','儿子','/uploads/avatar/family_001.jpg','2025-01-10 09:00:00','2025-05-17 10:00:00',NULL),(2,'family_002','李小红','13900139012','123456','elder_002','女儿','/uploads/avatar/family_002.jpg','2025-01-15 10:30:00','2025-05-17 10:00:00',NULL),(3,'family_003','王小刚','13700137013','123456','elder_003','侄子','/uploads/avatar/family_003.jpg','2025-02-01 14:00:00','2025-05-17 10:00:00',NULL),(4,'family_004','赵小花','13600136014','123456','elder_004','女儿','/uploads/avatar/family_004.jpg','2025-03-01 09:00:00','2025-05-17 10:00:00',NULL),(5,'family_005','孙小强','13500135015','123456','elder_005','孙子','/uploads/avatar/family_005.jpg','2025-03-15 10:00:00','2025-05-17 10:00:00',NULL);
+/*!40000 ALTER TABLE `family_user` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `health_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【health_record】健康记录表 — 存储老人健康档案和病史记录
+-- ============================================================
+CREATE TABLE `health_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `record_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `hospitalization_info` varchar(255) DEFAULT NULL,
+  `medical_history` varchar(255) DEFAULT NULL,
+  `allergy_history` varchar(255) DEFAULT NULL,
+  `common_medications` varchar(255) DEFAULT NULL,
+  `blood_type` varchar(255) DEFAULT NULL,
+  `remarks` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `record_id` (`record_id`),
+  UNIQUE KEY `elder_id` (`elder_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='健康记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `health_record`
+--
+
+LOCK TABLES `health_record` WRITE;
+/*!40000 ALTER TABLE `health_record` DISABLE KEYS */;
+INSERT INTO `health_record` (`id`, `record_id`, `elder_id`, `hospitalization_info`, `medical_history`, `allergy_history`, `common_medications`, `blood_type`, `remarks`, `created_at`, `update_time`, `updated_at`) VALUES (1,'hr_001','elder_001','2024年3月因高血压住院7天','高血压10年,糖尿病5年','对青霉素过敏','降压药,降糖药,阿司匹林','A','需定期监测血糖血压','2025-01-10 09:00:00','2025-05-17 10:00:00',NULL),(2,'hr_002','elder_002','2024年8月因心脏病住院15天','心脏病3年,骨质疏松','无','硝酸甘油,钙片','B','需注意跌倒风险','2025-01-15 10:30:00','2025-05-17 10:00:00',NULL),(3,'hr_003','elder_003','无住院记录','轻度认知障碍','对花粉过敏','银杏叶片','O','记忆力减退需关注','2025-02-01 14:00:00','2025-05-17 10:00:00',NULL),(4,'hr_004','elder_004','2025年1月因糖尿病足住院5天','糖尿病8年,关节炎','无','胰岛素,止痛药','AB','行动不便需辅助','2025-03-01 09:00:00','2025-05-17 10:00:00',NULL),(5,'hr_005','elder_005','2024年12月因脑梗住院30天','脑梗后遗症,高血压','对磺胺类药物过敏','降压药,抗凝药','A','需定期康复训练','2025-03-15 10:00:00','2025-05-17 10:00:00',NULL);
+/*!40000 ALTER TABLE `health_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `health_vital_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【health_vital_record】健康体征记录表 — 存储老人日常体征数据（心率、血压、血氧、体温）
+-- ============================================================
+CREATE TABLE `health_vital_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(6) NOT NULL,
+  `diastolic` int DEFAULT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `heart_rate` int DEFAULT NULL,
+  `measured_at` datetime(6) NOT NULL,
+  `source` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `spo2` int DEFAULT NULL,
+  `systolic` int DEFAULT NULL,
+  `temperature` decimal(3,1) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `health_vital_record`
+--
+
+LOCK TABLES `health_vital_record` WRITE;
+/*!40000 ALTER TABLE `health_vital_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `health_vital_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `home_control_log`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【home_control_log】家居控制日志表 — 记录智能家居设备的控制操作日志
+-- ============================================================
+CREATE TABLE `home_control_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `control_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `device_id` varchar(255) DEFAULT NULL,
+  `command` varchar(255) NOT NULL COMMENT '控制指令',
+  `source_agent` varchar(255) DEFAULT NULL,
+  `result` varchar(255) NOT NULL COMMENT '执行结果',
+  `created_at` datetime NOT NULL COMMENT '执行时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `control_id` (`control_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='家居控制日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `home_control_log`
+--
+
+LOCK TABLES `home_control_log` WRITE;
+/*!40000 ALTER TABLE `home_control_log` DISABLE KEYS */;
+INSERT INTO `home_control_log` (`id`, `control_id`, `elder_id`, `device_id`, `command`, `source_agent`, `result`, `created_at`) VALUES (1,'ctrl_001','elder_001','dev_002','alarmMute','LOCAL-1001','success','2025-05-16 20:00:00'),(2,'ctrl_002','elder_002','dev_005','startRecord','CLOUD-01','success','2025-05-15 09:00:00'),(3,'ctrl_003','elder_003','dev_008','enableMotionDetect','LOCAL-1003','success','2025-05-17 08:30:00'),(4,'ctrl_004','elder_001','dev_015','turnOn','CLOUD-01','success','2025-05-17 09:00:00'),(5,'ctrl_005','elder_002','dev_014','close','LOCAL-1002','success','2025-05-17 08:00:00'),(6,'ctrl_006','elder_004','dev_016','beep','CLOUD-01','success','2025-05-17 07:30:00');
+/*!40000 ALTER TABLE `home_control_log` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `local_agent`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【local_agent】本地 Agent 配置表 — 存储本地端 AI Agent 的配置信息
+-- ============================================================
+CREATE TABLE `local_agent` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `agent_id` varchar(255) NOT NULL,
+  `agent_type` varchar(255) DEFAULT NULL,
+  `status` varchar(255) DEFAULT NULL,
+  `last_heartbeat` datetime NOT NULL COMMENT '最后心跳时间',
+  `ip` varchar(255) DEFAULT NULL,
+  `device_count` int NOT NULL DEFAULT '0' COMMENT '设备总数',
+  `connected_devices` int NOT NULL DEFAULT '0' COMMENT '已连接设备数',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `agent_id` (`agent_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='本地智能体表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `local_agent`
+--
+
+LOCK TABLES `local_agent` WRITE;
+/*!40000 ALTER TABLE `local_agent` DISABLE KEYS */;
+INSERT INTO `local_agent` (`id`, `agent_id`, `agent_type`, `status`, `last_heartbeat`, `ip`, `device_count`, `connected_devices`, `created_at`, `update_time`) VALUES (1,'LOCAL-1001','local_gateway','online','2025-05-17 09:50:00','192.168.1.101',3,3,'2025-01-10 09:00:00','2025-05-17 09:50:00'),(2,'LOCAL-1002','local_gateway','online','2025-05-17 09:48:00','192.168.1.102',3,2,'2025-01-15 10:30:00','2025-05-17 09:48:00'),(3,'LOCAL-1003','local_gateway','offline','2025-05-15 22:00:00','192.168.1.103',2,0,'2025-02-01 14:00:00','2025-05-15 22:00:00'),(4,'LOCAL-1004','local_gateway','online','2025-05-17 09:55:00','192.168.1.104',3,3,'2025-03-01 09:00:00','2025-05-17 09:55:00'),(5,'LOCAL-1005','local_gateway','online','2025-05-17 09:40:00','192.168.1.105',2,2,'2025-03-15 10:00:00','2025-05-17 09:40:00');
+/*!40000 ALTER TABLE `local_agent` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `monitor_request`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【monitor_request】监控请求记录表 — 记录家属发起的监控查看请求历史
+-- ============================================================
+CREATE TABLE `monitor_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `request_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `staff_id` varchar(255) NOT NULL,
+  `staff_name` varchar(255) DEFAULT NULL,
+  `staff_phone` varchar(255) DEFAULT NULL,
+  `reason` varchar(255) DEFAULT NULL COMMENT '申请原因',
+  `status` varchar(255) DEFAULT NULL,
+  `approved_at` bigint DEFAULT NULL COMMENT '审批时间戳',
+  `expired_at` datetime DEFAULT NULL COMMENT '过期时间',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `request_id` (`request_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='监控申请/授权表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `monitor_request`
+--
+
+LOCK TABLES `monitor_request` WRITE;
+/*!40000 ALTER TABLE `monitor_request` DISABLE KEYS */;
+INSERT INTO `monitor_request` (`id`, `request_id`, `elder_id`, `staff_id`, `staff_name`, `staff_phone`, `reason`, `status`, `approved_at`, `expired_at`, `created_at`, `update_time`) VALUES (1,'mr_001','elder_001','staff_001','张建国','13800138001','日常巡查需要查看老人状态','approved',1715904000000,'2025-06-01 00:00:00','2025-05-10 09:00:00','2025-05-10 09:30:00'),(2,'mr_002','elder_002','staff_002','李秀英','13800138002','老人摔倒后需持续观察','approved',1715904000000,'2025-06-15 00:00:00','2025-05-15 10:00:00','2025-05-15 10:30:00'),(3,'mr_003','elder_003','staff_003','王强','13800138003','设备维护期间需查看监控','pending',0,'1970-01-01 00:00:00','2025-05-17 08:00:00','2025-05-17 08:00:00'),(4,'mr_004','elder_004','staff_001','张建国','13800138001','新入住老人需要了解情况','approved',1715904000000,'2025-05-31 00:00:00','2025-05-01 09:00:00','2025-05-01 09:30:00'),(5,'mr_005','elder_005','staff_002','李秀英','13800138002','紧急呼叫后需查看现场','approved',1715904000000,'2025-05-18 00:00:00','2025-05-16 23:00:00','2025-05-16 23:05:00');
+/*!40000 ALTER TABLE `monitor_request` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `music_intervention`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【music_intervention】音乐干预表 — 存储音乐疗法的干预方案和记录
+-- ============================================================
+CREATE TABLE `music_intervention` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `intervention_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `trigger_reason` varchar(255) NOT NULL COMMENT '触发原因',
+  `music_type` varchar(255) DEFAULT NULL,
+  `start_time` datetime NOT NULL COMMENT '开始时间',
+  `duration_minutes` int NOT NULL DEFAULT '0' COMMENT '持续时长(分钟)',
+  `before_state` varchar(255) NOT NULL DEFAULT '' COMMENT '干预前状态',
+  `after_state` varchar(255) NOT NULL DEFAULT '' COMMENT '干预后状态',
+  `result` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `intervention_id` (`intervention_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='音乐干预表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `music_intervention`
+--
+
+LOCK TABLES `music_intervention` WRITE;
+/*!40000 ALTER TABLE `music_intervention` DISABLE KEYS */;
+INSERT INTO `music_intervention` (`id`, `intervention_id`, `elder_id`, `trigger_reason`, `music_type`, `start_time`, `duration_minutes`, `before_state`, `after_state`, `result`, `created_at`, `update_time`) VALUES (1,'int_001','elder_001','情绪识别-焦虑','music','2025-05-16 15:00:00',15,'焦虑不安、心率加快','平静放松、心率恢复正常','completed','2025-05-16 15:00:00','2025-05-16 15:15:00'),(2,'int_002','elder_002','夜间唤醒','music','2025-05-15 02:30:00',10,'睡眠中断、辗转反侧','重新入睡、呼吸平稳','completed','2025-05-15 02:30:00','2025-05-15 02:40:00'),(3,'int_003','elder_003','久坐提醒','music','2025-05-17 10:00:00',5,'久坐不动超过2小时','起身活动、舒展身体','completed','2025-05-17 10:00:00','2025-05-17 10:05:00'),(4,'int_004','elder_002','心率异常告警联动','music','2025-05-17 09:30:00',0,'心率92bpm','','pending','2025-05-17 09:30:00','2025-05-17 09:30:00'),(5,'int_005','elder_004','情绪安抚','music','2025-05-17 08:00:00',20,'情绪低落、不愿交流','心情好转、愿意配合','completed','2025-05-17 08:00:00','2025-05-17 08:20:00');
+/*!40000 ALTER TABLE `music_intervention` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `notification`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【notification】通知记录表 — 存储系统通知的通用记录
+-- ============================================================
+CREATE TABLE `notification` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `notification_id` varchar(255) NOT NULL,
+  `user_id` varchar(255) NOT NULL,
+  `user_type` varchar(255) DEFAULT NULL,
+  `notification_type` varchar(255) DEFAULT NULL,
+  `title` varchar(255) DEFAULT NULL COMMENT '标题',
+  `content` varchar(255) DEFAULT NULL COMMENT '内容',
+  `is_read` tinyint(1) DEFAULT '0' COMMENT '是否已读',
+  `building` varchar(255) DEFAULT NULL,
+  `room` varchar(255) DEFAULT NULL,
+  `order_id` varchar(255) DEFAULT NULL,
+  `request_id` varchar(255) DEFAULT NULL,
+  `elder_id` varchar(255) DEFAULT NULL,
+  `related_id` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `notification_id` (`notification_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通知表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `notification`
+--
+
+LOCK TABLES `notification` WRITE;
+/*!40000 ALTER TABLE `notification` DISABLE KEYS */;
+INSERT INTO `notification` (`id`, `notification_id`, `user_id`, `user_type`, `notification_type`, `title`, `content`, `is_read`, `building`, `room`, `order_id`, `request_id`, `elder_id`, `related_id`, `created_at`) VALUES (1,'notif_001','staff_001','staff','alarm','新告警通知','1号楼1-201张三心率持续偏高',0,'1号楼','1-201','','','elder_001','alarm_001','2025-05-17 09:20:00'),(2,'notif_002','staff_001','staff','alarm','紧急告警','2号楼2-301李四检测到跌倒',0,'2号楼','2-301','','','elder_002','alarm_002','2025-05-17 09:15:00'),(3,'notif_003','family_001','family','alarm','告警通知','您的家属张三家中检测到陌生人闯入',1,'1号楼','1-201','','','elder_001','alarm_003','2025-05-16 20:00:00'),(4,'notif_004','staff_002','staff','device','设备离线','3号楼3-401床垫传感器离线',1,'3号楼','3-401','wo_003','','elder_003','dev_009','2025-05-16 10:00:00'),(5,'notif_005','family_005','family','emergency','紧急呼叫','您的家属孙七触发紧急呼叫',0,'5号楼','5-502','','','elder_005','sos_002','2025-05-16 23:00:00'),(6,'notif_006','staff_003','staff','alarm','摔倒检测','4号楼4-102赵六卧室疑似摔倒',0,'4号楼','4-102','','','elder_004','alarm_007','2025-05-17 07:00:00'),(7,'notif_007','family_002','family','service','服务请求处理','您的服务请求已处理完成',1,'2号楼','2-301','wo_002','sr_002','elder_002','','2025-05-17 09:30:00'),(8,'notif_008','staff_001','staff','monitor','监控授权申请','新入住老人赵六监控查看申请',1,'4号楼','4-102','','','elder_004','mr_004','2025-05-01 09:00:00');
+/*!40000 ALTER TABLE `notification` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `sensor_data`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【sensor_data】传感器数据表 — 存储各类 IoT 传感器上报的原始数据
+-- ============================================================
+CREATE TABLE `sensor_data` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `elder_id` varchar(255) NOT NULL,
+  `device_id` varchar(255) NOT NULL,
+  `sensor_type` varchar(255) NOT NULL,
+  `value` double NOT NULL COMMENT '数值',
+  `unit` varchar(255) DEFAULT NULL,
+  `is_abnormal` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否异常',
+  `timestamp` datetime NOT NULL COMMENT '数据时间戳',
+  `created_at` datetime NOT NULL COMMENT '入库时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=164 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='传感器数据表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `sensor_data`
+--
+
+LOCK TABLES `sensor_data` WRITE;
+/*!40000 ALTER TABLE `sensor_data` DISABLE KEYS */;
+INSERT INTO `sensor_data` (`id`, `elder_id`, `device_id`, `sensor_type`, `value`, `unit`, `is_abnormal`, `timestamp`, `created_at`) VALUES (1,'elder_001','dev_001','heart_rate',72,'bpm',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(2,'elder_001','dev_001','heart_rate',85,'bpm',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(3,'elder_001','dev_001','heart_rate',95,'bpm',1,'2025-05-17 09:30:00','2025-05-17 09:31:00'),(4,'elder_001','dev_001','temperature',36.5,'℃',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(5,'elder_001','dev_001','blood_oxygen',98,'%',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(6,'elder_001','dev_001','insomnia',0,'等级',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(7,'elder_001','dev_001','sleep_time',22.5,'小时',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(8,'elder_002','dev_004','heart_rate',68,'bpm',0,'2025-05-17 07:30:00','2025-05-17 07:31:00'),(9,'elder_002','dev_004','heart_rate',92,'bpm',1,'2025-05-17 09:20:00','2025-05-17 09:21:00'),(10,'elder_002','dev_004','temperature',36.8,'℃',0,'2025-05-17 09:20:00','2025-05-17 09:21:00'),(11,'elder_002','dev_004','blood_oxygen',96,'%',0,'2025-05-17 09:20:00','2025-05-17 09:21:00'),(12,'elder_002','dev_004','insomnia',1,'等级',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(13,'elder_002','dev_004','sleep_time',23.25,'小时',0,'2025-05-17 09:00:00','2025-05-17 09:01:00'),(14,'elder_003','dev_007','heart_rate',70,'bpm',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(15,'elder_003','dev_007','temperature',36.4,'℃',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(16,'elder_003','dev_007','blood_oxygen',97,'%',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(17,'elder_003','dev_007','insomnia',2,'等级',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(18,'elder_003','dev_007','sleep_time',21.75,'小时',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(19,'elder_001','dev_001','temperature',24.5,'℃',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(20,'elder_001','dev_001','humidity',55,'%',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(21,'elder_001','dev_001','body_temperature',36.2,'℃',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(22,'elder_002','dev_004','temperature',23.8,'℃',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(23,'elder_002','dev_004','humidity',60,'%',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(24,'elder_003','dev_007','temperature',25,'℃',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(25,'elder_003','dev_007','humidity',52,'%',0,'2025-05-17 10:00:00','2025-05-17 10:01:00'),(26,'elder_004','dev_010','heart_rate',65,'bpm',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(27,'elder_004','dev_010','blood_oxygen',99,'%',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(28,'elder_004','dev_010','temperature',23.5,'℃',0,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(29,'elder_005','dev_012','heart_rate',110,'bpm',1,'2025-05-16 23:00:00','2025-05-16 23:01:00'),(30,'elder_005','dev_012','blood_oxygen',94,'%',1,'2025-05-16 23:00:00','2025-05-16 23:01:00'),(31,'elder_005','dev_012','temperature',22,'℃',0,'2025-05-16 23:00:00','2025-05-16 23:01:00'),(32,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 12:59:39','2026-06-18 12:59:39'),(33,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 12:59:39','2026-06-18 12:59:39'),(34,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 13:16:25','2026-06-18 13:16:25'),(35,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 13:16:25','2026-06-18 13:16:25'),(36,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-18 13:16:25','2026-06-18 13:16:25'),(37,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 13:18:30','2026-06-18 13:18:30'),(38,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 13:18:30','2026-06-18 13:18:30'),(39,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-18 13:18:30','2026-06-18 13:18:30'),(40,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 13:30:38','2026-06-18 13:30:38'),(41,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 13:30:38','2026-06-18 13:30:38'),(42,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-18 13:30:38','2026-06-18 13:30:38'),(43,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 13:31:24','2026-06-18 13:31:24'),(44,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 13:31:24','2026-06-18 13:31:24'),(45,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-18 13:31:24','2026-06-18 13:31:24'),(46,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-18 13:44:07','2026-06-18 13:44:07'),(47,'elder_001','dev_001','spo2',91,'%',0,'2026-06-18 13:44:07','2026-06-18 13:44:07'),(48,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-18 13:44:07','2026-06-18 13:44:07'),(49,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 01:01:43','2026-06-19 01:01:43'),(50,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 01:01:43','2026-06-19 01:01:43'),(51,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 01:01:43','2026-06-19 01:01:43'),(52,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 01:06:17','2026-06-19 01:06:17'),(53,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 01:06:17','2026-06-19 01:06:17'),(54,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 01:06:17','2026-06-19 01:06:17'),(55,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 02:23:42','2026-06-19 02:23:42'),(56,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 02:23:42','2026-06-19 02:23:42'),(57,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 02:23:42','2026-06-19 02:23:42'),(58,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 02:26:10','2026-06-19 02:26:10'),(59,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 02:26:10','2026-06-19 02:26:10'),(60,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 02:26:10','2026-06-19 02:26:10'),(61,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 02:27:39','2026-06-19 02:27:39'),(62,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 02:27:39','2026-06-19 02:27:39'),(63,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 02:29:01','2026-06-19 02:29:01'),(64,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 02:29:01','2026-06-19 02:29:01'),(65,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 04:14:23','2026-06-19 04:14:23'),(66,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 04:14:23','2026-06-19 04:14:23'),(67,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 04:14:23','2026-06-19 04:14:23'),(68,'elder_002','dev_004','heart_rate',75,'bpm',0,'2026-06-19 04:14:30','2026-06-19 04:14:30'),(69,'elder_002','dev_004','spo2',98,'%',0,'2026-06-19 04:14:30','2026-06-19 04:14:30'),(70,'elder_002','dev_004','temperature',36.5,'℃',0,'2026-06-19 04:14:30','2026-06-19 04:14:30'),(71,'elder_001','dev_001','heart_rate',80,'bpm',0,'2026-06-19 04:15:04','2026-06-19 04:15:04'),(72,'elder_001','dev_001','spo2',97,'%',0,'2026-06-19 04:15:04','2026-06-19 04:15:04'),(73,'elder_001','dev_001','temperature',36.5,'℃',0,'2026-06-19 04:15:04','2026-06-19 04:15:04'),(74,'elder_001','dev_001','heart_rate',125,'bpm',0,'2026-06-19 09:36:45','2026-06-19 09:36:45'),(75,'elder_001','dev_001','spo2',88,'%',0,'2026-06-19 09:36:45','2026-06-19 09:36:45'),(76,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 09:36:45','2026-06-19 09:36:45'),(77,'elder_001','dev_001','heart_rate',125,'bpm',0,'2026-06-19 09:58:28','2026-06-19 09:58:28'),(78,'elder_001','dev_001','spo2',88,'%',0,'2026-06-19 09:58:28','2026-06-19 09:58:28'),(79,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 09:58:28','2026-06-19 09:58:28'),(80,'elder_001','dev_001','heart_rate',125,'bpm',0,'2026-06-19 10:37:16','2026-06-19 10:37:16'),(81,'elder_001','dev_001','spo2',88,'%',0,'2026-06-19 10:37:16','2026-06-19 10:37:16'),(82,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 10:37:16','2026-06-19 10:37:16'),(83,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 12:22:23','2026-06-19 12:22:23'),(84,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 12:22:23','2026-06-19 12:22:23'),(85,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 12:22:23','2026-06-19 12:22:23'),(86,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 12:27:26','2026-06-19 12:27:26'),(87,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 12:27:26','2026-06-19 12:27:26'),(88,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 12:27:26','2026-06-19 12:27:26'),(89,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 12:51:33','2026-06-19 12:51:33'),(90,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 12:52:12','2026-06-19 12:52:12'),(91,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 12:52:12','2026-06-19 12:52:12'),(92,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 12:52:12','2026-06-19 12:52:12'),(93,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 12:52:43','2026-06-19 12:52:43'),(94,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 12:52:43','2026-06-19 12:52:43'),(95,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 12:52:43','2026-06-19 12:52:43'),(96,'elder_001','dev_001','heart_rate',140,'bpm',0,'2026-06-19 12:52:55','2026-06-19 12:52:55'),(97,'elder_001','dev_001','spo2',85,'%',0,'2026-06-19 12:52:55','2026-06-19 12:52:55'),(98,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 12:52:55','2026-06-19 12:52:55'),(99,'elder_001','dev_001','heart_rate',140,'bpm',0,'2026-06-19 12:54:30','2026-06-19 12:54:30'),(100,'elder_001','dev_001','spo2',85,'%',0,'2026-06-19 12:54:30','2026-06-19 12:54:30'),(101,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 12:54:30','2026-06-19 12:54:30'),(102,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:00:47','2026-06-19 13:00:47'),(103,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:00:47','2026-06-19 13:00:47'),(104,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:00:47','2026-06-19 13:00:47'),(105,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:01:27','2026-06-19 13:01:27'),(106,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:01:27','2026-06-19 13:01:27'),(107,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:01:27','2026-06-19 13:01:27'),(108,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:01:34','2026-06-19 13:01:34'),(109,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:01:34','2026-06-19 13:01:34'),(110,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:01:34','2026-06-19 13:01:34'),(111,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:01:46','2026-06-19 13:01:46'),(112,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:01:46','2026-06-19 13:01:46'),(113,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:01:46','2026-06-19 13:01:46'),(114,'elder_001','dev_001','heart_rate',140,'bpm',0,'2026-06-19 13:01:53','2026-06-19 13:01:53'),(115,'elder_001','dev_001','spo2',85,'%',0,'2026-06-19 13:01:53','2026-06-19 13:01:53'),(116,'elder_001','dev_001','temperature',38.5,'℃',0,'2026-06-19 13:01:53','2026-06-19 13:01:53'),(117,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:11:09','2026-06-19 13:11:09'),(118,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:11:09','2026-06-19 13:11:09'),(119,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:11:09','2026-06-19 13:11:09'),(120,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:13:43','2026-06-19 13:13:43'),(121,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:13:43','2026-06-19 13:13:43'),(122,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:13:43','2026-06-19 13:13:43'),(123,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:15:15','2026-06-19 13:15:15'),(124,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:15:15','2026-06-19 13:15:15'),(125,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:15:15','2026-06-19 13:15:15'),(126,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-19 13:16:45','2026-06-19 13:16:45'),(127,'elder_001','dev_001','spo2',91,'%',0,'2026-06-19 13:16:45','2026-06-19 13:16:45'),(128,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-19 13:16:45','2026-06-19 13:16:45'),(129,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:14:40','2026-06-20 01:14:40'),(130,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:14:46','2026-06-20 01:14:46'),(131,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:04','2026-06-20 01:15:04'),(132,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:04','2026-06-20 01:15:04'),(133,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:08','2026-06-20 01:15:08'),(134,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:08','2026-06-20 01:15:08'),(135,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:15:08','2026-06-20 01:15:08'),(136,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:14','2026-06-20 01:15:14'),(137,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:14','2026-06-20 01:15:14'),(138,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:15:14','2026-06-20 01:15:14'),(139,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:21','2026-06-20 01:15:21'),(140,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:21','2026-06-20 01:15:21'),(141,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:15:21','2026-06-20 01:15:21'),(142,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:42','2026-06-20 01:15:42'),(143,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:42','2026-06-20 01:15:42'),(144,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:15:42','2026-06-20 01:15:42'),(145,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:15:53','2026-06-20 01:15:53'),(146,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:15:53','2026-06-20 01:15:53'),(147,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:15:53','2026-06-20 01:15:53'),(148,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:21:35','2026-06-20 01:21:35'),(149,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:21:35','2026-06-20 01:21:35'),(150,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:21:35','2026-06-20 01:21:35'),(151,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:23:12','2026-06-20 01:23:12'),(152,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:23:12','2026-06-20 01:23:12'),(153,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:23:12','2026-06-20 01:23:12'),(154,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:24:31','2026-06-20 01:24:31'),(155,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:24:31','2026-06-20 01:24:31'),(156,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:24:31','2026-06-20 01:24:31'),(157,'elder_001','dev_001','activity_status',3,'',0,'2026-06-20 01:24:31','2026-06-20 01:24:31'),(158,'elder_001','dev_001','fall_status',2,'',0,'2026-06-20 01:24:31','2026-06-20 01:24:31'),(159,'elder_001','dev_001','heart_rate',112,'bpm',0,'2026-06-20 01:24:59','2026-06-20 01:24:59'),(160,'elder_001','dev_001','spo2',91,'%',0,'2026-06-20 01:24:59','2026-06-20 01:24:59'),(161,'elder_001','dev_001','temperature',37.4,'℃',0,'2026-06-20 01:24:59','2026-06-20 01:24:59'),(162,'elder_001','dev_001','activity_status',3,'',0,'2026-06-20 01:24:59','2026-06-20 01:24:59'),(163,'elder_001','dev_001','fall_status',2,'',0,'2026-06-20 01:24:59','2026-06-20 01:24:59');
+/*!40000 ALTER TABLE `sensor_data` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `service_request`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【service_request】服务请求表 — 存储用户提交的各类服务请求记录
+-- ============================================================
+CREATE TABLE `service_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `request_id` varchar(255) NOT NULL,
+  `family_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `request_type` varchar(255) DEFAULT NULL,
+  `content` varchar(255) DEFAULT NULL,
+  `status` varchar(255) DEFAULT NULL,
+  `related_order_id` varchar(255) DEFAULT NULL,
+  `reject_reason` varchar(255) DEFAULT NULL COMMENT '拒绝原因',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `request_id` (`request_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务请求表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `service_request`
+--
+
+LOCK TABLES `service_request` WRITE;
+/*!40000 ALTER TABLE `service_request` DISABLE KEYS */;
+INSERT INTO `service_request` (`id`, `request_id`, `family_id`, `elder_id`, `request_type`, `content`, `status`, `related_order_id`, `reject_reason`, `created_at`, `update_time`) VALUES (1,'sr_001','family_001','elder_001','设备维修','请求安排人员上门检查客厅摄像头','completed','wo_001','','2025-05-16 09:00:00','2025-05-16 16:00:00'),(2,'sr_002','family_002','elder_002','紧急协助','收到摔倒告警，请求工作人员上门确认','completed','wo_002','','2025-05-17 09:10:00','2025-05-17 09:30:00'),(3,'sr_003','family_003','elder_003','设备维修','床垫传感器离线，请求恢复','completed','wo_003','','2025-05-16 10:00:00','2025-05-17 08:00:00'),(4,'sr_004','family_005','elder_005','紧急协助','收到紧急呼叫，请求立即上门','pending','wo_004','','2025-05-16 23:00:00','2025-05-16 23:00:00'),(5,'sr_005','family_004','elder_004','日常关怀','老人今天情绪低落，请求工作人员关怀','in_progress','wo_005','','2025-05-17 08:00:00','2025-05-17 08:00:00');
+/*!40000 ALTER TABLE `service_request` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `sleep_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【sleep_record】睡眠数据表 — 存储老人睡眠监测数据（时长、深睡/浅睡等）
+-- ============================================================
+CREATE TABLE `sleep_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bed_time` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `deep_sleep_percent` int DEFAULT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `in_bed` bit(1) NOT NULL,
+  `quality_score` int DEFAULT NULL,
+  `recorded_at` datetime(6) NOT NULL,
+  `wake_count` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `sleep_record`
+--
+
+LOCK TABLES `sleep_record` WRITE;
+/*!40000 ALTER TABLE `sleep_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `sleep_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `sos_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【sos_record】SOS 呼救记录表 — 存储老人 SOS 紧急呼救的触发和处理记录
+-- ============================================================
+CREATE TABLE `sos_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `sos_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `trigger_time` datetime DEFAULT NULL COMMENT '触发时间',
+  `status` varchar(255) DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL COMMENT '位置',
+  `handler_id` varchar(255) DEFAULT NULL,
+  `handled_time` datetime DEFAULT NULL COMMENT '处理时间',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `sos_id` (`sos_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='SOS记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `sos_record`
+--
+
+LOCK TABLES `sos_record` WRITE;
+/*!40000 ALTER TABLE `sos_record` DISABLE KEYS */;
+INSERT INTO `sos_record` (`id`, `sos_id`, `elder_id`, `trigger_time`, `status`, `location`, `handler_id`, `handled_time`, `created_at`, `updated_at`) VALUES (1,'sos_001','elder_002','2025-05-17 09:15:00','handled','2号楼2-301客厅','staff_001','2025-05-17 09:20:00','2025-05-17 09:15:00',NULL),(2,'sos_002','elder_005','2025-05-16 23:00:00','pending','5号楼5-502卧室','','1970-01-01 00:00:00','2025-05-16 23:00:00',NULL),(3,'sos_003','elder_001','2025-05-16 14:00:00','handled','1号楼1-201厨房','staff_002','2025-05-16 14:10:00','2025-05-16 14:00:00',NULL),(4,'sos_004','elder_004','2025-05-17 06:00:00','handled','4号楼4-102卫生间','staff_003','2025-05-17 06:15:00','2025-05-17 06:00:00',NULL),(5,'sos_005','elder_003','2025-05-15 20:00:00','handled','3号楼3-401客厅','staff_002','2025-05-15 20:05:00','2025-05-15 20:00:00',NULL);
+/*!40000 ALTER TABLE `sos_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `staff`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【staff】员工表（旧版/备用）— 当前为空，新版使用 staff_user 表
+-- ============================================================
+CREATE TABLE `staff` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `community_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `phone` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `username` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKoqg5g7ejg0vk2ew0thf2asi4` (`phone`),
+  UNIQUE KEY `UKmk0g966eihj1xyrbh0bpe4und` (`staff_id`),
+  UNIQUE KEY `UKn5ib031h2ipdsj507srabt3kf` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `staff`
+--
+
+LOCK TABLES `staff` WRITE;
+/*!40000 ALTER TABLE `staff` DISABLE KEYS */;
+/*!40000 ALTER TABLE `staff` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `staff_user`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【staff_user】工作人员表 — 存储社区管理人员（Web 端）账号信息（StaffUser 实体）
+-- ============================================================
+CREATE TABLE `staff_user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `staff_id` varchar(255) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `phone` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL COMMENT '密码',
+  `role` varchar(255) DEFAULT NULL,
+  `community_id` varchar(255) DEFAULT NULL,
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像URL',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `staff_id` (`staff_id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `phone` (`phone`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='员工表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `staff_user`
+--
+
+LOCK TABLES `staff_user` WRITE;
+/*!40000 ALTER TABLE `staff_user` DISABLE KEYS */;
+INSERT INTO `staff_user` (`id`, `staff_id`, `username`, `name`, `phone`, `password`, `role`, `community_id`, `avatar`, `created_at`, `update_time`) VALUES (1,'staff_001','zhangjianguo','张建国','13800138001','123456','supervisor','community_001','/uploads/avatar/staff_001.jpg','2025-01-05 08:00:00','2025-05-17 10:00:00'),(2,'staff_002','lixiuying','李秀英','13800138002','123456','staff','community_001','/uploads/avatar/staff_002.jpg','2025-01-08 09:00:00','2025-05-17 09:30:00'),(3,'staff_003','wangqiang','王强','13800138003','123456','staff','community_001','/uploads/avatar/staff_003.jpg','2025-01-10 10:00:00','2025-05-17 08:00:00'),(4,'staff_004','admin','系统管理员','13800138000','123456','admin','community_001','/uploads/avatar/admin.jpg','2025-01-01 08:00:00','2025-05-17 10:00:00'),(5,'STF-f65acafd','13900001111','李新成','13900001111','123456','staff',NULL,NULL,'2026-06-20 07:55:53','2026-06-20 07:55:53');
+/*!40000 ALTER TABLE `staff_user` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `vlm_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【vlm_record】VLM 找物品记录表 — 存储视觉大模型（VLM）找物品的交互记录
+-- ============================================================
+CREATE TABLE `vlm_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `answer` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `item` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `query_time` datetime(6) NOT NULL,
+  `question` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `result` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `vlm_record`
+--
+
+LOCK TABLES `vlm_record` WRITE;
+/*!40000 ALTER TABLE `vlm_record` DISABLE KEYS */;
+/*!40000 ALTER TABLE `vlm_record` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `voice_prompt`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【voice_prompt】语音/音乐疗法提醒表 — 存储语音提示和音乐疗法的定时提醒（MusicIntervention 实体）
+-- ============================================================
+CREATE TABLE `voice_prompt` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `after_state` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `before_state` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `closed` bit(1) DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `duration` int DEFAULT NULL,
+  `elder_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `intervention_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `music` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `music_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `prompt_time` datetime(6) DEFAULT NULL,
+  `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `result` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UKjhf6oe2ukwu82g4gs0gmtblx4` (`intervention_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `voice_prompt`
+--
+
+LOCK TABLES `voice_prompt` WRITE;
+/*!40000 ALTER TABLE `voice_prompt` DISABLE KEYS */;
+/*!40000 ALTER TABLE `voice_prompt` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `work_order`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+
+-- ============================================================
+-- 【work_order】工单表 — 存储社区工作人员处理的服务工单信息（WorkOrder 实体）
+-- ============================================================
+CREATE TABLE `work_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `order_type` varchar(255) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL COMMENT '描述',
+  `status` varchar(255) DEFAULT NULL,
+  `creator_id` varchar(255) DEFAULT NULL,
+  `handler_id` varchar(255) DEFAULT NULL,
+  `handler_name` varchar(255) DEFAULT NULL,
+  `handler_phone` varchar(255) DEFAULT NULL,
+  `complete_time` datetime DEFAULT NULL COMMENT '完成时间',
+  `service_request_id` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `alarm_id` varchar(255) DEFAULT NULL,
+  `family_request_id` varchar(255) DEFAULT NULL,
+  `finish_time` datetime(6) DEFAULT NULL,
+  `from_family` bit(1) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `work_order_id` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `order_id` (`order_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='工单表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `work_order`
+--
+
+LOCK TABLES `work_order` WRITE;
+/*!40000 ALTER TABLE `work_order` DISABLE KEYS */;
+INSERT INTO `work_order` (`id`, `order_id`, `elder_id`, `order_type`, `description`, `status`, `creator_id`, `handler_id`, `handler_name`, `handler_phone`, `complete_time`, `service_request_id`, `created_at`, `update_time`, `alarm_id`, `family_request_id`, `finish_time`, `from_family`, `type`, `updated_at`, `work_order_id`) VALUES (1,'wo_001','elder_001','设备维修','客厅摄像头画面模糊，需要检修','completed','staff_001','staff_003','李护士','13800138003','2025-05-16 16:00:00','alarm_006','2025-05-16 09:00:00','2025-05-16 16:00:00',NULL,NULL,NULL,NULL,'健康巡检',NULL,NULL),(2,'wo_002','elder_002','紧急处理','老人摔倒，需上门检查','completed','staff_001','staff_001','张建国','13800138001','2025-05-17 09:30:00','sr_002','2025-05-17 09:15:00','2025-05-17 09:30:00','alarm_001',NULL,NULL,NULL,'紧急巡检',NULL,NULL),(3,'wo_003','elder_003','设备巡检','床垫传感器离线，需上门恢复','completed','staff_002','staff_002','王师傅','13800138002','2025-05-17 08:00:00','sr_003','2025-05-16 10:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'设备维修',NULL,NULL),(4,'wo_004','elder_005','紧急处理','手表紧急呼叫未处理，需上门查看','pending','staff_001','','','','1970-01-01 00:00:00','sr_004','2025-05-16 23:00:00','2025-05-16 23:00:00',NULL,NULL,NULL,NULL,'上门护理',NULL,NULL),(5,'wo_005','elder_004','日常关怀','老人情绪低落，需心理疏导','in_progress','staff_003','staff_003','李护士','13800138003','1970-01-01 00:00:00','sr_005','2025-05-17 08:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'健康巡检',NULL,NULL),(6,'wo_6720ee14','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_49ea4bef','2026-06-18 13:19:10','2026-06-18 13:19:10',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(7,'wo_626abacd','elder_001','设备检查','测试创建工单','pending','staff_001',NULL,NULL,NULL,'1969-12-31 16:00:00',NULL,'2026-06-18 13:20:35','2026-06-18 13:20:35',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(8,'wo_3645eeb6','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_4276038d','2026-06-18 13:30:38','2026-06-18 13:30:38',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(9,'wo_745829e8','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_32561a97','2026-06-18 13:31:24','2026-06-18 13:31:24',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(10,'wo_a9d6bd15','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_e829cfd8','2026-06-18 13:44:08','2026-06-18 13:44:08',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(11,'wo_21a1cd18','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_0330113f','2026-06-19 01:01:43','2026-06-19 01:01:43',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(12,'wo_4a2d5964','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_ee7305b3','2026-06-19 01:06:17','2026-06-19 01:06:17',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(13,'wo_542bd8a9','elder_001','紧急巡检','血氧饱和度88%低于安全阈值92%，心率125次/分超过110次/分的警戒值，同时体温38.5℃偏高。多项指标异常且存在持续恶化风险，结合缺氧和发热状态，提示可能存在急性健康事件。','待处理','system','','','','1969-12-31 16:00:00','alarm_c1cebbe2','2026-06-19 09:41:20','2026-06-19 09:41:20',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(14,'wo_6c343eb4','elder_001','紧急巡检','血氧饱和度严重偏低（88%）、心率过快（125次/分）且体温偏高（38.5℃），多项生命体征同时异常，提示潜在急性健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_b8bde81e','2026-06-19 09:58:58','2026-06-19 09:58:58',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(15,'wo_3e5cd0df','elder_001','紧急巡检','血氧饱和度降至 88%，远低于安全范围；心率持续偏高 125 次/分；体温 38.5℃ 提示发热。多项指标同时严重异常，需立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_bd8b9563','2026-06-19 10:37:39','2026-06-19 10:37:39',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(16,'wo_366d573b','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)','待处理','system','','','','1969-12-31 16:00:00','alarm_2fcab5b6','2026-06-19 11:39:56','2026-06-19 11:39:56',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(17,'wo_1da15558','elder_001','紧急巡检','传感器提示疑似跌倒，老人处于长时间静止状态，同时血氧偏低（91%）、心率偏快（112次/分），存在较高健康风险，需要立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_7d2e5a9e','2026-06-19 12:28:30','2026-06-19 12:28:30',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(18,'wo_d888f1ce','elder_001','紧急巡检','血氧饱和度低至85%，心率过快140次/分，体温偏高38.5℃，存在严重健康隐患，需立即干预。','待处理','system','','','','1969-12-31 16:00:00','alarm_e4295987','2026-06-19 12:53:27','2026-06-19 12:53:27',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(19,'wo_5965d5de','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)','待处理','system','','','','1969-12-31 16:00:00','alarm_2ad038bb','2026-06-19 12:54:20','2026-06-19 12:54:20',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(20,'wo_ab8aac4b','elder_001','紧急巡检','传感器提示疑似跌倒，长时间静止，血氧饱和度91%（低于92%），心率112次/分（高于110次/分），存在紧急风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_ae891b50','2026-06-19 13:01:41','2026-06-19 13:01:41',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(21,'wo_33d1ed7f','elder_001','紧急巡检','传感器提示疑似跌倒，且存在长时间静止；生命体征异常：血氧91%（低于92%），心率112次/分（高于110次/分）。综合判断为高风险，需立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_dbf96462','2026-06-19 13:13:51','2026-06-19 13:13:51',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(22,'wo_575abe6f','elder_001','紧急巡检','老人疑似跌倒且长时间静止，血氧偏低（91%），心率偏高（112次/分），存在较高健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_c5ee29e8','2026-06-19 13:15:25','2026-06-19 13:15:25',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(23,'wo_402fed35','elder_001','紧急巡检','疑似跌倒后长时间静止，同时血氧低至91%、心率高达112次/分，存在紧急健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_367f136d','2026-06-19 13:16:53','2026-06-19 13:16:53',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(24,'wo_cc0aa229','elder_001','紧急巡检','传感器提示疑似跌倒且长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在潜在安全风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_c80662f3','2026-06-20 01:23:16','2026-06-20 01:23:16',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(25,'wo_25b4c14b','elder_001','紧急巡检','传感器提示疑似跌倒，处于长时间静止状态，血氧91%低于92%，心率112次/分高于110，综合判断为高风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_ae09954b','2026-06-20 01:24:38','2026-06-20 01:24:38',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(26,'wo_4e040b27','elder_001','紧急巡检','传感器提示疑似跌倒、长时间静止，同时血氧饱和度91%低于正常值、心率112次/分偏高，存在严重健康风险。','已完成','system','staff_001','李工作人员','','2026-06-20 01:25:19','alarm_04629189','2026-06-20 01:25:13','2026-06-20 01:25:19',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(27,'wo_5ad39d29','elder_001','健康关注','','已完成','system','','test','','2026-06-20 01:38:40','','2026-06-20 01:38:40','2026-06-20 01:38:40',NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+/*!40000 ALTER TABLE `work_order` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+
+-- ============================================================
+-- 脚本结束：共导出 35 张表的完整结构和全量数据
+-- 数据库：anxinban（安心伴智慧家居系统）
+-- 生成时间：2026-06-20
+-- ============================================================
+-- Dump completed on 2026-06-20 20:34:06

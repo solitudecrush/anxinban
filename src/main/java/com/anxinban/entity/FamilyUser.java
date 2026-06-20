@@ -49,9 +49,9 @@ public class FamilyUser {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
+    @Column(name = "updated_at")
     /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -175,11 +175,11 @@ public class FamilyUser {
      *
      * @return 记录最后更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

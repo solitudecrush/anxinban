@@ -41,10 +41,10 @@ public class AlarmService {
             throw new IllegalArgumentException("alarmId is required");
         }
         AlarmEvent entity = convertToEntity(alarm);
-        entity.setAlarmStatus(alarm.getStatus() == null ? "pending" : alarm.getStatus());
+        entity.setStatus(alarm.getStatus() == null ? "pending" : alarm.getStatus());
         entity.setIsRead(alarm.getIsRead() != null ? alarm.getIsRead() : false);
         entity.setCreatedAt(alarm.getOccurTime() != null ? LocalDateTime.parse(alarm.getOccurTime().substring(0, 19)) : LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(entity);
         return convertToDto(saved);
     }
@@ -64,16 +64,16 @@ public class AlarmService {
          *
          * @param size 大小
          */
-    public PageResult<AlarmDto> listAlarms(String elderId, String deviceId, String alarmType, String status, String startTime, String endTime, int page, int size) {
+    public PageResult<AlarmDto> listAlarms(String elderId, String deviceId, String type, String status, String startTime, String endTime, int page, int size) {
         List<AlarmEvent> entities;
         if (elderId != null && !elderId.isEmpty()) {
             entities = alarmEventRepository.findByElderId(elderId);
         } else if (deviceId != null && !deviceId.isEmpty()) {
             entities = alarmEventRepository.findByDeviceId(deviceId);
-        } else if (alarmType != null && !alarmType.isEmpty()) {
-            entities = alarmEventRepository.findByAlarmType(alarmType);
+        } else if (type != null && !type.isEmpty()) {
+            entities = alarmEventRepository.findByType(type);
         } else if (status != null && !status.isEmpty()) {
-            entities = alarmEventRepository.findByAlarmStatus(status);
+            entities = alarmEventRepository.findByStatus(status);
         } else if (startTime != null && endTime != null) {
             LocalDateTime start = LocalDateTime.parse(startTime.substring(0, 19));
             LocalDateTime end = LocalDateTime.parse(endTime.substring(0, 19));
@@ -95,13 +95,13 @@ public class AlarmService {
     public PageResult<AlarmDto> listHealthAbnormalAlarms(String elderId, String status, int page, int size) {
         List<AlarmEvent> entities = alarmEventRepository.findByElderId(elderId);
         List<AlarmDto> dtos = entities.stream()
-                .filter(a -> a.getAlarmType() != null && (
-                        a.getAlarmType().contains("heart_rate") ||
-                        a.getAlarmType().contains("blood_pressure") ||
-                        a.getAlarmType().contains("temperature") ||
-                        a.getAlarmType().contains("fall") ||
-                        a.getAlarmType().contains("inactive")))
-                .filter(a -> status == null || status.isEmpty() || status.equals(a.getAlarmStatus()))
+                .filter(a -> a.getType() != null && (
+                        a.getType().contains("heart_rate") ||
+                        a.getType().contains("blood_pressure") ||
+                        a.getType().contains("temperature") ||
+                        a.getType().contains("fall") ||
+                        a.getType().contains("inactive")))
+                .filter(a -> status == null || status.isEmpty() || status.equals(a.getStatus()))
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
         long total = dtos.size();
@@ -117,14 +117,14 @@ public class AlarmService {
     public PageResult<AlarmDto> listIntrusionAlarms(String status, String building, int page, int size) {
         List<AlarmEvent> entities;
         if (status != null && !status.isEmpty() && building != null && !building.isEmpty()) {
-            entities = alarmEventRepository.findByAlarmTypeAndBuilding("intrusion", building);
-            entities = entities.stream().filter(e -> status.equals(e.getAlarmStatus())).collect(Collectors.toList());
+            entities = alarmEventRepository.findByTypeAndBuilding("intrusion", building);
+            entities = entities.stream().filter(e -> status.equals(e.getStatus())).collect(Collectors.toList());
         } else if (status != null && !status.isEmpty()) {
-            entities = alarmEventRepository.findByAlarmTypeAndAlarmStatus("intrusion", status);
+            entities = alarmEventRepository.findByTypeAndStatus("intrusion", status);
         } else if (building != null && !building.isEmpty()) {
-            entities = alarmEventRepository.findByAlarmTypeAndBuilding("intrusion", building);
+            entities = alarmEventRepository.findByTypeAndBuilding("intrusion", building);
         } else {
-            entities = alarmEventRepository.findByAlarmType("intrusion");
+            entities = alarmEventRepository.findByType("intrusion");
         }
         List<AlarmDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
         long total = dtos.size();
@@ -142,9 +142,9 @@ public class AlarmService {
         if (existing == null) {
             return null;
         }
-        existing.setAlarmStatus("handled");
-        existing.setHandler(handler);
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setStatus("handled");
+        existing.setHandlerId(handler);
+        existing.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(existing);
         return convertToDto(saved);
     }
@@ -159,11 +159,11 @@ public class AlarmService {
         if (existing == null) {
             return null;
         }
-        existing.setAlarmStatus("handled");
-        existing.setHandler(handler);
-        existing.setHandleRemark(remark);
-        existing.setResolvedAt(handleTime != null ? LocalDateTime.parse(handleTime.substring(0, 19)) : LocalDateTime.now());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setStatus("handled");
+        existing.setHandlerId(handler);
+        existing.setHandleNote(remark);
+        existing.setHandleTime(handleTime != null ? LocalDateTime.parse(handleTime.substring(0, 19)) : LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(existing);
         return convertToDto(saved);
     }
@@ -188,7 +188,7 @@ public class AlarmService {
             return null;
         }
         existing.setIsRead(true);
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(existing);
         return convertToDto(saved);
     }
@@ -203,16 +203,16 @@ public class AlarmService {
         dto.setAlarmId(entity.getAlarmId());
         dto.setElderId(entity.getElderId());
         dto.setDeviceId(entity.getDeviceId());
-        dto.setAlarmType(entity.getAlarmType());
-        dto.setSeverity(entity.getAlarmLevel());
+        dto.setAlarmType(entity.getType());
+        dto.setSeverity(entity.getRiskLevel());
         dto.setDescription(entity.getDescription());
-        dto.setStatus(entity.getAlarmStatus());
+        dto.setStatus(entity.getStatus());
         dto.setIsRead(entity.getIsRead());
         dto.setOccurTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
-        dto.setHandleTime(entity.getResolvedAt() != null ? entity.getResolvedAt().toString() : null);
-        dto.setHandler(entity.getHandler());
+        dto.setHandleTime(entity.getHandleTime() != null ? entity.getHandleTime().toString() : null);
+        dto.setHandler(entity.getHandlerId());
         dto.setHandlerName(entity.getHandlerName());
-        dto.setRemark(entity.getHandleRemark());
+        dto.setRemark(entity.getHandleNote());
         dto.setBuilding(entity.getBuilding());
         dto.setRoomNumber(entity.getRoomNumber());
         dto.setUnit(entity.getUnit());
@@ -236,14 +236,14 @@ public class AlarmService {
         entity.setAlarmId(dto.getAlarmId());
         entity.setElderId(dto.getElderId());
         entity.setDeviceId(dto.getDeviceId());
-        entity.setAlarmType(dto.getAlarmType());
-        entity.setAlarmLevel(dto.getSeverity());
+        entity.setType(dto.getAlarmType());
+        entity.setRiskLevel(dto.getSeverity());
         entity.setDescription(dto.getDescription());
-        entity.setAlarmStatus(dto.getStatus());
+        entity.setStatus(dto.getStatus());
         entity.setIsRead(dto.getIsRead());
-        entity.setHandler(dto.getHandler());
+        entity.setHandlerId(dto.getHandler());
         entity.setHandlerName(dto.getHandlerName());
-        entity.setHandleRemark(dto.getRemark());
+        entity.setHandleNote(dto.getRemark());
         entity.setBuilding(dto.getBuilding());
         entity.setRoomNumber(dto.getRoomNumber());
         entity.setUnit(dto.getUnit());

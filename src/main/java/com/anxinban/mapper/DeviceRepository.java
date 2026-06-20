@@ -57,7 +57,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
      * @param deviceType 设备类型，例如血压计、摄像头、门磁等
      * @return 该类型的设备列表；无记录时返回空列表
      */
-    List<Device> findByDeviceType(String deviceType);
+    List<Device> findByType(String deviceType);
 
     /**
      * 根据设备安装位置查询设备列表。

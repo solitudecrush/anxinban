@@ -107,9 +107,9 @@ public class RuleEngineService implements MqttMessageListener {
             AlarmEvent alarm = new AlarmEvent();
             alarm.setAlarmId(java.util.UUID.randomUUID().toString());
             alarm.setDeviceId(report.getDeviceId());
-            alarm.setAlarmType("night-leave-bed");
-            alarm.setAlarmLevel("medium");
-            alarm.setAlarmStatus("pending");
+            alarm.setType("night-leave-bed");
+            alarm.setRiskLevel("medium");
+            alarm.setStatus("pending");
             alarm.setDescription("老人夜间离床提醒");
             alarm.setRoomNumber(room);
             alarm.setCreatedAt(java.time.LocalDateTime.now());

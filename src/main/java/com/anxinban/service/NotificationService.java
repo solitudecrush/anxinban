@@ -117,16 +117,16 @@ public class NotificationService {
         dto.setNotificationId(entity.getNotificationId());
         dto.setUserId(entity.getUserId());
         dto.setUserType(entity.getUserType());
-        dto.setNotificationType(entity.getNotificationType());
+        dto.setType(entity.getType());
         dto.setTitle(entity.getTitle());
         dto.setContent(entity.getContent());
         dto.setIsRead(entity.getIsRead());
         dto.setBuilding(entity.getBuilding());
         dto.setRoom(entity.getRoom());
-        dto.setOrderId(entity.getOrderId());
-        dto.setRequestId(entity.getRequestId());
+        dto.setOrderId(entity.getWorkOrderId());
+        dto.setRequestId(entity.getCameraRequestId());
         dto.setElderId(entity.getElderId());
-        dto.setRelatedId(entity.getRelatedId());
+        dto.setRelatedId(entity.getWorkOrderId());
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
         return dto;
     }
@@ -141,16 +141,15 @@ public class NotificationService {
         entity.setNotificationId(dto.getNotificationId());
         entity.setUserId(dto.getUserId());
         entity.setUserType(dto.getUserType());
-        entity.setNotificationType(dto.getNotificationType());
+        entity.setType(dto.getType());
         entity.setTitle(dto.getTitle());
         entity.setContent(dto.getContent());
         entity.setIsRead(dto.getIsRead());
         entity.setBuilding(dto.getBuilding());
         entity.setRoom(dto.getRoom());
-        entity.setOrderId(dto.getOrderId());
-        entity.setRequestId(dto.getRequestId());
+        entity.setWorkOrderId(dto.getOrderId());
+        entity.setCameraRequestId(dto.getRequestId());
         entity.setElderId(dto.getElderId());
-        entity.setRelatedId(dto.getRelatedId());
         return entity;
     }
 

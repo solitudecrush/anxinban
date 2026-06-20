@@ -34,15 +34,60 @@ curl -s http://120.27.129.78:8080/api/health
 
 ## 2. 认证授权
 
+> **注意**：`userType=elder`（老人用户）不支持直接登录和注册。
+
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 2 | 用户登录 | POST | `/api/auth/login` | 手机号+密码登录 |
-| 3 | 用户注册 | POST | `/api/auth/register` | 新用户注册 |
-| 4 | 重置密码 | POST | `/api/auth/reset-password` | 根据手机号重置密码 |
-| 5 | 用户登出 | POST | `/api/auth/logout` | 登出 |
-| 6 | 当前用户信息 | GET | `/api/auth/me?phone=13900000000` | 根据手机号查用户信息 |
+| 2 | Web端登录 | POST | `/api/auth/login/web` | 工作人员登录（无需传userType） |
+| 3 | App端登录 | POST | `/api/auth/login/app` | 家属登录（无需传userType） |
+| 4 | 旧版登录（兼容） | POST | `/api/auth/login` | 需传userType，elder不支持 |
+| 5 | 用户注册 | POST | `/api/auth/register` | staff/family注册，elder不支持 |
+| 6 | 重置密码 | POST | `/api/auth/reset-password` | staff/family重置密码 |
+| 7 | 用户登出 | POST | `/api/auth/logout` | 登出 |
+| 8 | 当前用户信息 | GET | `/api/auth/me?phone=13900000000` | 根据手机号查用户信息 |
 
-### 2.1 登录
+### 2.1 Web端工作人员登录（推荐）
+
+> 前端无需传 `userType`，后端自动以 `staff` 身份校验。
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/auth/login/web \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"13900000000","password":"123456"}'
+```
+
+请求体字段：`phone`（手机号）、`password`（密码）
+
+成功返回：
+```json
+{
+  "code": 200, "message": "success",
+  "data": {
+    "userId": "STF-abc12345",
+    "name": "张工",
+    "phone": "13900000000",
+    "role": "社区管理员",
+    "userType": "staff",
+    "token": null
+  }
+}
+```
+
+### 2.2 App端家属登录（推荐）
+
+> 前端无需传 `userType`，后端自动以 `family` 身份校验。
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/auth/login/app \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"13800138000","password":"123456"}'
+```
+
+请求体字段：`phone`（手机号）、`password`（密码）
+
+### 2.3 旧版登录（兼容保留）
+
+> `userType=elder` 不再支持，会返回 403。
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/auth/login \
@@ -50,7 +95,11 @@ curl -s -X POST http://120.27.129.78:8080/api/auth/login \
   -d '{"phone":"13900000000","password":"123456","userType":"staff"}'
 ```
 
-### 2.2 注册
+请求体字段：`phone`、`password`、`userType`（`staff` 或 `family`）
+
+### 2.4 注册
+
+> 仅支持 `staff` 和 `family`，`elder` 不支持自行注册。
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/auth/register \
@@ -58,7 +107,9 @@ curl -s -X POST http://120.27.129.78:8080/api/auth/register \
   -d '{"phone":"13900000001","password":"123456","name":"测试用户","userType":"family"}'
 ```
 
-### 2.3 重置密码
+### 2.5 重置密码
+
+> 仅支持 `staff` 和 `family` 用户。
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/auth/reset-password \
@@ -66,13 +117,15 @@ curl -s -X POST http://120.27.129.78:8080/api/auth/reset-password \
   -d '{"phone":"13900000000","newPassword":"654321"}'
 ```
 
-### 2.4 登出
+### 2.6 登出
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/auth/logout
 ```
 
-### 2.5 当前用户信息
+### 2.7 当前用户信息
+
+> 优先查 staff 表，未找到再查 family 表。
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/auth/me?phone=13900000000"
@@ -84,9 +137,9 @@ curl -s "http://120.27.129.78:8080/api/auth/me?phone=13900000000"
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 7 | 仪表盘统计 | GET | `/api/dashboard/stats` | 核心统计指标 |
-| 8 | 大屏摘要 | GET | `/api/dashboard/summary` | 兼容大屏展示格式 |
-| 9 | 楼栋列表 | GET | `/api/dashboard/buildings` | 返回楼栋名称列表 |
+| 9 | 仪表盘统计 | GET | `/api/dashboard/stats` | 核心统计指标 |
+| 10 | 大屏摘要 | GET | `/api/dashboard/summary` | 兼容大屏展示格式 |
+| 11 | 楼栋列表 | GET | `/api/dashboard/buildings` | 返回楼栋名称列表 |
 
 ### 3.1 仪表盘统计
 
@@ -129,15 +182,15 @@ curl -s http://120.27.129.78:8080/api/dashboard/buildings
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 10 | 创建告警 | POST | `/api/alarm` | 创建新告警 |
-| 11 | 告警详情 | GET | `/api/alarm/{alarmId}` | 查询单条告警 |
-| 12 | 告警列表（分页） | GET | `/api/alarm/list` | 支持多条件筛选 |
-| 13 | 入侵告警列表 | GET | `/api/alarm/intrusion/list` | 入侵类告警分页 |
-| 14 | 入侵抓拍快照 | GET | `/api/alarm/intrusion/{alarmId}/snapshot` | 获取入侵抓拍URL |
-| 15 | 确认告警 | PUT | `/api/alarm/{alarmId}/acknowledge` | 确认处理告警 |
-| 16 | 解决告警 | PUT | `/api/alarm/{alarmId}/resolve` | 标记告警已解决 |
-| 17 | 标记已读 | PUT | `/api/alarm/{alarmId}/read` | 标记告警为已读 |
-| 18 | 未读数量 | GET | `/api/alarm/unread-count?elderId=elder_001` | 查询未读告警数 |
+| 12 | 创建告警 | POST | `/api/alarm` | 创建新告警 |
+| 13 | 告警详情 | GET | `/api/alarm/{alarmId}` | 查询单条告警 |
+| 14 | 告警列表（分页） | GET | `/api/alarm/list` | 支持多条件筛选 |
+| 15 | 入侵告警列表 | GET | `/api/alarm/intrusion/list` | 入侵类告警分页 |
+| 16 | 入侵抓拍快照 | GET | `/api/alarm/intrusion/{alarmId}/snapshot` | 获取入侵抓拍URL |
+| 17 | 确认告警 | PUT | `/api/alarm/{alarmId}/acknowledge` | 确认处理告警 |
+| 18 | 解决告警 | PUT | `/api/alarm/{alarmId}/resolve` | 标记告警已解决 |
+| 19 | 标记已读 | PUT | `/api/alarm/{alarmId}/read` | 标记告警为已读 |
+| 20 | 未读数量 | GET | `/api/alarm/unread-count?elderId=elder_001` | 查询未读告警数 |
 
 ### 4.1 创建告警
 
@@ -177,7 +230,11 @@ curl -s "http://120.27.129.78:8080/api/alarm/list?elderId=elder_001&status=pendi
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/alarm/intrusion/list?page=1&pageSize=10"
+# 按楼栋筛选
+curl -s "http://120.27.129.78:8080/api/alarm/intrusion/list?building=1号楼&status=pending&page=1&pageSize=10"
 ```
+
+可选参数：`status`, `building`, `page`, `pageSize`
 
 ### 4.5 入侵抓拍快照
 
@@ -219,11 +276,11 @@ curl -s "http://120.27.129.78:8080/api/alarm/unread-count?elderId=elder_001"
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 19 | 告警列表（兼容） | GET | `/api/alarms` | 返回全部告警 |
-| 20 | 告警详情（兼容） | GET | `/api/alarms/{alarm_id}` | 单条告警详情 |
-| 21 | 告警转工单 | POST | `/api/alarms/{alarm_id}/to-work-order` | 告警转为工单 |
-| 22 | 标记已读（兼容） | POST | `/api/alarms/{alarm_id}/mark-read` | 标记告警已读 |
-| 23 | 处理告警（兼容） | POST | `/api/alarms/{alarm_id}/handle` | 标记告警已处理 |
+| 21 | 告警列表（兼容） | GET | `/api/alarms` | 返回全部告警 |
+| 22 | 告警详情（兼容） | GET | `/api/alarms/{alarm_id}` | 单条告警详情 |
+| 23 | 告警转工单 | POST | `/api/alarms/{alarm_id}/to-work-order` | 告警转为工单 |
+| 24 | 标记已读（兼容） | POST | `/api/alarms/{alarm_id}/mark-read` | 标记告警已读 |
+| 25 | 处理告警（兼容） | POST | `/api/alarms/{alarm_id}/handle` | 标记告警已处理 |
 
 ### 5.1 告警列表（兼容）
 
@@ -263,18 +320,21 @@ curl -s -X POST http://120.27.129.78:8080/api/alarms/alarm_001/handle \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 24 | 工单列表（分页） | GET | `/api/work-order/list` | 支持关键词/状态筛选 |
-| 25 | 工单详情 | GET | `/api/work-order/{orderId}` | 查询单条工单 |
-| 26 | 创建工单 | POST | `/api/work-order` | 创建新工单 |
-| 27 | 更新工单状态 | PUT | `/api/work-order/{orderId}/status` | 修改工单状态 |
-| 28 | 指派处理人 | PUT | `/api/work-order/{orderId}/assign` | 分配处理人 |
+| 26 | 工单列表（分页） | GET | `/api/work-order/list` | 支持关键词/状态/老人姓名筛选 |
+| 27 | 工单详情 | GET | `/api/work-order/{orderId}` | 查询单条工单 |
+| 28 | 创建工单 | POST | `/api/work-order` | 创建新工单 |
+| 29 | 更新工单状态 | PUT | `/api/work-order/{orderId}/status` | 修改工单状态 |
+| 30 | 指派处理人 | PUT | `/api/work-order/{orderId}/assign` | 分配处理人 |
 
 ### 6.1 工单列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/work-order/list?page=1&pageSize=10"
 curl -s "http://120.27.129.78:8080/api/work-order/list?status=待处理&page=1&pageSize=10"
+curl -s "http://120.27.129.78:8080/api/work-order/list?elderName=张&page=1&pageSize=10"
 ```
+
+可选参数：`keyword`, `elderName`, `status`, `page`, `pageSize`
 
 ### 6.2 工单详情
 
@@ -317,10 +377,10 @@ curl -s -X PUT http://120.27.129.78:8080/api/work-order/wo_001/assign \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 29 | 工单列表（兼容） | GET | `/api/work-orders` | 返回全部工单 |
-| 30 | 创建工单（兼容） | POST | `/api/work-orders` | 创建新工单 |
-| 31 | 指派处理人（兼容） | PUT | `/api/work-orders/{work_order_id}/assign` | 分配处理人 |
-| 32 | 完成工单（兼容） | PUT | `/api/work-orders/{work_order_id}/complete` | 标记已完成 |
+| 31 | 工单列表（兼容） | GET | `/api/work-orders` | 返回全部工单 |
+| 32 | 创建工单（兼容） | POST | `/api/work-orders` | 创建新工单 |
+| 33 | 指派处理人（兼容） | PUT | `/api/work-orders/{work_order_id}/assign` | 分配处理人 |
+| 34 | 完成工单（兼容） | PUT | `/api/work-orders/{work_order_id}/complete` | 标记已完成 |
 
 ### 7.1 工单列表（兼容）
 
@@ -361,17 +421,17 @@ curl -s -X PUT http://120.27.129.78:8080/api/work-orders/wo_001/complete
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 33 | 老人列表（分页） | GET | `/api/elder/list` | 支持筛选 |
-| 34 | 创建老人 | POST | `/api/elder` | 新建老人档案 |
-| 35 | 老人详情 | GET | `/api/elder/{elderId}` | 基本信息 |
-| 36 | 更新老人 | PUT | `/api/elder/{elderId}` | 修改老人信息 |
-| 37 | 删除老人 | DELETE | `/api/elder/{elderId}` | 删除老人档案 |
-| 38 | 老人综合详情 | GET | `/api/elder/detail/{elderId}` | 含健康/设备/告警/工单 |
-| 39 | 家属绑定老人 | GET | `/api/elder/bound?familyId=fam_001` | 家属查绑定老人 |
-| 40 | 老人名下设备 | GET | `/api/elder/{elderId}/devices` | 设备列表 |
-| 41 | 实时健康数据 | GET | `/api/elder/{elderId}/health/realtime` | 最新健康指标 |
-| 42 | 健康历史趋势 | GET | `/api/elder/{elderId}/health/history?type=heart_rate&range=week` | 趋势数据 |
-| 43 | 摄像头流地址 | GET | `/api/elder/{elderId}/camera-stream?staffId=staff_001` | 获取摄像头流 |
+| 35 | 老人列表（分页） | GET | `/api/elder/list` | 支持筛选 |
+| 36 | 创建老人 | POST | `/api/elder` | 新建老人档案 |
+| 37 | 老人详情 | GET | `/api/elder/{elderId}` | 基本信息 |
+| 38 | 更新老人 | PUT | `/api/elder/{elderId}` | 修改老人信息 |
+| 39 | 删除老人 | DELETE | `/api/elder/{elderId}` | 删除老人档案 |
+| 40 | 老人综合详情 | GET | `/api/elder/detail/{elderId}` | 含健康/设备/告警/工单 |
+| 41 | 家属绑定老人 | GET | `/api/elder/bound?familyId=fam_001` | 家属查绑定老人（单条） |
+| 42 | 老人名下设备 | GET | `/api/elder/{elderId}/devices` | 设备列表 |
+| 43 | 实时健康数据 | GET | `/api/elder/{elderId}/health/realtime` | 最新健康指标 |
+| 44 | 健康历史趋势 | GET | `/api/elder/{elderId}/health/history?type=heart_rate&range=week` | 趋势数据 |
+| 45 | 摄像头流地址 | GET | `/api/elder/{elderId}/camera-stream?staffId=staff_001` | 获取摄像头流 |
 
 ### 8.1 老人列表
 
@@ -427,6 +487,8 @@ curl -s http://120.27.129.78:8080/api/elder/detail/elder_001
 
 ### 8.7 家属绑定老人
 
+> 返回家属绑定的单个老人信息（非列表）。
+
 ```bash
 curl -s "http://120.27.129.78:8080/api/elder/bound?familyId=fam_001"
 ```
@@ -463,7 +525,7 @@ curl -s "http://120.27.129.78:8080/api/elder/elder_001/camera-stream?staffId=sta
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 44 | 老人列表（兼容） | GET | `/api/elders?page=1&pageSize=20` | 分页，snake_case |
+| 46 | 老人列表（兼容） | GET | `/api/elders?page=1&pageSize=20` | 分页，snake_case |
 
 ### 9.1 老人列表（兼容）
 
@@ -477,7 +539,7 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=20"
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 45 | 最新健康数据 | GET | `/api/health/latest/{elder_id}` | 指定老人最新指标 |
+| 47 | 最新健康数据 | GET | `/api/health/latest/{elder_id}` | 指定老人最新指标 |
 
 ### 10.1 最新健康数据
 
@@ -508,16 +570,16 @@ curl -s http://120.27.129.78:8080/api/health/latest/elder_001
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 46 | AI 服务状态 | GET | `/api/ai/service-status` | 查看 AI 服务可达性 |
-| 47 | 最近 AI 分析 | GET | `/api/ai/latest-analysis/{elderId}` | 某老人最近一次AI分析 |
-| 48 | AI 分析记录 | GET | `/api/ai/analysis-records?elder_id=elder_001&page=1&pageSize=10` | 分页历史记录 |
-| 49 | AI 健康风险分析 | POST | `/api/ai/health-analysis` | 健康风险分析 |
-| 50 | AI 快速对话 | POST | `/api/ai/chat/quick` | 本地即时陪伴 |
-| 51 | AI 深度对话 | POST | `/api/ai/chat/deep` | 云端深度陪伴 |
-| 52 | RAG 知识问答 | POST | `/api/ai/rag-query` | 养老知识问答 |
-| 53 | AI 视觉分析 | POST | `/api/ai/vision-analysis` | 跌倒/行为检测 |
-| 54 | AI 聊天（异步） | POST | `/api/ai/chat?userId=user_001&content=你好` | AI 智能体对话 |
-| 55 | AI 查找物品 | POST | `/api/ai/find-item?userId=user_001&itemName=钥匙` | AI 查找物品 |
+| 48 | AI 服务状态 | GET | `/api/ai/service-status` | 查看 AI 服务可达性 |
+| 49 | 最近 AI 分析 | GET | `/api/ai/latest-analysis/{elderId}` | 某老人最近一次AI分析 |
+| 50 | AI 分析记录 | GET | `/api/ai/analysis-records?elder_id=elder_001&page=1&pageSize=10` | 分页历史记录 |
+| 51 | AI 健康风险分析 | POST | `/api/ai/health-analysis` | 健康风险分析 |
+| 52 | AI 快速对话 | POST | `/api/ai/chat/quick` | 本地即时陪伴 |
+| 53 | AI 深度对话 | POST | `/api/ai/chat/deep` | 云端深度陪伴 |
+| 54 | RAG 知识问答 | POST | `/api/ai/rag-query` | 养老知识问答 |
+| 55 | AI 视觉分析 | POST | `/api/ai/vision-analysis` | 跌倒/行为检测 |
+| 56 | AI 聊天（异步） | POST | `/api/ai/chat?userId=user_001&content=你好` | AI 智能体对话 |
+| 57 | AI 查找物品 | POST | `/api/ai/find-item?userId=user_001&itemName=钥匙` | AI 查找物品 |
 
 ### 11.1 AI 服务状态
 
@@ -602,7 +664,7 @@ curl -s -X POST "http://120.27.129.78:8080/api/ai/find-item?userId=user_001&item
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 56 | 智能体上下文 | GET | `/api/agent/context?elderId=elder_001` | 获取老人聚合上下文，用于AI助手/智能管家 |
+| 58 | 智能体上下文 | GET | `/api/agent/context?elderId=elder_001` | 获取老人聚合上下文，用于AI助手/智能管家 |
 
 ### 12.1 智能体上下文
 
@@ -616,15 +678,15 @@ curl -s "http://120.27.129.78:8080/api/agent/context?elderId=elder_001"
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 56 | 注册设备 | POST | `/api/device/register` | 注册新设备 |
-| 57 | 设备详情 | GET | `/api/device/{deviceId}` | 查询设备 |
-| 58 | 设备列表 | GET | `/api/device/list` | 分页筛选 |
-| 59 | 更新设备状态 | PUT | `/api/device/{deviceId}/status` | 上线/离线 |
-| 60 | 上传传感器数据 | POST | `/api/device/{deviceId}/sensor-data` | 设备上报数据 |
-| 61 | 下发控制指令 | POST | `/api/device/{deviceId}/command` | 远程控制设备 |
-| 62 | 查询传感器数据 | GET | `/api/device/{deviceId}/sensor-data` | 历史数据查询 |
+| 59 | 注册设备 | POST | `/api/device/register` | 注册新设备 |
+| 60 | 设备详情 | GET | `/api/device/{deviceId}` | 查询设备 |
+| 61 | 设备列表 | GET | `/api/device/list` | 分页筛选 |
+| 62 | 更新设备状态 | PUT | `/api/device/{deviceId}/status` | 上线/离线 |
+| 63 | 上传传感器数据 | POST | `/api/device/{deviceId}/sensor-data` | 设备上报数据 |
+| 64 | 下发控制指令 | POST | `/api/device/{deviceId}/command` | 远程控制设备 |
+| 65 | 查询传感器数据 | GET | `/api/device/{deviceId}/sensor-data` | 历史数据查询 |
 
-### 12.1 注册设备
+### 13.1 注册设备
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/register \
@@ -637,13 +699,13 @@ curl -s -X POST http://120.27.129.78:8080/api/device/register \
   }'
 ```
 
-### 12.2 设备详情
+### 13.2 设备详情
 
 ```bash
 curl -s http://120.27.129.78:8080/api/device/dev_001
 ```
 
-### 12.3 设备列表
+### 13.3 设备列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/device/list?page=1&pageSize=10"
@@ -651,7 +713,7 @@ curl -s "http://120.27.129.78:8080/api/device/list?page=1&pageSize=10"
 
 可选参数：`status` (`online`/`offline`), `deviceType`, `location`, `page`, `pageSize`
 
-### 12.4 更新设备状态
+### 13.4 更新设备状态
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/device/dev_001/status \
@@ -659,7 +721,7 @@ curl -s -X PUT http://120.27.129.78:8080/api/device/dev_001/status \
   -d '{"status":"online","lastHeartbeat":"2026-06-20T10:00:00"}'
 ```
 
-### 12.5 上传传感器数据
+### 13.5 上传传感器数据
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/dev_001/sensor-data \
@@ -672,7 +734,7 @@ curl -s -X POST http://120.27.129.78:8080/api/device/dev_001/sensor-data \
   }'
 ```
 
-### 12.6 下发控制指令
+### 13.6 下发控制指令
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/dev_001/command \
@@ -680,11 +742,13 @@ curl -s -X POST http://120.27.129.78:8080/api/device/dev_001/command \
   -d '{"commandType":"light_on","parameters":{"brightness":80}}'
 ```
 
-### 12.7 查询传感器数据
+### 13.7 查询传感器数据
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/device/dev_001/sensor-data?sensorType=heart_rate&page=1&pageSize=20"
 ```
+
+可选参数：`sensorType`, `startTime`, `endTime`, `page`, `pageSize`
 
 ---
 
@@ -692,9 +756,9 @@ curl -s "http://120.27.129.78:8080/api/device/dev_001/sensor-data?sensorType=hea
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 63 | 设备健康数据上传 | POST | `/api/device/upload` | 上传健康数据，自动分析并生成告警 |
+| 66 | 设备健康数据上传 | POST | `/api/device/upload` | 上传健康数据，自动分析并生成告警 |
 
-### 13.1 设备健康数据上传
+### 14.1 设备健康数据上传
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/upload \
@@ -715,27 +779,35 @@ curl -s -X POST http://120.27.129.78:8080/api/device/upload \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 64 | 温湿度历史 | GET | `/api/device/sensor/temperature-humidity` | 温湿度历史 |
-| 65 | 指定类型传感器历史 | GET | `/api/device/sensor/{sensorType}` | 按类型查询 |
-| 66 | 设备告警历史 | GET | `/api/device/alarm` | 告警事件分页 |
+| 67 | 温湿度历史 | GET | `/api/device/sensor/temperature-humidity` | 温湿度历史 |
+| 68 | 指定类型传感器历史 | GET | `/api/device/sensor/{sensorType}` | 按类型查询 |
+| 69 | 设备告警历史 | GET | `/api/device/alarm` | 告警事件分页 |
 
-### 14.1 温湿度历史
+### 15.1 温湿度历史
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/device/sensor/temperature-humidity?limit=20"
+# 按房间/设备筛选
+curl -s "http://120.27.129.78:8080/api/device/sensor/temperature-humidity?room=living-room&limit=20"
 ```
 
-### 14.2 指定传感器类型历史
+可选参数：`room`, `deviceId`, `startTime`, `endTime`, `limit`
+
+### 15.2 指定传感器类型历史
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/device/sensor/heart_rate?limit=20"
 ```
 
-### 14.3 设备告警历史
+可选参数：`deviceId`, `startTime`, `endTime`, `limit`
+
+### 15.3 设备告警历史
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/device/alarm?alarmStatus=pending&page=0&size=10"
 ```
+
+可选参数：`alarmType`, `alarmLevel`, `alarmStatus`, `page`（0-based）, `size`
 
 ---
 
@@ -743,69 +815,69 @@ curl -s "http://120.27.129.78:8080/api/device/alarm?alarmStatus=pending&page=0&s
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 67 | 模拟器状态 | GET | `/api/device/simulator/status` | 查看运行状态 |
-| 68 | 启动模拟器 | POST | `/api/device/simulator/start` | 启动 |
-| 69 | 停止模拟器 | POST | `/api/device/simulator/stop` | 停止 |
-| 70 | 触发指纹成功 | POST | `/api/device/simulator/trigger/fingerprint-success?userId=user_001` | 模拟指纹开门成功 |
-| 71 | 触发指纹失败 | POST | `/api/device/simulator/trigger/fingerprint-fail` | 模拟指纹开门失败 |
-| 72 | 触发窗帘控制 | POST | `/api/device/simulator/trigger/curtain?command=open&percent=50` | 模拟窗帘 |
-| 73 | 触发蜂鸣器 | POST | `/api/device/simulator/trigger/buzzer?command=beep&reason=测试` | 模拟蜂鸣 |
-| 74 | 触发灯光控制 | POST | `/api/device/simulator/trigger/light?command=on&brightness=80` | 模拟灯光 |
-| 75 | 触发手表紧急呼救 | POST | `/api/device/simulator/trigger/watch-emergency` | 模拟手表SOS |
-| 76 | 触发跌倒检测 | POST | `/api/device/simulator/trigger/fall-detection?room=living-room` | 模拟跌倒 |
-| 77 | 触发查找物品 | POST | `/api/device/simulator/trigger/find-item?itemName=钥匙&room=living-room` | 模拟查找物品 |
+| 70 | 模拟器状态 | GET | `/api/device/simulator/status` | 查看运行状态 |
+| 71 | 启动模拟器 | POST | `/api/device/simulator/start` | 启动 |
+| 72 | 停止模拟器 | POST | `/api/device/simulator/stop` | 停止 |
+| 73 | 触发指纹成功 | POST | `/api/device/simulator/trigger/fingerprint-success?userId=user_001` | 模拟指纹开门成功 |
+| 74 | 触发指纹失败 | POST | `/api/device/simulator/trigger/fingerprint-fail` | 模拟指纹开门失败 |
+| 75 | 触发窗帘控制 | POST | `/api/device/simulator/trigger/curtain?command=open&percent=50` | 模拟窗帘 |
+| 76 | 触发蜂鸣器 | POST | `/api/device/simulator/trigger/buzzer?command=beep&reason=测试` | 模拟蜂鸣 |
+| 77 | 触发灯光控制 | POST | `/api/device/simulator/trigger/light?command=on&brightness=80` | 模拟灯光 |
+| 78 | 触发手表紧急呼救 | POST | `/api/device/simulator/trigger/watch-emergency` | 模拟手表SOS |
+| 79 | 触发跌倒检测 | POST | `/api/device/simulator/trigger/fall-detection?room=living-room` | 模拟跌倒 |
+| 80 | 触发查找物品 | POST | `/api/device/simulator/trigger/find-item?itemName=钥匙&room=living-room` | 模拟查找物品 |
 
-### 15.1 模拟器状态
+### 16.1 模拟器状态
 
 ```bash
 curl -s http://120.27.129.78:8080/api/device/simulator/status
 ```
 
-### 15.2 启动/停止模拟器
+### 16.2 启动/停止模拟器
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/simulator/start
 curl -s -X POST http://120.27.129.78:8080/api/device/simulator/stop
 ```
 
-### 15.3 触发指纹事件
+### 16.3 触发指纹事件
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/fingerprint-success?userId=user_001"
 curl -s -X POST http://120.27.129.78:8080/api/device/simulator/trigger/fingerprint-fail
 ```
 
-### 15.4 触发窗帘控制
+### 16.4 触发窗帘控制
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/curtain?command=open&percent=50"
 ```
 
-### 15.5 触发蜂鸣器
+### 16.5 触发蜂鸣器
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/buzzer?command=beep&reason=测试鸣响"
 ```
 
-### 15.6 触发灯光控制
+### 16.6 触发灯光控制
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/light?command=on&brightness=80"
 ```
 
-### 15.7 触发手表紧急呼救
+### 16.7 触发手表紧急呼救
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/simulator/trigger/watch-emergency
 ```
 
-### 15.8 触发跌倒检测
+### 16.8 触发跌倒检测
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/fall-detection?room=living-room"
 ```
 
-### 15.9 触发查找物品
+### 16.9 触发查找物品
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/find-item?itemName=钥匙&room=living-room"
@@ -817,17 +889,17 @@ curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/find-ite
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 78 | 上传头像 | POST | `/api/upload/avatar` | multipart/form-data |
-| 79 | 上传抓拍快照 | POST | `/api/upload/snapshot` | multipart/form-data |
+| 81 | 上传头像 | POST | `/api/upload/avatar` | multipart/form-data |
+| 82 | 上传抓拍快照 | POST | `/api/upload/snapshot` | multipart/form-data |
 
-### 16.1 上传头像
+### 17.1 上传头像
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/upload/avatar \
   -F "file=@/path/to/avatar.jpg"
 ```
 
-### 16.2 上传抓拍快照
+### 17.2 上传抓拍快照
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/upload/snapshot \
@@ -840,13 +912,13 @@ curl -s -X POST http://120.27.129.78:8080/api/upload/snapshot \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 80 | 创建联系人 | POST | `/api/emergency-contact` | 新增紧急联系人 |
-| 81 | 联系人详情 | GET | `/api/emergency-contact/{contactId}` | 查询单条 |
-| 82 | 联系人列表 | GET | `/api/emergency-contact/list?elderId=elder_001` | 按老人查询 |
-| 83 | 更新联系人 | PUT | `/api/emergency-contact/{contactId}` | 修改信息 |
-| 84 | 删除联系人 | DELETE | `/api/emergency-contact/{contactId}` | 删除 |
+| 83 | 创建联系人 | POST | `/api/emergency-contact` | 新增紧急联系人 |
+| 84 | 联系人详情 | GET | `/api/emergency-contact/{contactId}` | 查询单条 |
+| 85 | 联系人列表 | GET | `/api/emergency-contact/list?elderId=elder_001` | 按老人查询 |
+| 86 | 更新联系人 | PUT | `/api/emergency-contact/{contactId}` | 修改信息 |
+| 87 | 删除联系人 | DELETE | `/api/emergency-contact/{contactId}` | 删除 |
 
-### 17.1 创建联系人
+### 18.1 创建联系人
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/emergency-contact \
@@ -861,19 +933,19 @@ curl -s -X POST http://120.27.129.78:8080/api/emergency-contact \
   }'
 ```
 
-### 17.2 联系人详情
+### 18.2 联系人详情
 
 ```bash
 curl -s http://120.27.129.78:8080/api/emergency-contact/ct_001
 ```
 
-### 17.3 联系人列表
+### 18.3 联系人列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/emergency-contact/list?elderId=elder_001"
 ```
 
-### 17.4 更新联系人
+### 18.4 更新联系人
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/emergency-contact/ct_001 \
@@ -881,7 +953,7 @@ curl -s -X PUT http://120.27.129.78:8080/api/emergency-contact/ct_001 \
   -d '{"phone":"13900000001","isEmergency":true}'
 ```
 
-### 17.5 删除联系人
+### 18.5 删除联系人
 
 ```bash
 curl -s -X DELETE http://120.27.129.78:8080/api/emergency-contact/ct_001
@@ -893,12 +965,12 @@ curl -s -X DELETE http://120.27.129.78:8080/api/emergency-contact/ct_001
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 85 | 触发 SOS | POST | `/api/sos` | 创建求救记录 |
-| 86 | SOS 详情 | GET | `/api/sos/{sosId}` | 查询单条 |
-| 87 | SOS 列表 | GET | `/api/sos/list?elderId=elder_001` | 按老人查询 |
-| 88 | 处理 SOS | PUT | `/api/sos/{sosId}/handle?handlerId=staff_001` | 标记已处理 |
+| 88 | 触发 SOS | POST | `/api/sos` | 创建求救记录 |
+| 89 | SOS 详情 | GET | `/api/sos/{sosId}` | 查询单条 |
+| 90 | SOS 列表 | GET | `/api/sos/list?elderId=elder_001` | 按老人查询 |
+| 91 | 处理 SOS | PUT | `/api/sos/{sosId}/handle?handlerId=staff_001` | 标记已处理 |
 
-### 18.1 触发 SOS
+### 19.1 触发 SOS
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/sos \
@@ -911,19 +983,19 @@ curl -s -X POST http://120.27.129.78:8080/api/sos \
   }'
 ```
 
-### 18.2 SOS 详情
+### 19.2 SOS 详情
 
 ```bash
 curl -s http://120.27.129.78:8080/api/sos/sos_001
 ```
 
-### 18.3 SOS 列表
+### 19.3 SOS 列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/sos/list?elderId=elder_001"
 ```
 
-### 18.4 处理 SOS
+### 19.4 处理 SOS
 
 ```bash
 curl -s -X PUT "http://120.27.129.78:8080/api/sos/sos_001/handle?handlerId=staff_001"
@@ -935,30 +1007,32 @@ curl -s -X PUT "http://120.27.129.78:8080/api/sos/sos_001/handle?handlerId=staff
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 89 | 通知列表 | GET | `/api/notification/list?userId=user_001&page=1&pageSize=20` | 分页查询 |
-| 90 | 标记已读 | POST | `/api/notification/{notificationId}/read` | 单条已读 |
-| 91 | 全部已读 | POST | `/api/notification/read-all?userId=user_001&userType=staff` | 批量已读 |
-| 92 | 未读数量 | GET | `/api/notification/unread-count?userId=user_001&userType=staff` | 未读数 |
+| 92 | 通知列表 | GET | `/api/notification/list?userId=user_001&page=1&pageSize=20` | 分页查询 |
+| 93 | 标记已读 | POST | `/api/notification/{notificationId}/read` | 单条已读 |
+| 94 | 全部已读 | POST | `/api/notification/read-all?userId=user_001&userType=staff` | 批量已读 |
+| 95 | 未读数量 | GET | `/api/notification/unread-count?userId=user_001&userType=staff` | 未读数 |
 
-### 19.1 通知列表
+### 20.1 通知列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/notification/list?userId=user_001&page=1&pageSize=20"
 ```
 
-### 19.2 标记已读
+可选参数：`userType`（可选，`staff` 或 `family`）
+
+### 20.2 标记已读
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/notification/noti_001/read
 ```
 
-### 19.3 全部已读
+### 20.3 全部已读
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/notification/read-all?userId=user_001&userType=staff"
 ```
 
-### 19.4 未读数量
+### 20.4 未读数量
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/notification/unread-count?userId=user_001&userType=staff"
@@ -970,14 +1044,14 @@ curl -s "http://120.27.129.78:8080/api/notification/unread-count?userId=user_001
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 93 | 提交申请 | POST | `/api/service-request` | 创建服务申请 |
-| 94 | 我的申请 | GET | `/api/service-request/my-list?familyId=fam_001` | 家属查自己的申请 |
-| 95 | 申请列表（管理） | GET | `/api/service-request/list` | 管理端分页 |
-| 96 | 申请详情/状态 | GET | `/api/service-request/{requestId}/status` | 查询状态 |
-| 97 | 转为工单 | POST | `/api/service-request/{requestId}/convert` | 审批转工单 |
-| 98 | 驳回申请 | POST | `/api/service-request/{requestId}/reject` | 驳回 |
+| 96 | 提交申请 | POST | `/api/service-request` | 创建服务申请 |
+| 97 | 我的申请 | GET | `/api/service-request/my-list?familyId=fam_001` | 家属查自己的申请 |
+| 98 | 申请列表（管理） | GET | `/api/service-request/list` | 管理端分页 |
+| 99 | 申请详情/状态 | GET | `/api/service-request/{requestId}/status` | 查询状态 |
+| 100 | 转为工单 | POST | `/api/service-request/{requestId}/convert` | 审批转工单 |
+| 101 | 驳回申请 | POST | `/api/service-request/{requestId}/reject` | 驳回 |
 
-### 20.1 提交申请
+### 21.1 提交申请
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/service-request \
@@ -990,25 +1064,27 @@ curl -s -X POST http://120.27.129.78:8080/api/service-request \
   }'
 ```
 
-### 20.2 我的申请
+### 21.2 我的申请
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/service-request/my-list?familyId=fam_001"
 ```
 
-### 20.3 申请列表（管理端）
+### 21.3 申请列表（管理端）
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/service-request/list?page=1&pageSize=10"
 ```
 
-### 20.4 申请详情
+可选参数：`requestType`, `status`, `page`, `pageSize`
+
+### 21.4 申请详情
 
 ```bash
 curl -s http://120.27.129.78:8080/api/service-request/sr_001/status
 ```
 
-### 20.5 转为工单
+### 21.5 转为工单
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/service-request/sr_001/convert \
@@ -1016,7 +1092,7 @@ curl -s -X POST http://120.27.129.78:8080/api/service-request/sr_001/convert \
   -d '{"orderId":"wo_new_001"}'
 ```
 
-### 20.6 驳回申请
+### 21.6 驳回申请
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/service-request/sr_001/reject \
@@ -1030,16 +1106,16 @@ curl -s -X POST http://120.27.129.78:8080/api/service-request/sr_001/reject \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 99 | 创建监控申请 | POST | `/api/monitor-request` | 家属申请查看监控 |
-| 100 | 家属申请列表 | GET | `/api/monitor-request/list/family?familyId=fam_001` | 家属查自己 |
-| 101 | 工作人员待审列表 | GET | `/api/monitor-request/list/staff?staffId=staff_001` | 工作人员待审 |
-| 102 | 批准申请 | POST | `/api/monitor-request/{requestId}/approve` | 批准 |
-| 103 | 驳回申请 | POST | `/api/monitor-request/{requestId}/reject` | 驳回 |
-| 104 | 撤销权限 | POST | `/api/monitor-request/{requestId}/revoke` | 撤销已批准 |
-| 105 | 申请结果查询 | GET | `/api/monitor-request/{requestId}/result` | 查询结果 |
-| 106 | 权限检查 | GET | `/api/monitor-request/check?elderId=elder_001&staffId=staff_001` | 检查是否有权限 |
+| 102 | 创建监控申请 | POST | `/api/monitor-request` | 家属申请查看监控 |
+| 103 | 家属申请列表 | GET | `/api/monitor-request/list/family?familyId=fam_001` | 家属查自己 |
+| 104 | 工作人员待审列表 | GET | `/api/monitor-request/list/staff?staffId=staff_001` | 工作人员待审 |
+| 105 | 批准申请 | POST | `/api/monitor-request/{requestId}/approve` | 批准 |
+| 106 | 驳回申请 | POST | `/api/monitor-request/{requestId}/reject` | 驳回 |
+| 107 | 撤销权限 | POST | `/api/monitor-request/{requestId}/revoke` | 撤销已批准 |
+| 108 | 申请结果查询 | GET | `/api/monitor-request/{requestId}/result` | 查询结果 |
+| 109 | 权限检查 | GET | `/api/monitor-request/check?elderId=elder_001&staffId=staff_001` | 检查是否有权限 |
 
-### 21.1 创建监控申请
+### 22.1 创建监控申请
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/monitor-request \
@@ -1051,43 +1127,43 @@ curl -s -X POST http://120.27.129.78:8080/api/monitor-request \
   }'
 ```
 
-### 21.2 家属申请列表
+### 22.2 家属申请列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/monitor-request/list/family?familyId=fam_001"
 ```
 
-### 21.3 工作人员待审列表
+### 22.3 工作人员待审列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/monitor-request/list/staff?staffId=staff_001"
 ```
 
-### 21.4 批准申请
+### 22.4 批准申请
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/monitor-request/mr_001/approve
 ```
 
-### 21.5 驳回申请
+### 22.5 驳回申请
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/monitor-request/mr_001/reject
 ```
 
-### 21.6 撤销权限
+### 22.6 撤销权限
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/monitor-request/mr_001/revoke
 ```
 
-### 21.7 申请结果查询
+### 22.7 申请结果查询
 
 ```bash
 curl -s http://120.27.129.78:8080/api/monitor-request/mr_001/result
 ```
 
-### 21.8 权限检查
+### 22.8 权限检查
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/monitor-request/check?elderId=elder_001&staffId=staff_001"
@@ -1099,13 +1175,13 @@ curl -s "http://120.27.129.78:8080/api/monitor-request/check?elderId=elder_001&s
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 107 | 创建干预 | POST | `/api/intervention` | 创建干预记录 |
-| 108 | 干预详情 | GET | `/api/intervention/{interventionId}` | 查询单条 |
-| 109 | 干预列表 | GET | `/api/intervention/list` | 支持筛选 |
-| 110 | 更新干预 | PUT | `/api/intervention/{interventionId}` | 修改干预记录 |
-| 111 | 完成干预 | PUT | `/api/intervention/{interventionId}/complete` | 标记完成 |
+| 110 | 创建干预 | POST | `/api/intervention` | 创建干预记录 |
+| 111 | 干预详情 | GET | `/api/intervention/{interventionId}` | 查询单条 |
+| 112 | 干预列表 | GET | `/api/intervention/list` | 支持筛选 |
+| 113 | 更新干预 | PUT | `/api/intervention/{interventionId}` | 修改干预记录 |
+| 114 | 完成干预 | PUT | `/api/intervention/{interventionId}/complete` | 标记完成 |
 
-### 22.1 创建干预
+### 23.1 创建干预
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/intervention \
@@ -1120,19 +1196,21 @@ curl -s -X POST http://120.27.129.78:8080/api/intervention \
   }'
 ```
 
-### 22.2 干预详情
+### 23.2 干预详情
 
 ```bash
 curl -s http://120.27.129.78:8080/api/intervention/int_001
 ```
 
-### 22.3 干预列表
+### 23.3 干预列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/intervention/list?elderId=elder_001&status=pending&page=1&size=10"
 ```
 
-### 22.4 更新干预
+可选参数：`elderId`, `status`, `priority`, `page`, `size`
+
+### 23.4 更新干预
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/intervention/int_001 \
@@ -1140,7 +1218,7 @@ curl -s -X PUT http://120.27.129.78:8080/api/intervention/int_001 \
   -d '{"priority":"high","description":"更新描述"}'
 ```
 
-### 22.5 完成干预
+### 23.5 完成干预
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/intervention/int_001/complete \
@@ -1154,19 +1232,19 @@ curl -s -X PUT http://120.27.129.78:8080/api/intervention/int_001/complete \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 112 | 工作人员列表 | GET | `/api/staff/list?communityId=comm_001` | 按社区查询 |
-| 113 | 添加工作人员 | POST | `/api/staff` | 新增 |
-| 114 | 更新工作人员 | PUT | `/api/staff/{staffId}` | 修改信息 |
-| 115 | 删除工作人员 | DELETE | `/api/staff/{staffId}` | 删除 |
+| 115 | 工作人员列表 | GET | `/api/staff/list?communityId=comm_001` | 按社区查询 |
+| 116 | 添加工作人员 | POST | `/api/staff` | 新增 |
+| 117 | 更新工作人员 | PUT | `/api/staff/{staffId}` | 修改信息 |
+| 118 | 删除工作人员 | DELETE | `/api/staff/{staffId}` | 删除 |
 
-### 23.1 工作人员列表
+### 24.1 工作人员列表
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/staff/list?communityId=comm_001"
 curl -s http://120.27.129.78:8080/api/staff/list
 ```
 
-### 23.2 添加工作人员
+### 24.2 添加工作人员
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/staff \
@@ -1179,7 +1257,7 @@ curl -s -X POST http://120.27.129.78:8080/api/staff \
   }'
 ```
 
-### 23.3 更新工作人员
+### 24.3 更新工作人员
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/staff/STF-abc12345 \
@@ -1187,7 +1265,7 @@ curl -s -X PUT http://120.27.129.78:8080/api/staff/STF-abc12345 \
   -d '{"name":"李工改","role":"社区主管"}'
 ```
 
-### 23.4 删除工作人员
+### 24.4 删除工作人员
 
 ```bash
 curl -s -X DELETE http://120.27.129.78:8080/api/staff/STF-abc12345
@@ -1199,11 +1277,11 @@ curl -s -X DELETE http://120.27.129.78:8080/api/staff/STF-abc12345
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 116 | 创建/更新档案 | POST | `/api/health-record` | 保存健康档案 |
-| 117 | 按老人查询 | GET | `/api/health-record/by-elder/{elderId}` | 查询档案 |
-| 118 | 按档案ID查询 | GET | `/api/health-record/{recordId}` | 查询档案 |
+| 119 | 创建/更新档案 | POST | `/api/health-record` | 保存健康档案 |
+| 120 | 按老人查询 | GET | `/api/health-record/by-elder/{elderId}` | 查询档案 |
+| 121 | 按档案ID查询 | GET | `/api/health-record/{recordId}` | 查询档案 |
 
-### 24.1 创建/更新健康档案
+### 25.1 创建/更新健康档案
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/health-record \
@@ -1217,13 +1295,13 @@ curl -s -X POST http://120.27.129.78:8080/api/health-record \
   }'
 ```
 
-### 24.2 按老人查询
+### 25.2 按老人查询
 
 ```bash
 curl -s http://120.27.129.78:8080/api/health-record/by-elder/elder_001
 ```
 
-### 24.3 按档案ID查询
+### 25.3 按档案ID查询
 
 ```bash
 curl -s http://120.27.129.78:8080/api/health-record/hr_001
@@ -1231,71 +1309,20 @@ curl -s http://120.27.129.78:8080/api/health-record/hr_001
 
 ---
 
-## 26. 设备模拟器（备用路径 `/api/simulator`）
-
-> 与 `/api/device/simulator/*` 功能相同，提供备用访问路径
-
-| # | 接口名称 | 方法 | URL | 说明 |
-|---|---------|------|-----|------|
-| 119 | 模拟器状态 | GET | `/api/simulator/status` | 查看运行状态 |
-| 120 | 启动模拟器 | POST | `/api/simulator/start` | 启动 |
-| 121 | 停止模拟器 | POST | `/api/simulator/stop` | 停止 |
-| 122 | 指纹开锁成功 | POST | `/api/simulator/fingerprint/success?userId=user_001` | 模拟指纹开门成功 |
-| 123 | 指纹开锁失败 | POST | `/api/simulator/fingerprint/fail` | 模拟指纹开门失败 |
-| 124 | 窗帘控制 | POST | `/api/simulator/curtain?command=open&percent=50` | 模拟窗帘 |
-| 125 | 蜂鸣器 | POST | `/api/simulator/buzzer?command=beep&reason=测试` | 模拟蜂鸣 |
-| 126 | 灯光控制 | POST | `/api/simulator/light?command=on&brightness=80` | 模拟灯光 |
-| 127 | 手表紧急呼救 | POST | `/api/simulator/watch/emergency` | 模拟手表SOS |
-| 128 | 跌倒检测 | POST | `/api/simulator/fall?room=living-room` | 模拟跌倒 |
-| 129 | 查找物品 | POST | `/api/simulator/find-item?itemName=钥匙&room=living-room` | 模拟查找物品 |
-
-### 25.1 模拟器状态
-
-```bash
-curl -s http://120.27.129.78:8080/api/simulator/status
-```
-
-### 25.2 启动/停止
-
-```bash
-curl -s -X POST http://120.27.129.78:8080/api/simulator/start
-curl -s -X POST http://120.27.129.78:8080/api/simulator/stop
-```
-
-### 25.3 指纹事件
-
-```bash
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/fingerprint/success?userId=user_001"
-curl -s -X POST http://120.27.129.78:8080/api/simulator/fingerprint/fail
-```
-
-### 25.4 窗帘/蜂鸣/灯光/手表/跌倒/找物
-
-```bash
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/curtain?command=open&percent=50"
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/buzzer?command=beep&reason=测试"
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/light?command=on&brightness=80"
-curl -s -X POST http://120.27.129.78:8080/api/simulator/watch/emergency
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/fall?room=living-room"
-curl -s -X POST "http://120.27.129.78:8080/api/simulator/find-item?itemName=钥匙&room=living-room"
-```
-
----
-
-## 27. 云端智能体（`/api/cloud-agent`）
+## 26. 云端智能体（`/api/cloud-agent`）
 
 > 云端智能体通信接口，用于云端AI管家与后端的数据交互
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 130 | 注册云端智能体 | POST | `/api/cloud-agent/register` | 注册云端智能体 |
-| 131 | 上报智能体数据 | POST | `/api/cloud-agent/report` | 上报运行数据 |
-| 132 | 上报智能体告警 | POST | `/api/cloud-agent/alarm` | 上报云端告警 |
-| 133 | 智能体配置 | GET | `/api/cloud-agent/{agentId}/config` | 获取配置 |
-| 134 | 智能体干预任务 | GET | `/api/cloud-agent/{agentId}/interventions` | 获取干预任务列表 |
-| 135 | 上报干预结果 | POST | `/api/cloud-agent/{agentId}/intervention-result` | 上报干预执行结果 |
-| 136 | 云端聊天 | POST | `/api/cloud-agent/chat` | 云端智能体聊天 |
-| 137 | 云端建议 | POST | `/api/cloud-agent/advice` | 获取云端建议 |
+| 122 | 注册云端智能体 | POST | `/api/cloud-agent/register` | 注册云端智能体 |
+| 123 | 上报智能体数据 | POST | `/api/cloud-agent/report` | 上报运行数据 |
+| 124 | 上报智能体告警 | POST | `/api/cloud-agent/alarm` | 上报云端告警 |
+| 125 | 智能体配置 | GET | `/api/cloud-agent/{agentId}/config` | 获取配置 |
+| 126 | 智能体干预任务 | GET | `/api/cloud-agent/{agentId}/interventions` | 获取干预任务列表 |
+| 127 | 上报干预结果 | POST | `/api/cloud-agent/{agentId}/intervention-result` | 上报干预执行结果 |
+| 128 | 云端聊天 | POST | `/api/cloud-agent/chat` | 云端智能体聊天 |
+| 129 | 云端建议 | POST | `/api/cloud-agent/advice` | 获取云端建议 |
 
 ```bash
 # 注册
@@ -1327,19 +1354,19 @@ curl -s -X POST http://120.27.129.78:8080/api/cloud-agent/advice \
 
 ---
 
-## 28. 本地智能体（`/api/local-agent`）
+## 27. 本地智能体（`/api/local-agent`）
 
 > 本地边缘智能体通信接口，用于本地AI盒子与后端的数据交互
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 138 | 本地心跳 | POST | `/api/local-agent/heartbeat` | 上报心跳 |
-| 139 | 本地状态上报 | POST | `/api/local-agent/status` | 上报运行状态 |
-| 140 | 本地数据上报 | POST | `/api/local-agent/data` | 上报传感器数据 |
-| 141 | 本地告警上报 | POST | `/api/local-agent/alarm-report` | 上报本地告警 |
-| 142 | 本地指令查询 | GET | `/api/local-agent/{agentId}/commands` | 获取待执行指令 |
-| 143 | 本地意图上报 | POST | `/api/local-agent/intent` | 上报识别意图 |
-| 144 | 本地设备控制 | POST | `/api/local-agent/control` | 上报控制结果 |
+| 130 | 本地心跳 | POST | `/api/local-agent/heartbeat` | 上报心跳 |
+| 131 | 本地状态上报 | POST | `/api/local-agent/status` | 上报运行状态 |
+| 132 | 本地数据上报 | POST | `/api/local-agent/data` | 上报传感器数据 |
+| 133 | 本地告警上报 | POST | `/api/local-agent/alarm-report` | 上报本地告警 |
+| 134 | 本地指令查询 | GET | `/api/local-agent/{agentId}/commands` | 获取待执行指令 |
+| 135 | 本地意图上报 | POST | `/api/local-agent/intent` | 上报识别意图 |
+| 136 | 本地设备控制 | POST | `/api/local-agent/control` | 上报控制结果 |
 
 ```bash
 # 心跳
@@ -1354,6 +1381,101 @@ curl -s http://120.27.129.78:8080/api/local-agent/local_001/commands
 curl -s -X POST http://120.27.129.78:8080/api/local-agent/intent \
   -H "Content-Type: application/json" \
   -d '{"elderId":"elder_001","intent":"健康咨询","confidence":0.9}'
+```
+
+---
+
+## 28. 健康体征记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 137 | 创建体征记录 | POST | `/api/health-vital` | 新增体征记录 |
+| 138 | 体征记录列表 | GET | `/api/health-vital/list?elderId=elder_001` | 按老人查询 |
+| 139 | 最新体征记录 | GET | `/api/health-vital/latest?elderId=elder_001` | 最新体征数据 |
+
+```bash
+# 创建体征记录
+curl -s -X POST http://120.27.129.78:8080/api/health-vital \
+  -H "Content-Type: application/json" \
+  -d '{"elderId":"elder_001","heartRate":72,"spo2":98,"temperature":36.5}'
+
+# 查询列表
+curl -s "http://120.27.129.78:8080/api/health-vital/list?elderId=elder_001"
+curl -s "http://120.27.129.78:8080/api/health-vital/list?elderId=elder_001&start=2026-06-01T00:00:00&end=2026-06-20T23:59:59"
+
+# 最新记录
+curl -s "http://120.27.129.78:8080/api/health-vital/latest?elderId=elder_001"
+```
+
+---
+
+## 29. 睡眠记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 140 | 创建睡眠记录 | POST | `/api/sleep-record` | 新增睡眠记录 |
+| 141 | 睡眠记录列表 | GET | `/api/sleep-record/list?elderId=elder_001` | 按老人查询 |
+
+```bash
+# 创建
+curl -s -X POST http://120.27.129.78:8080/api/sleep-record \
+  -H "Content-Type: application/json" \
+  -d '{"elderId":"elder_001","sleepDuration":7.5,"sleepQuality":"良好"}'
+
+# 查询列表
+curl -s "http://120.27.129.78:8080/api/sleep-record/list?elderId=elder_001"
+curl -s "http://120.27.129.78:8080/api/sleep-record/list?elderId=elder_001&start=2026-06-01T00:00:00&end=2026-06-20T23:59:59"
+```
+
+---
+
+## 30. 陪伴交互记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 142 | 创建陪伴记录 | POST | `/api/companion-record` | 新增陪伴记录 |
+| 143 | 陪伴记录列表 | GET | `/api/companion-record/list?elderId=elder_001` | 按老人查询 |
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/companion-record \
+  -H "Content-Type: application/json" \
+  -d '{"elderId":"elder_001","interactionType":"聊天陪伴","content":"日常聊天"}'
+
+curl -s "http://120.27.129.78:8080/api/companion-record/list?elderId=elder_001"
+```
+
+---
+
+## 31. VLM 找物品记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 144 | 创建VLM记录 | POST | `/api/vlm-record` | 新增找物品记录 |
+| 145 | VLM记录列表 | GET | `/api/vlm-record/list?elderId=elder_001` | 按老人查询 |
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/vlm-record \
+  -H "Content-Type: application/json" \
+  -d '{"elderId":"elder_001","itemName":"钥匙","location":"客厅","found":true}'
+
+curl -s "http://120.27.129.78:8080/api/vlm-record/list?elderId=elder_001"
+```
+
+---
+
+## 32. 监控查看记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 146 | 创建查看记录 | POST | `/api/camera-view-record` | 新增查看记录 |
+| 147 | 查看记录列表 | GET | `/api/camera-view-record/list?cameraRequestId=mr_001` | 按申请查询 |
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/camera-view-record \
+  -H "Content-Type: application/json" \
+  -d '{"cameraRequestId":"mr_001","viewerId":"fam_001","duration":120}'
+
+curl -s "http://120.27.129.78:8080/api/camera-view-record/list?cameraRequestId=mr_001"
 ```
 
 ---
@@ -1375,7 +1497,7 @@ curl -s -X POST http://120.27.129.78:8080/api/local-agent/intent \
 | 200 | 成功 |
 | 400 | 请求参数错误 |
 | 401 | 未认证/密码错误 |
-| 403 | 无权限 |
+| 403 | 无权限（如elder登录、无监控权限） |
 | 404 | 资源不存在 |
 | 409 | 冲突（如手机号已注册） |
 
@@ -1385,8 +1507,10 @@ curl -s -X POST http://120.27.129.78:8080/api/local-agent/intent \
 
 ```
 GET    /api/health                                      # 健康检查
-POST   /api/auth/login                                  # 登录
-POST   /api/auth/register                               # 注册
+POST   /api/auth/login/web                              # Web端工作人员登录
+POST   /api/auth/login/app                              # App端家属登录
+POST   /api/auth/login                                  # 旧版登录（兼容，elder不支持）
+POST   /api/auth/register                               # 注册（staff/family）
 POST   /api/auth/reset-password                         # 重置密码
 POST   /api/auth/logout                                 # 登出
 GET    /api/auth/me?phone=                              # 当前用户
@@ -1503,17 +1627,6 @@ DELETE /api/staff/{staffId}                             # 删除工作人员
 POST   /api/health-record                               # 创建健康档案
 GET    /api/health-record/by-elder/{elderId}            # 按老人查档案
 GET    /api/health-record/{recordId}                    # 按ID查档案
-GET    /api/simulator/status                            # 模拟器状态(备用)
-POST   /api/simulator/start                             # 启动模拟器(备用)
-POST   /api/simulator/stop                              # 停止模拟器(备用)
-POST   /api/simulator/fingerprint/success               # 指纹成功(备用)
-POST   /api/simulator/fingerprint/fail                  # 指纹失败(备用)
-POST   /api/simulator/curtain                           # 窗帘(备用)
-POST   /api/simulator/buzzer                            # 蜂鸣器(备用)
-POST   /api/simulator/light                             # 灯光(备用)
-POST   /api/simulator/watch/emergency                   # 手表SOS(备用)
-POST   /api/simulator/fall                              # 跌倒(备用)
-POST   /api/simulator/find-item                         # 找物品(备用)
 POST   /api/cloud-agent/register                        # 注册云端智能体
 POST   /api/cloud-agent/report                          # 云端上报
 POST   /api/cloud-agent/alarm                           # 云端告警
@@ -1529,6 +1642,17 @@ POST   /api/local-agent/alarm-report                    # 本地告警
 GET    /api/local-agent/{agentId}/commands              # 本地指令
 POST   /api/local-agent/intent                          # 本地意图
 POST   /api/local-agent/control                         # 本地控制
+POST   /api/health-vital                                # 创建体征记录
+GET    /api/health-vital/list?elderId=                  # 体征记录列表
+GET    /api/health-vital/latest?elderId=                # 最新体征记录
+POST   /api/sleep-record                                # 创建睡眠记录
+GET    /api/sleep-record/list?elderId=                  # 睡眠记录列表
+POST   /api/companion-record                            # 创建陪伴记录
+GET    /api/companion-record/list?elderId=              # 陪伴记录列表
+POST   /api/vlm-record                                  # 创建VLM记录
+GET    /api/vlm-record/list?elderId=                    # VLM记录列表
+POST   /api/camera-view-record                          # 创建查看记录
+GET    /api/camera-view-record/list?cameraRequestId=    # 查看记录列表
 ```
 
-**总计：145 个 API 接口**
+**总计：147 个 API 接口**

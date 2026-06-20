@@ -20,19 +20,19 @@ public class ServiceRequestDto {
     /** 名称 */
     private String elderName;
     /** 类型标识 */
-    private String requestType;
+    private String type;
     /** 内容 */
     private String content;
     /** 状态标识 */
     private String status;
     /** 唯一标识，主键 */
-    private String relatedOrderId;
+    private String convertedWorkOrderId;
     /** 字段含义待补充 */
     private String rejectReason;
     /** 记录创建时间 */
     private String createTime;
     /** 记录最后更新时间 */
-    private String updateTime;
+    private String updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -129,17 +129,17 @@ public class ServiceRequestDto {
      *
      * @return 类型标识
      */
-    public String getRequestType() {
-        return requestType;
+    public String getType() {
+        return type;
     }
 
     /**
      * 设置类型标识。
      *
-     * @param requestType 类型标识
+     * @param type 类型标识
      */
-    public void setRequestType(String requestType) {
-        this.requestType = requestType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     /**
@@ -183,17 +183,17 @@ public class ServiceRequestDto {
      *
      * @return 唯一标识，主键
      */
-    public String getRelatedOrderId() {
-        return relatedOrderId;
+    public String getConvertedWorkOrderId() {
+        return convertedWorkOrderId;
     }
 
     /**
      * 设置唯一标识，主键。
      *
-     * @param relatedOrderId 唯一标识，主键
+     * @param convertedWorkOrderId 唯一标识，主键
      */
-    public void setRelatedOrderId(String relatedOrderId) {
-        this.relatedOrderId = relatedOrderId;
+    public void setConvertedWorkOrderId(String convertedWorkOrderId) {
+        this.convertedWorkOrderId = convertedWorkOrderId;
     }
 
     /**
@@ -237,16 +237,16 @@ public class ServiceRequestDto {
      *
      * @return 记录最后更新时间
      */
-    public String getUpdateTime() {
-        return updateTime;
+    public String getUpdatedAt() {
+        return updatedAt;
     }
 
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(String updateTime) {
-        this.updateTime = updateTime;
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

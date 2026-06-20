@@ -36,7 +36,7 @@ public class InterventionService {
     public InterventionDto createIntervention(InterventionDto dto) {
         MusicIntervention entity = convertToEntity(dto);
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         MusicIntervention saved = musicInterventionRepository.save(entity);
         return convertToDto(saved);
     }
@@ -78,9 +78,9 @@ public class InterventionService {
             return null;
         }
         if (dto.getStatus() != null) existing.setResult(dto.getStatus());
-        if (dto.getRemark() != null) existing.setTriggerReason(dto.getRemark());
+        if (dto.getRemark() != null) existing.setReason(dto.getRemark());
         if (dto.getOperator() != null) existing.setResult(dto.getOperator());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         MusicIntervention saved = musicInterventionRepository.save(existing);
         return convertToDto(saved);
     }
@@ -99,7 +99,7 @@ public class InterventionService {
         if (completeTime != null) {
             existing.setAfterState(completeTime);
         }
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         MusicIntervention saved = musicInterventionRepository.save(existing);
         return convertToDto(saved);
     }
@@ -113,11 +113,11 @@ public class InterventionService {
         InterventionDto dto = new InterventionDto();
         dto.setInterventionId(entity.getInterventionId());
         dto.setElderId(entity.getElderId());
-        dto.setTriggeredBy(entity.getTriggerReason());
+        dto.setTriggeredBy(entity.getReason());
         dto.setType(entity.getMusicType());
         dto.setStatus(entity.getResult());
-        dto.setCreateTime(entity.getStartTime() != null ? entity.getStartTime().toString() : null);
-        dto.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().toString() : null);
+        dto.setCreateTime(entity.getPromptTime() != null ? entity.getPromptTime().toString() : null);
+        dto.setUpdateTime(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toString() : null);
         dto.setRemark(entity.getBeforeState());
         dto.setResult(entity.getResult());
         dto.setCompleteTime(entity.getAfterState());
@@ -133,10 +133,10 @@ public class InterventionService {
         MusicIntervention entity = new MusicIntervention();
         entity.setInterventionId(dto.getInterventionId());
         entity.setElderId(dto.getElderId());
-        entity.setTriggerReason(dto.getTriggeredBy());
+        entity.setReason(dto.getTriggeredBy());
         entity.setMusicType(dto.getType());
         if (dto.getCreateTime() != null) {
-            entity.setStartTime(LocalDateTime.parse(dto.getCreateTime().substring(0, 19)));
+            entity.setPromptTime(LocalDateTime.parse(dto.getCreateTime().substring(0, 19)));
         }
         entity.setBeforeState(dto.getRemark());
         entity.setAfterState(dto.getCompleteTime());

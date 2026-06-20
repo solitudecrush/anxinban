@@ -2,7 +2,8 @@ package com.anxinban.entity;
 
 
 /**
- * StaffUser 实体类，对应数据库中的一张业务表。
+ * StaffUser 实体类 — 工作人员表（staff_user）。
+ * 存储社区管理人员账号信息。
  *
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
@@ -16,30 +17,30 @@ import java.time.LocalDateTime;
 public class StaffUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    /** 唯一标识，主键 */
+    /** 主键，自增 */
     private Long id;
 
     @Column(name = "staff_id", nullable = false, unique = true)
-    /** 关联工作人员 ID */
+    /** 工作人员业务编号 */
     private String staffId;
 
     @Column(nullable = false, unique = true)
-    /** 名称 */
+    /** 登录账号，唯一 */
     private String username;
 
     @Column(nullable = false)
-    /** 名称 */
+    /** 真实姓名 */
     private String name;
 
     @Column(nullable = false, unique = true)
-    /** 手机号 */
+    /** 联系电话 */
     private String phone;
 
     @Column(nullable = false)
-    /** 密码 */
+    /** 登录密码（生产需加密） */
     private String password;
 
-    /** 角色 */
+    /** 角色：社区管理员 / 健康护理员 / 设备维修员 */
     private String role;
 
     @Column(name = "community_id")
@@ -50,12 +51,12 @@ public class StaffUser {
     private String avatar;
 
     @Column(name = "created_at")
-    /** 记录创建时间 */
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     @Column(name = "update_time")
-    /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -175,28 +176,28 @@ public class StaffUser {
     public void setAvatar(String avatar) { this.avatar = avatar; }
 
     /**
-     * 获取记录创建时间。
+     * 获取创建时间。
      *
-     * @return 记录创建时间
+     * @return 创建时间
      */
     public LocalDateTime getCreatedAt() { return createdAt; }
     /**
-     * 设置记录创建时间。
+     * 设置创建时间。
      *
-     * @param createdAt 记录创建时间
+     * @param createdAt 创建时间
      */
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     /**
-     * 获取记录最后更新时间。
+     * 获取更新时间。
      *
-     * @return 记录最后更新时间
+     * @return 更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
-     * 设置记录最后更新时间。
+     * 设置更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

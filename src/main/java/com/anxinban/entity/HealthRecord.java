@@ -23,7 +23,7 @@ public class HealthRecord {
     /** 唯一标识，主键 */
     private String recordId;
 
-    @Column(name = "elder_id", nullable = false, unique = true)
+    @Column(name = "elder_id", nullable = false)
     /** 关联老人用户 ID */
     private String elderId;
 
@@ -54,9 +54,9 @@ public class HealthRecord {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
+    @Column(name = "updated_at")
     /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     /**
@@ -194,11 +194,11 @@ public class HealthRecord {
      *
      * @return 记录最后更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

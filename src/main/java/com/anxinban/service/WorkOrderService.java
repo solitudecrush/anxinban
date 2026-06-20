@@ -38,9 +38,17 @@ public class WorkOrderService {
          */
     public WorkOrderDto createOrder(WorkOrderDto dto) {
         WorkOrder entity = convertToEntity(dto);
+        // 如果前端未传 orderId，自动生成，修复数据库 NOT NULL 约束导致的 500 错误
+        if (entity.getOrderId() == null || entity.getOrderId().isEmpty()) {
+            entity.setOrderId("wo_" + java.util.UUID.randomUUID().toString().substring(0, 8));
+        }
         entity.setStatus(dto.getStatus() == null ? "待分配" : dto.getStatus());
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
+        // 未传 completeTime 时使用默认值，避免 NOT NULL 约束
+        if (entity.getCompleteTime() == null) {
+            entity.setCompleteTime(LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        }
         WorkOrder saved = workOrderRepository.save(entity);
         return convertToDto(saved);
     }
@@ -97,7 +105,7 @@ public class WorkOrderService {
         if ("已完成".equals(status)) {
             existing.setCompleteTime(LocalDateTime.now());
         }
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         WorkOrder saved = workOrderRepository.save(existing);
         return convertToDto(saved);
     }
@@ -113,7 +121,7 @@ public class WorkOrderService {
         existing.setHandlerId(handlerId);
         existing.setHandlerName(handlerName);
         existing.setStatus("处理中");
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         WorkOrder saved = workOrderRepository.save(existing);
         return convertToDto(saved);
     }
@@ -133,7 +141,7 @@ public class WorkOrderService {
                 dto.setElderName(elder.getName());
             }
         }
-        dto.setOrderType(entity.getOrderType());
+        dto.setType(entity.getType());
         dto.setDescription(entity.getDescription());
         dto.setStatus(entity.getStatus());
         dto.setCreatorId(entity.getCreatorId());
@@ -142,7 +150,7 @@ public class WorkOrderService {
         dto.setHandlerPhone(entity.getHandlerPhone());
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
         dto.setCompleteTime(entity.getCompleteTime() != null ? entity.getCompleteTime().toString() : null);
-        dto.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().toString() : null);
+        dto.setUpdatedAt(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toString() : null);
         dto.setServiceRequestId(entity.getServiceRequestId());
         return dto;
     }
@@ -156,7 +164,7 @@ public class WorkOrderService {
         WorkOrder entity = new WorkOrder();
         entity.setOrderId(dto.getOrderId());
         entity.setElderId(dto.getElderId());
-        entity.setOrderType(dto.getOrderType());
+        entity.setType(dto.getType());
         entity.setDescription(dto.getDescription());
         entity.setStatus(dto.getStatus());
         entity.setCreatorId(dto.getCreatorId());

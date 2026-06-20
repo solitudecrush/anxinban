@@ -38,7 +38,7 @@ public class MonitorRequestService {
         MonitorRequest entity = convertToEntity(dto);
         entity.setStatus("pending");
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(entity);
         return convertToDto(saved);
     }
@@ -86,7 +86,7 @@ public class MonitorRequestService {
         existing.setStatus("approved");
         existing.setApprovedAt(System.currentTimeMillis());
         existing.setExpiredAt(LocalDateTime.now().plusHours(24));
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(existing);
         return convertToDto(saved);
     }
@@ -100,7 +100,7 @@ public class MonitorRequestService {
         MonitorRequest existing = monitorRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
         existing.setStatus("rejected");
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(existing);
         return convertToDto(saved);
     }
@@ -115,7 +115,7 @@ public class MonitorRequestService {
         if (existing == null) return null;
         existing.setStatus("none");
         existing.setExpiredAt(LocalDateTime.now());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(existing);
         return convertToDto(saved);
     }
@@ -156,7 +156,7 @@ public class MonitorRequestService {
         dto.setApprovedAt(entity.getApprovedAt() != null ? String.valueOf(entity.getApprovedAt()) : null);
         dto.setExpiredAt(entity.getExpiredAt() != null ? entity.getExpiredAt().toString() : null);
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
-        dto.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().toString() : null);
+        dto.setUpdatedAt(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toString() : null);
         return dto;
     }
 

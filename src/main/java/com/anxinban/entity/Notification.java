@@ -2,7 +2,8 @@ package com.anxinban.entity;
 
 
 /**
- * Notification 实体类，对应数据库中的一张业务表。
+ * Notification 实体类 — APP 通知表（app_notification）。
+ * 存储推送给家属 APP 的通知。
  *
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
@@ -12,15 +13,15 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "notification")
+@Table(name = "app_notification")
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    /** 唯一标识，主键 */
+    /** 主键，自增 */
     private Long id;
 
     @Column(name = "notification_id", nullable = false, unique = true)
-    /** 唯一标识，主键 */
+    /** 通知业务编号 */
     private String notificationId;
 
     @Column(name = "user_id", nullable = false)
@@ -28,12 +29,12 @@ public class Notification {
     private String userId;
 
     @Column(name = "user_type")
-    /** 类型标识 */
+    /** 用户类型 */
     private String userType;
 
-    @Column(name = "notification_type")
-    /** 类型标识 */
-    private String notificationType;
+    @Column(name = "type")
+    /** 通知类型：intrusion / order / camera / sos / alert */
+    private String type;
 
     /** 标题 */
     private String title;
@@ -42,34 +43,35 @@ public class Notification {
     private String content;
 
     @Column(name = "is_read")
+    /** 是否已读 */
     private Boolean isRead = false;
 
     @Column(name = "building")
-    /** 字段含义待补充 */
+    /** 楼栋（intrusion 用） */
     private String building;
 
     @Column(name = "room")
-    /** 房间名称/编号 */
+    /** 房号（intrusion 用） */
     private String room;
 
-    @Column(name = "order_id")
-    /** 唯一标识，主键 */
-    private String orderId;
+    @Column(name = "work_order_id")
+    /** 关联工单 ID */
+    private String workOrderId;
 
-    @Column(name = "request_id")
-    /** 唯一标识，主键 */
-    private String requestId;
+    @Column(name = "camera_request_id")
+    /** 关联监控申请 ID */
+    private String cameraRequestId;
 
     @Column(name = "elder_id")
-    /** 关联老人用户 ID */
+    /** 关联老人 ID */
     private String elderId;
 
-    @Column(name = "related_id")
-    /** 唯一标识，主键 */
-    private String relatedId;
+    @Column(name = "notify_time")
+    /** 通知时间 */
+    private LocalDateTime notifyTime;
 
     @Column(name = "created_at")
-    /** 记录创建时间 */
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     /**
@@ -125,17 +127,17 @@ public class Notification {
     public void setUserType(String userType) { this.userType = userType; }
 
     /**
-     * 获取类型标识。
+     * 获取通知类型。
      *
-     * @return 类型标识
+     * @return 通知类型
      */
-    public String getNotificationType() { return notificationType; }
+    public String getType() { return type; }
     /**
-     * 设置类型标识。
+     * 设置通知类型。
      *
-     * @param notificationType 类型标识
+     * @param type 通知类型
      */
-    public void setNotificationType(String notificationType) { this.notificationType = notificationType; }
+    public void setType(String type) { this.type = type; }
 
     /**
      * 获取标题。
@@ -177,93 +179,93 @@ public class Notification {
     public void setIsRead(Boolean isRead) { this.isRead = isRead; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取楼栋。
      *
-     * @return 字段含义待补充
+     * @return 楼栋
      */
     public String getBuilding() { return building; }
     /**
-     * 设置字段含义待补充。
+     * 设置楼栋。
      *
-     * @param building 字段含义待补充
+     * @param building 楼栋
      */
     public void setBuilding(String building) { this.building = building; }
 
     /**
-     * 获取房间名称/编号。
+     * 获取房号。
      *
-     * @return 房间名称/编号
+     * @return 房号
      */
     public String getRoom() { return room; }
     /**
-     * 设置房间名称/编号。
+     * 设置房号。
      *
-     * @param room 房间名称/编号
+     * @param room 房号
      */
     public void setRoom(String room) { this.room = room; }
 
     /**
-     * 获取唯一标识，主键。
+     * 获取关联工单 ID。
      *
-     * @return 唯一标识，主键
+     * @return 关联工单 ID
      */
-    public String getOrderId() { return orderId; }
+    public String getWorkOrderId() { return workOrderId; }
     /**
-     * 设置唯一标识，主键。
+     * 设置关联工单 ID。
      *
-     * @param orderId 唯一标识，主键
+     * @param workOrderId 关联工单 ID
      */
-    public void setOrderId(String orderId) { this.orderId = orderId; }
+    public void setWorkOrderId(String workOrderId) { this.workOrderId = workOrderId; }
 
     /**
-     * 获取唯一标识，主键。
+     * 获取关联监控申请 ID。
      *
-     * @return 唯一标识，主键
+     * @return 关联监控申请 ID
      */
-    public String getRequestId() { return requestId; }
+    public String getCameraRequestId() { return cameraRequestId; }
     /**
-     * 设置唯一标识，主键。
+     * 设置关联监控申请 ID。
      *
-     * @param requestId 唯一标识，主键
+     * @param cameraRequestId 关联监控申请 ID
      */
-    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public void setCameraRequestId(String cameraRequestId) { this.cameraRequestId = cameraRequestId; }
 
     /**
-     * 获取关联老人用户 ID。
+     * 获取关联老人 ID。
      *
-     * @return 关联老人用户 ID
+     * @return 关联老人 ID
      */
     public String getElderId() { return elderId; }
     /**
-     * 设置关联老人用户 ID。
+     * 设置关联老人 ID。
      *
-     * @param elderId 关联老人用户 ID
+     * @param elderId 关联老人 ID
      */
     public void setElderId(String elderId) { this.elderId = elderId; }
 
     /**
-     * 获取唯一标识，主键。
+     * 获取通知时间。
      *
-     * @return 唯一标识，主键
+     * @return 通知时间
      */
-    public String getRelatedId() { return relatedId; }
+    public LocalDateTime getNotifyTime() { return notifyTime; }
     /**
-     * 设置唯一标识，主键。
+     * 设置通知时间。
      *
-     * @param relatedId 唯一标识，主键
+     * @param notifyTime 通知时间
      */
-    public void setRelatedId(String relatedId) { this.relatedId = relatedId; }
+    public void setNotifyTime(LocalDateTime notifyTime) { this.notifyTime = notifyTime; }
 
     /**
-     * 获取记录创建时间。
+     * 获取创建时间。
      *
-     * @return 记录创建时间
+     * @return 创建时间
      */
     public LocalDateTime getCreatedAt() { return createdAt; }
     /**
-     * 设置记录创建时间。
+     * 设置创建时间。
      *
-     * @param createdAt 记录创建时间
+     * @param createdAt 创建时间
      */
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

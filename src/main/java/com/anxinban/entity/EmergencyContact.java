@@ -46,9 +46,9 @@ public class EmergencyContact {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
+    @Column(name = "updated_at")
     /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     /**
@@ -173,11 +173,11 @@ public class EmergencyContact {
      *
      * @return 记录最后更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
