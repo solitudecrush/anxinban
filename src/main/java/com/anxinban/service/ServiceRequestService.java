@@ -46,9 +46,9 @@ public class ServiceRequestService {
         }
         entity.setStatus("pending");
         entity.setRejectReason(dto.getRejectReason() != null ? dto.getRejectReason() : "");
-        entity.setRelatedOrderId(dto.getRelatedOrderId() != null ? dto.getRelatedOrderId() : "");
+        entity.setConvertedWorkOrderId(dto.getConvertedWorkOrderId() != null ? dto.getConvertedWorkOrderId() : "");
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         ServiceRequest saved = serviceRequestRepository.save(entity);
         return convertToDto(saved);
     }
@@ -79,12 +79,12 @@ public class ServiceRequestService {
          *
          * @param size 大小
          */
-    public PageResult<ServiceRequestDto> listRequests(String requestType, String status, int page, int size) {
+    public PageResult<ServiceRequestDto> listRequests(String type, String status, int page, int size) {
         List<ServiceRequest> entities;
         if (status != null && !status.isEmpty()) {
             entities = serviceRequestRepository.findByStatus(status);
-        } else if (requestType != null && !requestType.isEmpty()) {
-            entities = serviceRequestRepository.findByRequestType(requestType);
+        } else if (type != null && !type.isEmpty()) {
+            entities = serviceRequestRepository.findByType(type);
         } else {
             entities = serviceRequestRepository.findAll();
         }
@@ -103,8 +103,8 @@ public class ServiceRequestService {
         ServiceRequest existing = serviceRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
         existing.setStatus("converted");
-        existing.setRelatedOrderId(orderId);
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setConvertedWorkOrderId(orderId);
+        existing.setUpdatedAt(LocalDateTime.now());
         ServiceRequest saved = serviceRequestRepository.save(existing);
         return convertToDto(saved);
     }
@@ -119,7 +119,7 @@ public class ServiceRequestService {
         if (existing == null) return null;
         existing.setStatus("rejected");
         existing.setRejectReason(reason);
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         ServiceRequest saved = serviceRequestRepository.save(existing);
         return convertToDto(saved);
     }
@@ -146,13 +146,13 @@ public class ServiceRequestService {
                 dto.setElderName(elder.getName());
             }
         }
-        dto.setRequestType(entity.getRequestType());
+        dto.setType(entity.getType());
         dto.setContent(entity.getContent());
         dto.setStatus(entity.getStatus());
-        dto.setRelatedOrderId(entity.getRelatedOrderId());
+        dto.setConvertedWorkOrderId(entity.getConvertedWorkOrderId());
         dto.setRejectReason(entity.getRejectReason());
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
-        dto.setUpdateTime(entity.getUpdateTime() != null ? entity.getUpdateTime().toString() : null);
+        dto.setUpdatedAt(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toString() : null);
         return dto;
     }
 
@@ -166,10 +166,10 @@ public class ServiceRequestService {
         entity.setRequestId(dto.getRequestId());
         entity.setFamilyId(dto.getFamilyId());
         entity.setElderId(dto.getElderId());
-        entity.setRequestType(dto.getRequestType());
+        entity.setType(dto.getType());
         entity.setContent(dto.getContent());
         entity.setStatus(dto.getStatus());
-        entity.setRelatedOrderId(dto.getRelatedOrderId());
+        entity.setConvertedWorkOrderId(dto.getConvertedWorkOrderId());
         entity.setRejectReason(dto.getRejectReason());
         return entity;
     }

@@ -433,9 +433,9 @@ public class MqttMessageConsumer implements MqttMessageListener {
         AlarmEvent alarm = new AlarmEvent();
         alarm.setAlarmId(UUID.randomUUID().toString());
         alarm.setDeviceId(deviceId);
-        alarm.setAlarmType(alarmType);
-        alarm.setAlarmLevel(level);
-        alarm.setAlarmStatus("pending");
+        alarm.setType(alarmType);
+        alarm.setRiskLevel(level);
+        alarm.setStatus("pending");
         alarm.setDescription(description);
         alarm.setRoomNumber(room);
         alarm.setCreatedAt(LocalDateTime.now());

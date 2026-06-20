@@ -2,7 +2,8 @@ package com.anxinban.entity;
 
 
 /**
- * Device 实体类，对应数据库中的一张业务表。
+ * Device 实体类 — 设备表（device）。
+ * 存储老人家中或社区的智能硬件。
  *
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
@@ -16,54 +17,58 @@ import java.time.LocalDateTime;
 public class Device {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    /** 唯一标识，主键 */
+    /** 主键，自增 */
     private Long id;
 
     @Column(name = "device_id", nullable = false, unique = true)
-    /** 关联设备 ID */
+    /** 设备业务编号 */
     private String deviceId;
 
-    @Column(name = "elder_id", nullable = false)
-    /** 关联老人用户 ID */
+    @Column(name = "elder_id")
+    /** 关联老人 ID */
     private String elderId;
 
-    @Column(name = "device_type", nullable = false)
-    /** 设备类型 */
-    private String deviceType;
+    @Column(name = "type", nullable = false)
+    /** 设备类型：手环 / 雷达 / 摄像头 / 门锁 */
+    private String type;
 
-    @Column(name = "device_name")
+    @Column(name = "name")
     /** 设备名称 */
-    private String deviceName;
+    private String name;
 
     /** 位置信息 */
     private String location;
 
     @Column(name = "building")
-    /** 字段含义待补充 */
+    /** 所在楼栋 */
     private String building;
 
     @Column(name = "room")
-    /** 房间名称/编号 */
+    /** 所在房号 */
     private String room;
 
     /** 状态标识 */
     private String status;
 
-    @Column(name = "battery_level")
-    /** 级别 */
-    private Integer batteryLevel;
+    @Column(name = "battery")
+    /** 电量百分比 */
+    private Integer battery;
 
-    @Column(name = "last_online_time")
-    /** 是否在线 */
-    private LocalDateTime lastOnlineTime;
+    @Column(name = "online")
+    /** 在线状态：0=离线，1=在线 */
+    private Boolean online = true;
+
+    @Column(name = "last_online")
+    /** 最后在线时间 */
+    private LocalDateTime lastOnline;
 
     @Column(name = "created_at")
-    /** 记录创建时间 */
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
-    /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    @Column(name = "updated_at")
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     /**
@@ -93,15 +98,15 @@ public class Device {
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
 
     /**
-     * 获取关联老人用户 ID。
+     * 获取关联老人 ID。
      *
-     * @return 关联老人用户 ID
+     * @return 关联老人 ID
      */
     public String getElderId() { return elderId; }
     /**
-     * 设置关联老人用户 ID。
+     * 设置关联老人 ID。
      *
-     * @param elderId 关联老人用户 ID
+     * @param elderId 关联老人 ID
      */
     public void setElderId(String elderId) { this.elderId = elderId; }
 
@@ -110,26 +115,26 @@ public class Device {
      *
      * @return 设备类型
      */
-    public String getDeviceType() { return deviceType; }
+    public String getType() { return type; }
     /**
      * 设置设备类型。
      *
-     * @param deviceType 设备类型
+     * @param type 设备类型
      */
-    public void setDeviceType(String deviceType) { this.deviceType = deviceType; }
+    public void setType(String type) { this.type = type; }
 
     /**
      * 获取设备名称。
      *
      * @return 设备名称
      */
-    public String getDeviceName() { return deviceName; }
+    public String getName() { return name; }
     /**
      * 设置设备名称。
      *
-     * @param deviceName 设备名称
+     * @param name 设备名称
      */
-    public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
+    public void setName(String name) { this.name = name; }
 
     /**
      * 获取位置信息。
@@ -145,28 +150,28 @@ public class Device {
     public void setLocation(String location) { this.location = location; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取所在楼栋。
      *
-     * @return 字段含义待补充
+     * @return 所在楼栋
      */
     public String getBuilding() { return building; }
     /**
-     * 设置字段含义待补充。
+     * 设置所在楼栋。
      *
-     * @param building 字段含义待补充
+     * @param building 所在楼栋
      */
     public void setBuilding(String building) { this.building = building; }
 
     /**
-     * 获取房间名称/编号。
+     * 获取所在房号。
      *
-     * @return 房间名称/编号
+     * @return 所在房号
      */
     public String getRoom() { return room; }
     /**
-     * 设置房间名称/编号。
+     * 设置所在房号。
      *
-     * @param room 房间名称/编号
+     * @param room 所在房号
      */
     public void setRoom(String room) { this.room = room; }
 
@@ -184,54 +189,67 @@ public class Device {
     public void setStatus(String status) { this.status = status; }
 
     /**
-     * 获取级别。
+     * 获取电量百分比。
      *
-     * @return 级别
+     * @return 电量百分比
      */
-    public Integer getBatteryLevel() { return batteryLevel; }
+    public Integer getBattery() { return battery; }
     /**
-     * 设置级别。
+     * 设置电量百分比。
      *
-     * @param batteryLevel 级别
+     * @param battery 电量百分比
      */
-    public void setBatteryLevel(Integer batteryLevel) { this.batteryLevel = batteryLevel; }
+    public void setBattery(Integer battery) { this.battery = battery; }
 
     /**
-     * 获取是否在线。
+     * 获取在线状态。
      *
-     * @return 是否在线
+     * @return 在线状态
      */
-    public LocalDateTime getLastOnlineTime() { return lastOnlineTime; }
+    public Boolean getOnline() { return online; }
     /**
-     * 设置是否在线。
+     * 设置在线状态。
      *
-     * @param lastOnlineTime 是否在线
+     * @param online 在线状态
      */
-    public void setLastOnlineTime(LocalDateTime lastOnlineTime) { this.lastOnlineTime = lastOnlineTime; }
+    public void setOnline(Boolean online) { this.online = online; }
 
     /**
-     * 获取记录创建时间。
+     * 获取最后在线时间。
      *
-     * @return 记录创建时间
+     * @return 最后在线时间
+     */
+    public LocalDateTime getLastOnline() { return lastOnline; }
+    /**
+     * 设置最后在线时间。
+     *
+     * @param lastOnline 最后在线时间
+     */
+    public void setLastOnline(LocalDateTime lastOnline) { this.lastOnline = lastOnline; }
+
+    /**
+     * 获取创建时间。
+     *
+     * @return 创建时间
      */
     public LocalDateTime getCreatedAt() { return createdAt; }
     /**
-     * 设置记录创建时间。
+     * 设置创建时间。
      *
-     * @param createdAt 记录创建时间
+     * @param createdAt 创建时间
      */
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     /**
-     * 获取记录最后更新时间。
+     * 获取更新时间。
      *
-     * @return 记录最后更新时间
+     * @return 更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
-     * 设置记录最后更新时间。
+     * 设置更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

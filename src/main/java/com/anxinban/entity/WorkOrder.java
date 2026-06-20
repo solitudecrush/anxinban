@@ -23,13 +23,21 @@ public class WorkOrder {
     /** 唯一标识，主键 */
     private String orderId;
 
+    @Column(name = "work_order_id")
+    /** 工单显示编号，如 WO20260618001 */
+    private String workOrderId;
+
     @Column(name = "elder_id", nullable = false)
     /** 关联老人用户 ID */
     private String elderId;
 
-    @Column(name = "order_type")
-    /** 类型标识 */
-    private String orderType;
+    @Column(name = "alarm_id")
+    /** 关联告警 ID（alert.id） */
+    private String alarmId;
+
+    @Column(name = "type")
+    /** 工单类型：上门护理 / 健康巡检 / 设备维修 / 紧急巡检 */
+    private String type;
 
     /** 描述 */
     private String description;
@@ -61,13 +69,25 @@ public class WorkOrder {
     /** 唯一标识，主键 */
     private String serviceRequestId;
 
+    @Column(name = "from_family")
+    /** 是否由家属申请转来 */
+    private Boolean fromFamily = false;
+
+    @Column(name = "family_request_id")
+    /** 关联家属申请 ID */
+    private String familyRequestId;
+
+    @Column(name = "finish_time")
+    /** 完成时间 */
+    private LocalDateTime finishTime;
+
     @Column(name = "created_at")
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
-    /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    @Column(name = "updated_at")
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -95,6 +115,9 @@ public class WorkOrder {
      */
     public void setOrderId(String orderId) { this.orderId = orderId; }
 
+    public String getWorkOrderId() { return workOrderId; }
+    public void setWorkOrderId(String workOrderId) { this.workOrderId = workOrderId; }
+
     /**
      * 获取关联老人用户 ID。
      *
@@ -108,18 +131,21 @@ public class WorkOrder {
      */
     public void setElderId(String elderId) { this.elderId = elderId; }
 
+    public String getAlarmId() { return alarmId; }
+    public void setAlarmId(String alarmId) { this.alarmId = alarmId; }
+
     /**
-     * 获取类型标识。
+     * 获取工单类型。
      *
-     * @return 类型标识
+     * @return 工单类型
      */
-    public String getOrderType() { return orderType; }
+    public String getType() { return type; }
     /**
-     * 设置类型标识。
+     * 设置工单类型。
      *
-     * @param orderType 类型标识
+     * @param type 工单类型
      */
-    public void setOrderType(String orderType) { this.orderType = orderType; }
+    public void setType(String type) { this.type = type; }
 
     /**
      * 获取描述。
@@ -225,6 +251,15 @@ public class WorkOrder {
      */
     public void setServiceRequestId(String serviceRequestId) { this.serviceRequestId = serviceRequestId; }
 
+    public Boolean getFromFamily() { return fromFamily; }
+    public void setFromFamily(Boolean fromFamily) { this.fromFamily = fromFamily; }
+
+    public String getFamilyRequestId() { return familyRequestId; }
+    public void setFamilyRequestId(String familyRequestId) { this.familyRequestId = familyRequestId; }
+
+    public LocalDateTime getFinishTime() { return finishTime; }
+    public void setFinishTime(LocalDateTime finishTime) { this.finishTime = finishTime; }
+
     /**
      * 获取记录创建时间。
      *
@@ -239,15 +274,15 @@ public class WorkOrder {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     /**
-     * 获取记录最后更新时间。
+     * 获取更新时间。
      *
-     * @return 记录最后更新时间
+     * @return 更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
-     * 设置记录最后更新时间。
+     * 设置更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

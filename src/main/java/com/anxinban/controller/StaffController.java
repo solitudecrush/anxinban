@@ -64,7 +64,7 @@ public class StaffController {
         entity.setRole(dto.getRole());
         entity.setCommunityId(dto.getCommunityId());
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         StaffUser saved = staffUserRepository.save(entity);
         return ApiResponse.created(convertToDto(saved));
     }
@@ -86,7 +86,7 @@ public class StaffController {
         if (dto.getPhone() != null) existing.setPhone(dto.getPhone());
         if (dto.getRole() != null) existing.setRole(dto.getRole());
         if (dto.getCommunityId() != null) existing.setCommunityId(dto.getCommunityId());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         StaffUser saved = staffUserRepository.save(existing);
         return ApiResponse.success(convertToDto(saved));
     }

@@ -49,6 +49,10 @@ public class SosRecord {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    /** 记录更新时间 */
+    private LocalDateTime updatedAt;
+
     // Getters and Setters
     /**
      * 获取唯一标识，主键。
@@ -166,4 +170,17 @@ public class SosRecord {
      * @param createdAt 记录创建时间
      */
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    /**
+     * 获取记录更新时间。
+     *
+     * @return 记录更新时间
+     */
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    /**
+     * 设置记录更新时间。
+     *
+     * @param updatedAt 记录更新时间
+     */
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

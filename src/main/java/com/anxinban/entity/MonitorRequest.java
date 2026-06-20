@@ -12,7 +12,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "monitor_request")
+@Table(name = "camera_request")
 public class MonitorRequest {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,12 +43,24 @@ public class MonitorRequest {
     /** 字段含义待补充 */
     private String reason;
 
+    @Column(name = "camera_type")
+    /** 摄像头类型：door / living / bedroom */
+    private String cameraType;
+
     /** 状态标识 */
     private String status;
 
     @Column(name = "approved_at")
-    /** 字段含义待补充 */
+    /** 审批通过时间（epoch 毫秒） */
     private Long approvedAt;
+
+    @Column(name = "reject_reason")
+    /** 拒绝/撤销原因 */
+    private String rejectReason;
+
+    @Column(name = "request_time")
+    /** 申请时间 */
+    private LocalDateTime requestTime;
 
     @Column(name = "expired_at")
     /** 字段含义待补充 */
@@ -58,9 +70,9 @@ public class MonitorRequest {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
-    /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    @Column(name = "updated_at")
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -153,6 +165,9 @@ public class MonitorRequest {
      */
     public void setReason(String reason) { this.reason = reason; }
 
+    public String getCameraType() { return cameraType; }
+    public void setCameraType(String cameraType) { this.cameraType = cameraType; }
+
     /**
      * 获取状态标识。
      *
@@ -167,17 +182,23 @@ public class MonitorRequest {
     public void setStatus(String status) { this.status = status; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取审批通过时间。
      *
-     * @return 字段含义待补充
+     * @return 审批通过时间
      */
     public Long getApprovedAt() { return approvedAt; }
     /**
-     * 设置字段含义待补充。
+     * 设置审批通过时间（epoch 毫秒）。
      *
-     * @param approvedAt 字段含义待补充
+     * @param approvedAt 审批通过时间
      */
     public void setApprovedAt(Long approvedAt) { this.approvedAt = approvedAt; }
+
+    public String getRejectReason() { return rejectReason; }
+    public void setRejectReason(String rejectReason) { this.rejectReason = rejectReason; }
+
+    public LocalDateTime getRequestTime() { return requestTime; }
+    public void setRequestTime(LocalDateTime requestTime) { this.requestTime = requestTime; }
 
     /**
      * 获取字段含义待补充。
@@ -206,15 +227,15 @@ public class MonitorRequest {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     /**
-     * 获取记录最后更新时间。
+     * 获取更新时间。
      *
-     * @return 记录最后更新时间
+     * @return 更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
-     * 设置记录最后更新时间。
+     * 设置更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

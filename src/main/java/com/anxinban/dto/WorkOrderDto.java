@@ -16,7 +16,7 @@ public class WorkOrderDto {
     /** 名称 */
     private String elderName;
     /** 类型标识 */
-    private String orderType;
+    private String type;
     /** 描述 */
     private String description;
     /** 状态标识 */
@@ -34,7 +34,7 @@ public class WorkOrderDto {
     /** 字段含义待补充 */
     private String completeTime;
     /** 记录最后更新时间 */
-    private String updateTime;
+    private String updatedAt;
     /** 唯一标识，主键 */
     private String serviceRequestId;
 
@@ -97,17 +97,17 @@ public class WorkOrderDto {
      *
      * @return 类型标识
      */
-    public String getOrderType() {
-        return orderType;
+    public String getType() {
+        return type;
     }
 
     /**
      * 设置类型标识。
      *
-     * @param orderType 类型标识
+     * @param type 类型标识
      */
-    public void setOrderType(String orderType) {
-        this.orderType = orderType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     /**
@@ -259,17 +259,17 @@ public class WorkOrderDto {
      *
      * @return 记录最后更新时间
      */
-    public String getUpdateTime() {
-        return updateTime;
+    public String getUpdatedAt() {
+        return updatedAt;
     }
 
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(String updateTime) {
-        this.updateTime = updateTime;
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     /**

@@ -2,7 +2,8 @@ package com.anxinban.entity;
 
 
 /**
- * ElderUser 实体类，对应数据库中的一张业务表。
+ * ElderUser 实体类 — 老人档案表（elder_user）。
+ * 核心实体，存储老人基本信息、当前健康状态、摄像头授权状态。
  *
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
@@ -16,57 +17,65 @@ import java.time.LocalDateTime;
 public class ElderUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    /** 唯一标识，主键 */
+    /** 主键，自增 */
     private Long id;
 
     @Column(name = "elder_id", nullable = false, unique = true)
-    /** 关联老人用户 ID */
+    /** 老人业务编号，唯一 */
     private String elderId;
 
     @Column(nullable = false)
-    /** 名称 */
+    /** 姓名 */
     private String name;
 
     /** 年龄 */
     private Integer age;
 
-    /** 性别 */
+    /** 性别：男 / 女 */
     private String gender;
 
     /** 地址 */
     private String address;
 
     @Column(name = "building")
-    /** 字段含义待补充 */
+    /** 楼栋 */
     private String building;
 
-    @Column(name = "room_number")
-    /** 房间名称/编号 */
-    private String roomNumber;
+    @Column(name = "room")
+    /** 房号 */
+    private String room;
 
     @Column(name = "phone")
-    /** 手机号 */
+    /** 老人电话 */
     private String phone;
 
     @Column(name = "password", nullable = false)
-    /** 密码 */
+    /** 登录密码（生产需加密） */
     private String password;
 
     @Column(name = "health_status")
-    /** 状态标识 */
+    /** 健康风险等级：normal / warning / danger */
     private String healthStatus;
 
     @Column(name = "health_status_text")
-    /** 状态标识 */
+    /** 健康风险中文展示文本 */
     private String healthStatusText;
 
     @Column(name = "health_note")
-    /** 字段含义待补充 */
+    /** 健康备注 / 标签（逗号分隔） */
     private String healthNote;
 
     @Column(name = "family_phone")
-    /** 手机号 */
+    /** 家属电话 */
     private String familyPhone;
+
+    @Column(name = "contact_name")
+    /** 紧急联系人姓名 */
+    private String contactName;
+
+    @Column(name = "contact_phone")
+    /** 紧急联系人电话 */
+    private String contactPhone;
 
     @Column(name = "community_id")
     /** 所属社区/机构 ID */
@@ -76,25 +85,32 @@ public class ElderUser {
     private String avatar;
 
     @Column(name = "has_camera")
+    /** 是否安装摄像头：0=否，1=是 */
     private Boolean hasCamera = false;
 
     @Column(name = "camera_auth_until")
+    /** 摄像头授权到期时间（epoch 毫秒），0 表示未授权 */
     private Long cameraAuthUntil = 0L;
 
+    @Column(name = "camera_auth_type")
+    /** 已授权摄像头类型：door / living / bedroom */
+    private String cameraAuthType;
+
     @Column(name = "camera_pending")
+    /** 是否有待审批的监控申请 */
     private Boolean cameraPending = false;
 
     @Column(name = "last_online")
-    /** 是否在线 */
+    /** 最后在线时间 */
     private LocalDateTime lastOnline;
 
     @Column(name = "created_at")
-    /** 记录创建时间 */
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
-    /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    @Column(name = "updated_at")
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     /**
@@ -189,17 +205,17 @@ public class ElderUser {
     public void setBuilding(String building) { this.building = building; }
 
     /**
-     * 获取房间名称/编号。
+     * 获取房号。
      *
-     * @return 房间名称/编号
+     * @return 房号
      */
-    public String getRoomNumber() { return roomNumber; }
+    public String getRoom() { return room; }
     /**
-     * 设置房间名称/编号。
+     * 设置房号。
      *
-     * @param roomNumber 房间名称/编号
+     * @param room 房号
      */
-    public void setRoomNumber(String roomNumber) { this.roomNumber = roomNumber; }
+    public void setRoom(String room) { this.room = room; }
 
     /**
      * 获取手机号。
@@ -279,6 +295,12 @@ public class ElderUser {
      */
     public void setFamilyPhone(String familyPhone) { this.familyPhone = familyPhone; }
 
+    public String getContactName() { return contactName; }
+    public void setContactName(String contactName) { this.contactName = contactName; }
+
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+
     /**
      * 获取所属社区/机构 ID。
      *
@@ -319,17 +341,20 @@ public class ElderUser {
     public void setHasCamera(Boolean hasCamera) { this.hasCamera = hasCamera; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取摄像头授权到期时间。
      *
-     * @return 字段含义待补充
+     * @return 摄像头授权到期时间
      */
     public Long getCameraAuthUntil() { return cameraAuthUntil; }
     /**
-     * 设置字段含义待补充。
+     * 设置摄像头授权到期时间（epoch 毫秒）。
      *
-     * @param cameraAuthUntil 字段含义待补充
+     * @param cameraAuthUntil 摄像头授权到期时间
      */
     public void setCameraAuthUntil(Long cameraAuthUntil) { this.cameraAuthUntil = cameraAuthUntil; }
+
+    public String getCameraAuthType() { return cameraAuthType; }
+    public void setCameraAuthType(String cameraAuthType) { this.cameraAuthType = cameraAuthType; }
 
     /**
      * 获取字段含义待补充。
@@ -371,15 +396,15 @@ public class ElderUser {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     /**
-     * 获取记录最后更新时间。
+     * 获取更新时间。
      *
-     * @return 记录最后更新时间
+     * @return 更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
-     * 设置记录最后更新时间。
+     * 设置更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

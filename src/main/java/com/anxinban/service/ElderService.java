@@ -37,7 +37,7 @@ public class ElderService {
     public ElderDto createElder(ElderDto elder) {
         ElderUser entity = convertToEntity(elder);
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         ElderUser saved = elderUserRepository.save(entity);
         return convertToDto(saved);
     }
@@ -62,7 +62,7 @@ public class ElderService {
         List<ElderDto> filtered = entities.stream()
                 .filter(e -> name == null || name.isEmpty() || (e.getName() != null && e.getName().contains(name)))
                 .filter(e -> building == null || building.isEmpty() || building.equals(e.getBuilding()))
-                .filter(e -> roomNumber == null || roomNumber.isEmpty() || (e.getRoomNumber() != null && e.getRoomNumber().contains(roomNumber)))
+                .filter(e -> roomNumber == null || roomNumber.isEmpty() || (e.getRoom() != null && e.getRoom().contains(roomNumber)))
                 .filter(e -> healthStatus == null || healthStatus.isEmpty() || healthStatus.equals(e.getHealthStatus()))
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -86,7 +86,7 @@ public class ElderService {
         if (update.getAge() != null) existing.setAge(update.getAge());
         if (update.getAddress() != null) existing.setAddress(update.getAddress());
         if (update.getBuilding() != null) existing.setBuilding(update.getBuilding());
-        if (update.getRoomNumber() != null) existing.setRoomNumber(update.getRoomNumber());
+        if (update.getRoom() != null) existing.setRoom(update.getRoom());
         if (update.getPhone() != null) existing.setPhone(update.getPhone());
         if (update.getHealthNote() != null) existing.setHealthNote(update.getHealthNote());
         if (update.getHealthStatus() != null) existing.setHealthStatus(update.getHealthStatus());
@@ -98,7 +98,7 @@ public class ElderService {
         if (update.getCameraAuthUntil() != null) existing.setCameraAuthUntil(update.getCameraAuthUntil());
         if (update.getCameraPending() != null) existing.setCameraPending(update.getCameraPending());
         if (update.getTags() != null) existing.setHealthNote(update.getTags().stream().collect(Collectors.joining(",")));
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         ElderUser saved = elderUserRepository.save(existing);
         return convertToDto(saved);
     }
@@ -130,7 +130,7 @@ public class ElderService {
         dto.setGender(entity.getGender());
         dto.setAddress(entity.getAddress());
         dto.setBuilding(entity.getBuilding());
-        dto.setRoomNumber(entity.getRoomNumber());
+        dto.setRoom(entity.getRoom());
         dto.setPhone(entity.getPhone());
         dto.setHealthNote(entity.getHealthNote());
         dto.setHealthStatus(entity.getHealthStatus());
@@ -161,7 +161,7 @@ public class ElderService {
         entity.setGender(dto.getGender());
         entity.setAddress(dto.getAddress());
         entity.setBuilding(dto.getBuilding());
-        entity.setRoomNumber(dto.getRoomNumber());
+        entity.setRoom(dto.getRoom());
         entity.setPhone(dto.getPhone());
         entity.setHealthNote(dto.getHealthNote() != null ? dto.getHealthNote() : dto.getHealthStatus());
         entity.setHealthStatus(dto.getHealthStatus());

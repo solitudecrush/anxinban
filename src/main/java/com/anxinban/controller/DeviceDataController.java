@@ -136,11 +136,11 @@ public class DeviceDataController {
         Page<AlarmEvent> events;
 
         if (alarmType != null && !alarmType.isEmpty()) {
-            events = alarmEventRepository.findByAlarmType(alarmType, pageable);
+            events = alarmEventRepository.findByType(alarmType, pageable);
         } else if (alarmLevel != null && !alarmLevel.isEmpty()) {
-            events = alarmEventRepository.findByAlarmLevel(alarmLevel, pageable);
+            events = alarmEventRepository.findByRiskLevel(alarmLevel, pageable);
         } else if (alarmStatus != null && !alarmStatus.isEmpty()) {
-            events = alarmEventRepository.findByAlarmStatus(alarmStatus, pageable);
+            events = alarmEventRepository.findByStatus(alarmStatus, pageable);
         } else {
             events = alarmEventRepository.findAll(pageable);
         }

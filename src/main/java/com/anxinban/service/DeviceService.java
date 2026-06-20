@@ -49,9 +49,9 @@ public class DeviceService {
         }
         Device entity = convertToEntity(device);
         entity.setStatus(device.getStatus() == null ? "online" : device.getStatus());
-        entity.setLastOnlineTime(device.getLastHeartbeat() != null ? LocalDateTime.parse(device.getLastHeartbeat().substring(0, 19)) : LocalDateTime.now());
+        entity.setLastOnline(device.getLastHeartbeat() != null ? LocalDateTime.parse(device.getLastHeartbeat().substring(0, 19)) : LocalDateTime.now());
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
         Device saved = deviceRepository.save(entity);
         return convertToDto(saved);
     }
@@ -76,7 +76,7 @@ public class DeviceService {
         if (status != null && !status.isEmpty()) {
             entities = deviceRepository.findByStatus(status);
         } else if (deviceType != null && !deviceType.isEmpty()) {
-            entities = deviceRepository.findByDeviceType(deviceType);
+            entities = deviceRepository.findByType(deviceType);
         } else if (location != null && !location.isEmpty()) {
             entities = deviceRepository.findByLocation(location);
         } else {
@@ -113,9 +113,9 @@ public class DeviceService {
             existing.setStatus(status);
         }
         if (lastHeartbeat != null) {
-            existing.setLastOnlineTime(LocalDateTime.parse(lastHeartbeat.substring(0, 19)));
+            existing.setLastOnline(LocalDateTime.parse(lastHeartbeat.substring(0, 19)));
         }
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         Device saved = deviceRepository.save(existing);
         return convertToDto(saved);
     }
@@ -194,14 +194,14 @@ public class DeviceService {
         DeviceDto dto = new DeviceDto();
         dto.setDeviceId(entity.getDeviceId());
         dto.setElderId(entity.getElderId());
-        dto.setDeviceType(entity.getDeviceType());
-        dto.setDeviceName(entity.getDeviceName());
+        dto.setType(entity.getType());
+        dto.setName(entity.getName());
         dto.setLocation(entity.getLocation());
         dto.setBuilding(entity.getBuilding());
         dto.setRoom(entity.getRoom());
         dto.setStatus(entity.getStatus());
-        dto.setBatteryLevel(entity.getBatteryLevel());
-        dto.setLastHeartbeat(entity.getLastOnlineTime() != null ? entity.getLastOnlineTime().toString() : null);
+        dto.setBattery(entity.getBattery());
+        dto.setLastHeartbeat(entity.getLastOnline() != null ? entity.getLastOnline().toString() : null);
         if (entity.getElderId() != null) {
             var elder = elderUserRepository.findByElderId(entity.getElderId());
             if (elder != null) {
@@ -220,13 +220,13 @@ public class DeviceService {
         Device entity = new Device();
         entity.setDeviceId(dto.getDeviceId());
         entity.setElderId(dto.getElderId());
-        entity.setDeviceType(dto.getDeviceType());
-        entity.setDeviceName(dto.getDeviceName());
+        entity.setType(dto.getType());
+        entity.setName(dto.getName());
         entity.setLocation(dto.getLocation());
         entity.setBuilding(dto.getBuilding());
         entity.setRoom(dto.getRoom());
         entity.setStatus(dto.getStatus());
-        entity.setBatteryLevel(dto.getBatteryLevel());
+        entity.setBattery(dto.getBattery());
         return entity;
     }
 

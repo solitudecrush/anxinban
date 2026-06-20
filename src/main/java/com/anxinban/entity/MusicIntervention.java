@@ -2,7 +2,7 @@ package com.anxinban.entity;
 
 
 /**
- * MusicIntervention 实体类，对应数据库中的一张业务表。
+ * VoicePrompt 实体类 — 语音/音乐疗法提醒表（voice_prompt）
  *
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
@@ -12,7 +12,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "music_intervention")
+@Table(name = "voice_prompt")
 public class MusicIntervention {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,21 +27,29 @@ public class MusicIntervention {
     /** 关联老人用户 ID */
     private String elderId;
 
-    @Column(name = "trigger_reason")
-    /** 字段含义待补充 */
-    private String triggerReason;
+    @Column(name = "reason")
+    /** 触发原因 */
+    private String reason;
 
     @Column(name = "music_type")
     /** 类型标识 */
     private String musicType;
 
-    @Column(name = "start_time")
-    /** 开始时间 */
-    private LocalDateTime startTime;
+    @Column(name = "music")
+    /** 音乐/音频名称 */
+    private String music;
 
-    @Column(name = "duration_minutes")
-    /** 字段含义待补充 */
-    private Integer durationMinutes;
+    @Column(name = "prompt_time")
+    /** 提醒时间 */
+    private LocalDateTime promptTime;
+
+    @Column(name = "duration")
+    /** 持续时间（分钟） */
+    private Integer duration;
+
+    @Column(name = "closed")
+    /** 是否已关闭 */
+    private Boolean closed = false;
 
     @Column(name = "before_state")
     /** 字段含义待补充 */
@@ -58,9 +66,9 @@ public class MusicIntervention {
     /** 记录创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "update_time")
+    @Column(name = "updated_at")
     /** 记录最后更新时间 */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedAt;
 
     // Getters and Setters
     /**
@@ -103,17 +111,17 @@ public class MusicIntervention {
     public void setElderId(String elderId) { this.elderId = elderId; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取触发原因。
      *
-     * @return 字段含义待补充
+     * @return 触发原因
      */
-    public String getTriggerReason() { return triggerReason; }
+    public String getReason() { return reason; }
     /**
-     * 设置字段含义待补充。
+     * 设置触发原因。
      *
-     * @param triggerReason 字段含义待补充
+     * @param reason 触发原因
      */
-    public void setTriggerReason(String triggerReason) { this.triggerReason = triggerReason; }
+    public void setReason(String reason) { this.reason = reason; }
 
     /**
      * 获取类型标识。
@@ -128,31 +136,37 @@ public class MusicIntervention {
      */
     public void setMusicType(String musicType) { this.musicType = musicType; }
 
-    /**
-     * 获取开始时间。
-     *
-     * @return 开始时间
-     */
-    public LocalDateTime getStartTime() { return startTime; }
-    /**
-     * 设置开始时间。
-     *
-     * @param startTime 开始时间
-     */
-    public void setStartTime(LocalDateTime startTime) { this.startTime = startTime; }
+    public String getMusic() { return music; }
+    public void setMusic(String music) { this.music = music; }
 
     /**
-     * 获取字段含义待补充。
+     * 获取提醒时间。
      *
-     * @return 字段含义待补充
+     * @return 提醒时间
      */
-    public Integer getDurationMinutes() { return durationMinutes; }
+    public LocalDateTime getPromptTime() { return promptTime; }
     /**
-     * 设置字段含义待补充。
+     * 设置提醒时间。
      *
-     * @param durationMinutes 字段含义待补充
+     * @param promptTime 提醒时间
      */
-    public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+    public void setPromptTime(LocalDateTime promptTime) { this.promptTime = promptTime; }
+
+    /**
+     * 获取持续时间（分钟）。
+     *
+     * @return 持续时间
+     */
+    public Integer getDuration() { return duration; }
+    /**
+     * 设置持续时间（分钟）。
+     *
+     * @param duration 持续时间
+     */
+    public void setDuration(Integer duration) { this.duration = duration; }
+
+    public Boolean getClosed() { return closed; }
+    public void setClosed(Boolean closed) { this.closed = closed; }
 
     /**
      * 获取字段含义待补充。
@@ -211,11 +225,11 @@ public class MusicIntervention {
      *
      * @return 记录最后更新时间
      */
-    public LocalDateTime getUpdateTime() { return updateTime; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

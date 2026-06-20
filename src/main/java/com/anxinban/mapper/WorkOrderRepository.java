@@ -10,8 +10,10 @@ package com.anxinban.mapper;
 
 import com.anxinban.entity.WorkOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -22,4 +24,12 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long> {
     List<WorkOrder> findByHandlerId(String handlerId);
     List<WorkOrder> findByServiceRequestId(String serviceRequestId);
     List<WorkOrder> findByElderIdOrderByCreatedAtDesc(String elderId);
+
+    /**
+     * 统计指定时间之后创建的工单数量（用于本月工单统计）。
+     *
+     * @param since 起始时间
+     * @return 工单数量
+     */
+    long countByCreatedAtAfter(LocalDateTime since);
 }

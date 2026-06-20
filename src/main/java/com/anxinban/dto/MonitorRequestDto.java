@@ -32,7 +32,7 @@ public class MonitorRequestDto {
     /** 记录创建时间 */
     private String createTime;
     /** 记录最后更新时间 */
-    private String updateTime;
+    private String updatedAt;
 
     /**
      * 获取唯一标识，主键。
@@ -237,16 +237,16 @@ public class MonitorRequestDto {
      *
      * @return 记录最后更新时间
      */
-    public String getUpdateTime() {
-        return updateTime;
+    public String getUpdatedAt() {
+        return updatedAt;
     }
 
     /**
      * 设置记录最后更新时间。
      *
-     * @param updateTime 记录最后更新时间
+     * @param updatedAt 记录最后更新时间
      */
-    public void setUpdateTime(String updateTime) {
-        this.updateTime = updateTime;
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

@@ -29,10 +29,10 @@ public class DeviceDto {
     private String elderName;
 
     /** 设备类型，如 BLOOD_PRESSURE、FALL_DETECTOR、CAMERA 等，必填，示例：BLOOD_PRESSURE */
-    private String deviceType;
+    private String type;
 
     /** 设备名称，示例：客厅血压计 */
-    private String deviceName;
+    private String name;
 
     /** 设备在线状态，如 ONLINE、OFFLINE、FAULT，必填，示例：ONLINE */
     private String status;
@@ -50,7 +50,7 @@ public class DeviceDto {
     private String room;
 
     /** 设备电池电量百分比，取值范围 0-100，示例：85 */
-    private Integer batteryLevel;
+    private Integer battery;
 
     /** 当前已连接的子设备数量，适用于网关类设备，示例：3 */
     private Integer connectedDevices;
@@ -117,17 +117,17 @@ public class DeviceDto {
      *
      * @return 设备类型
      */
-    public String getDeviceType() {
-        return deviceType;
+    public String getType() {
+        return type;
     }
 
     /**
      * 设置设备类型。
      *
-     * @param deviceType 设备类型
+     * @param type 设备类型
      */
-    public void setDeviceType(String deviceType) {
-        this.deviceType = deviceType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     /**
@@ -135,17 +135,17 @@ public class DeviceDto {
      *
      * @return 设备名称
      */
-    public String getDeviceName() {
-        return deviceName;
+    public String getName() {
+        return name;
     }
 
     /**
      * 设置设备名称。
      *
-     * @param deviceName 设备名称
+     * @param name 设备名称
      */
-    public void setDeviceName(String deviceName) {
-        this.deviceName = deviceName;
+    public void setName(String name) {
+        this.name = name;
     }
 
     /**
@@ -243,17 +243,17 @@ public class DeviceDto {
      *
      * @return 级别
      */
-    public Integer getBatteryLevel() {
-        return batteryLevel;
+    public Integer getBattery() {
+        return battery;
     }
 
     /**
      * 设置级别。
      *
-     * @param batteryLevel 级别
+     * @param battery 级别
      */
-    public void setBatteryLevel(Integer batteryLevel) {
-        this.batteryLevel = batteryLevel;
+    public void setBattery(Integer battery) {
+        this.battery = battery;
     }
 
     /**

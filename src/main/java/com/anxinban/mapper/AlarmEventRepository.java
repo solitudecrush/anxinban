@@ -61,7 +61,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param alarmType 告警类型，例如跌倒、火灾、心率异常等
      * @return 该类型下的告警事件列表；无记录时返回空列表
      */
-    List<AlarmEvent> findByAlarmType(String alarmType);
+    List<AlarmEvent> findByType(String alarmType);
 
     /**
      * 根据告警状态查询告警事件。
@@ -69,7 +69,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param alarmStatus 告警状态，例如待处理、已处理、已忽略等
      * @return 该状态下的告警事件列表；无记录时返回空列表
      */
-    List<AlarmEvent> findByAlarmStatus(String alarmStatus);
+    List<AlarmEvent> findByStatus(String alarmStatus);
 
     /**
      * 根据老年人编号与告警状态联合查询告警事件。
@@ -78,7 +78,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param alarmStatus 告警状态
      * @return 同时满足老年人编号与告警状态的告警事件列表；无记录时返回空列表
      */
-    List<AlarmEvent> findByElderIdAndAlarmStatus(String elderId, String alarmStatus);
+    List<AlarmEvent> findByElderIdAndStatus(String elderId, String alarmStatus);
 
     /**
      * 根据创建时间区间查询告警事件。
@@ -111,13 +111,21 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
     long countByElderIdAndIsRead(String elderId, Boolean isRead);
 
     /**
+     * 统计指定状态的所有告警事件数量。
+     *
+     * @param alarmStatus 告警状态
+     * @return 符合条件的告警事件数量
+     */
+    long countByStatus(String alarmStatus);
+
+    /**
      * 根据告警类型与告警状态联合查询告警事件。
      *
      * @param alarmType   告警类型
      * @param alarmStatus 告警状态
      * @return 同时满足告警类型与状态的告警事件列表；无记录时返回空列表
      */
-    List<AlarmEvent> findByAlarmTypeAndAlarmStatus(String alarmType, String alarmStatus);
+    List<AlarmEvent> findByTypeAndStatus(String alarmType, String alarmStatus);
 
     /**
      * 根据楼栋编号查询该楼栋下的所有告警事件。
@@ -134,7 +142,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param building  楼栋编号
      * @return 同时满足告警类型与楼栋编号的告警事件列表；无记录时返回空列表
      */
-    List<AlarmEvent> findByAlarmTypeAndBuilding(String alarmType, String building);
+    List<AlarmEvent> findByTypeAndBuilding(String alarmType, String building);
 
     /**
      * 统计指定类型告警在某一时间之后创建的事件数量。
@@ -143,7 +151,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param start     起始时间（不包含该时间之前的记录）
      * @return 符合条件的告警事件数量
      */
-    long countByAlarmTypeAndCreatedAtAfter(String alarmType, LocalDateTime start);
+    long countByTypeAndCreatedAtAfter(String alarmType, LocalDateTime start);
 
     /**
      * 统计某一时间之后创建的所有告警事件数量。
@@ -160,7 +168,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param pageable  分页参数，包含页码、页大小及排序规则
      * @return 符合条件的告警事件分页结果
      */
-    Page<AlarmEvent> findByAlarmType(String alarmType, Pageable pageable);
+    Page<AlarmEvent> findByType(String alarmType, Pageable pageable);
 
     /**
      * 根据告警等级分页查询告警事件。
@@ -169,7 +177,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param pageable   分页参数，包含页码、页大小及排序规则
      * @return 符合条件的告警事件分页结果
      */
-    Page<AlarmEvent> findByAlarmLevel(String alarmLevel, Pageable pageable);
+    Page<AlarmEvent> findByRiskLevel(String alarmLevel, Pageable pageable);
 
     /**
      * 根据告警状态分页查询告警事件。
@@ -178,5 +186,5 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @param pageable    分页参数，包含页码、页大小及排序规则
      * @return 符合条件的告警事件分页结果
      */
-    Page<AlarmEvent> findByAlarmStatus(String alarmStatus, Pageable pageable);
+    Page<AlarmEvent> findByStatus(String alarmStatus, Pageable pageable);
 }

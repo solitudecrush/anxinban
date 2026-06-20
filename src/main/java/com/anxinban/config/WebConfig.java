@@ -29,16 +29,32 @@ public class WebConfig implements WebMvcConfigurer {
      * @param registry Spring 提供的 CORS 注册器，用于添加跨域规则
      */
     @Override
-        /**
-         * addCorsMappings 方法。
-         *
-         * @param registry 字段含义待补充
-         */
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")              // 只对 /api/ 开头的接口启用跨域
-                .allowedOrigins("*")                // 允许任意来源（生产环境请改为具体域名）
+                .allowedOriginPatterns(
+                    // 正式域名
+                    "http://elderlyweb.cn",
+                    "https://elderlyweb.cn",
+                    // 本地开发
+                    "http://localhost:*",
+                    "https://localhost:*",
+                    "http://127.0.0.1:*",
+                    "http://127.0.0.1",
+                    // 服务器 IP
+                    "http://120.27.129.78:*",
+                    "http://120.27.129.78",
+                    // EdgeOne CDN 临时域名（支持多级子域名，后续可能会变）
+                    "https://*.edgeone.cool",
+                    "https://*.*.edgeone.cool",
+                    "https://*.*.*.edgeone.cool",
+                    "https://webadmin-dp2zudh6dpbn.zh-cn.edgeone.cool",
+                    // EdgeOne Pages 预览域名
+                    "https://*.edgeone.app",
+                    "https://*.*.edgeone.app"
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 允许的 HTTP 方法
                 .allowedHeaders("*")                // 允许任意请求头
+                .allowCredentials(true)
                 .maxAge(3600);                      // 预检请求缓存 1 小时
     }
 }

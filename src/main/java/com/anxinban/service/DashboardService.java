@@ -45,11 +45,11 @@ public class DashboardService {
         dto.setElderTotal(elderUserRepository.count());
         LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
         dto.setTodayAlarmCount(alarmEventRepository.countByCreatedAtAfter(todayStart));
-        dto.setTodayIntrusionCount(alarmEventRepository.countByAlarmTypeAndCreatedAtAfter("intrusion", todayStart));
+        dto.setTodayIntrusionCount(alarmEventRepository.countByTypeAndCreatedAtAfter("intrusion", todayStart));
         dto.setOnlineDeviceCount(deviceRepository.findAll().stream().filter(d -> "online".equals(d.getStatus())).count());
         dto.setPendingOrderCount(workOrderRepository.findAll().stream().filter(o -> "待分配".equals(o.getStatus())).count());
         dto.setHealthAbnormalCount(alarmEventRepository.findAll().stream()
-                .filter(a -> a.getAlarmType() != null && (a.getAlarmType().contains("heart_rate") || a.getAlarmType().contains("blood_pressure") || a.getAlarmType().contains("temperature") || a.getAlarmType().contains("fall") || a.getAlarmType().contains("inactive")))
+                .filter(a -> a.getType() != null && (a.getType().contains("heart_rate") || a.getType().contains("blood_pressure") || a.getType().contains("temperature") || a.getType().contains("fall") || a.getType().contains("inactive")))
                 .filter(a -> a.getCreatedAt() != null && a.getCreatedAt().isAfter(todayStart))
                 .map(a -> a.getElderId())
                 .distinct()

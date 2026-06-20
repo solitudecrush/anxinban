@@ -42,7 +42,7 @@ public class HealthRecordService {
         if (dto.getCommonMedications() != null) existing.setCommonMedications(dto.getCommonMedications());
         if (dto.getBloodType() != null) existing.setBloodType(dto.getBloodType());
         if (dto.getRemarks() != null) existing.setRemarks(dto.getRemarks());
-        existing.setUpdateTime(LocalDateTime.now());
+        existing.setUpdatedAt(LocalDateTime.now());
         HealthRecord saved = healthRecordRepository.save(existing);
         return convertToDto(saved);
     }

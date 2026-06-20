@@ -16,7 +16,7 @@ public class NotificationDto {
     /** 类型标识 */
     private String userType;
     /** 类型标识 */
-    private String notificationType;
+    private String type;
     /** 标题 */
     private String title;
     /** 内容 */
@@ -97,17 +97,17 @@ public class NotificationDto {
      *
      * @return 类型标识
      */
-    public String getNotificationType() {
-        return notificationType;
+    public String getType() {
+        return type;
     }
 
     /**
      * 设置类型标识。
      *
-     * @param notificationType 类型标识
+     * @param type 类型标识
      */
-    public void setNotificationType(String notificationType) {
-        this.notificationType = notificationType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     /**

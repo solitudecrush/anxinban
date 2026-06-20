@@ -32,7 +32,7 @@ public class ElderDto {
     /** 字段含义待补充 */
     private String building;
     /** 房间名称/编号 */
-    private String roomNumber;
+    private String room;
     /** 字段含义待补充 */
     private String healthNote;
     /** 手机号 */
@@ -235,17 +235,17 @@ public class ElderDto {
      *
      * @return 房间名称/编号
      */
-    public String getRoomNumber() {
-        return roomNumber;
+    public String getRoom() {
+        return room;
     }
 
     /**
      * 设置房间名称/编号。
      *
-     * @param roomNumber 房间名称/编号
+     * @param room 房间名称/编号
      */
-    public void setRoomNumber(String roomNumber) {
-        this.roomNumber = roomNumber;
+    public void setRoom(String room) {
+        this.room = room;
     }
 
     /**
