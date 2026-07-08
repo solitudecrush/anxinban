@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_shell.dart';
+import 'config/api_config.dart';
 import 'screens/auth_screen.dart';
 import 'services/api_service.dart';
 import 'state/nav_controller.dart';
@@ -46,12 +47,30 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   void initState() {
     super.initState();
-    _checkLogin();
+    _initAndCheck();
   }
 
-  Future<void> _checkLogin() async {
+  Future<void> _initAndCheck() async {
+    // 1. 加载已保存的 API 服务器地址
+    await ApiConfig.init();
+
+    // 2. 检查登录状态
     final prefs = await SharedPreferences.getInstance();
     final loggedIn = prefs.getBool('app_is_logged_in') ?? false;
+
+    // 3. 如果已登录，恢复 accessToken 和 userId 到 ApiService 中
+    if (loggedIn && mounted) {
+      final token = prefs.getString('app_access_token');
+      final userId = prefs.getString('app_user_id');
+      final api = context.read<ApiService>();
+      if (token != null && token.isNotEmpty) {
+        api.setToken(token);
+      }
+      if (userId != null && userId.isNotEmpty) {
+        api.setUserId(userId);
+      }
+    }
+
     if (mounted) {
       setState(() => _isLoggedIn = loggedIn);
     }

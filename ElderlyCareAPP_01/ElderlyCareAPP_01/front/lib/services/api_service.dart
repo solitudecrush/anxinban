@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-// import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 import '../config/api_config.dart';
 import '../models/ai_analysis.dart';
@@ -50,6 +51,13 @@ class ApiService {
 
   final _client = http.Client();
   String? _accessToken;
+  String? _userId; // 当前登录用户 ID（family 用户即为 familyId）
+
+  /// 当前登录令牌（供外部读取，如 main.dart 恢复登录状态）
+  String? get accessToken => _accessToken;
+
+  /// 当前登录用户 ID
+  String? get userId => _userId;
 
   // ---------- 基础请求封装 ----------
 
@@ -122,24 +130,34 @@ class ApiService {
 
   // ---------- 认证模块 ----------
 
+  /// App 端家属登录（使用新端点 /api/auth/login/app）
   Future<Map<String, dynamic>> login(String phone, String password, {String userType = 'family'}) async {
-    final resp = await _post('/api/auth/login', body: {
+    final resp = await _post('/api/auth/login/app', body: {
       'phone': phone,
       'password': password,
-      'userType': userType,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
     if (data != null && data['accessToken'] != null) {
       _accessToken = data['accessToken'] as String;
+      _userId = data['userId'] as String?;
     }
     return data ?? {};
   }
 
   Future<Map<String, dynamic>> register(Map<String, dynamic> data) async {
-    final resp = await _post('/api/auth/register', body: data);
+    final resp = await _post('/api/auth/register', body: {
+      'phone': data['phone'],
+      'password': data['password'],
+      'name': data['name'] ?? data['phone'],
+      'verifyCode': data['verifyCode'],
+      'userType': data['userType'] ?? 'family',
+      if (data['elderId'] != null) 'elderId': data['elderId'],
+      if (data['relation'] != null) 'relation': data['relation'],
+    });
     final result = _extractData(resp) as Map<String, dynamic>?;
     if (result != null && result['accessToken'] != null) {
       _accessToken = result['accessToken'] as String;
+      _userId = result['userId'] as String?;
     }
     return result ?? {};
   }
@@ -156,15 +174,96 @@ class ApiService {
       await _post('/api/auth/logout');
     } catch (_) {}
     _accessToken = null;
+    _userId = null;
   }
 
+  /// 获取当前用户信息。
+  ///
+  /// 注意：后端 /api/auth/me 仅查询 staff 表，family 用户会返回 404。
+  /// family 用户应使用登录时返回的 LoginResponse 中的信息。
   Future<Map<String, dynamic>> fetchCurrentUser(String phone) async {
-    final resp = await _get('/api/auth/me', queryParams: {'phone': phone});
-    return (_extractData(resp) as Map<String, dynamic>?) ?? {};
+    try {
+      final resp = await _get('/api/auth/me', queryParams: {'phone': phone});
+      return (_extractData(resp) as Map<String, dynamic>?) ?? {};
+    } on ApiException {
+      // family 用户查不到 staff 表，返回空（使用方应从登录缓存中获取）
+      return {};
+    }
   }
 
+  /// 从 SharedPreferences 恢复登录令牌（App 启动时调用）
   void setToken(String token) {
     _accessToken = token;
+  }
+
+  /// 从 SharedPreferences 恢复用户 ID（App 启动时调用）
+  void setUserId(String id) {
+    _userId = id;
+  }
+
+  // ---------- 头像上传 ----------
+
+  /// 上传用户头像。
+  ///
+  /// [filePath] 本地图片文件路径（来自 image_picker）。
+  /// [userId] 当前登录用户的 ID。
+  /// [role] 用户角色，默认 "family"。
+  ///
+  /// 返回后端存储的相对路径（如 /uploads/avatars/avatar-xxx.jpg），
+  /// 可通过 [avatarFullUrl] 获取完整访问地址。
+  Future<String> uploadAvatar(String filePath, String userId, {String role = 'family'}) async {
+    final uri = Uri.parse(ApiConfig.baseUrl + '/api/upload/avatar');
+
+    final mimeType = lookupMimeType(filePath) ?? 'image/jpeg';
+    final mediaType = MediaType.parse(mimeType);
+
+    final request = http.MultipartRequest('POST', uri)
+      ..headers.addAll({
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      })
+      ..fields['userId'] = userId
+      ..fields['role'] = role
+      ..files.add(await http.MultipartFile.fromPath('file', filePath, contentType: mediaType));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode >= 500) {
+      throw ApiException('服务器错误 (${response.statusCode})');
+    }
+
+    final jsonBody = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(jsonBody, (d) => d as Map<String, dynamic>);
+
+    if (!apiResp.isSuccess) {
+      throw ApiException(apiResp.message);
+    }
+
+    final data = apiResp.data;
+    return data?['url'] as String? ?? '';
+  }
+
+  /// 删除用户头像（恢复默认头像）。
+  Future<String> deleteAvatar(String userId, {String role = 'family'}) async {
+    final resp = await _delete('/api/upload/avatar', queryParams: {
+      'userId': userId,
+      'role': role,
+    });
+    final data = _extractData(resp) as Map<String, dynamic>?;
+    return data?['url'] as String? ?? '/uploads/avatars/default.png';
+  }
+
+  /// 根据相对路径构建完整的头像访问 URL。
+  ///
+  /// 如果 [relativePath] 为空或 null，返回默认头像 URL。
+  static String avatarFullUrl(String? relativePath) {
+    if (relativePath == null || relativePath.isEmpty) {
+      return '${ApiConfig.baseUrl}/uploads/avatars/default.png';
+    }
+    if (relativePath.startsWith('http')) {
+      return relativePath;
+    }
+    return '${ApiConfig.baseUrl}$relativePath';
   }
 
   // ---------- 老人信息 ----------
@@ -178,7 +277,6 @@ class ApiService {
 
   Future<Profile> fetchProfile() async {
     // App 端当前无独立 profile 接口，从绑定老人信息映射
-    // 如需真实接口，可后续扩展 /api/auth/me
     return const Profile(
       name: '曾姐',
       age: 76,
@@ -189,14 +287,15 @@ class ApiService {
   }
 
   Future<Profile> patchProfileField(String field, String value) async {
-    // 本地兼容，后续可对接真实接口
     return fetchProfile();
   }
 
   // ---------- 体征数据 ----------
 
+  /// 获取老人最新体征数据。
+  /// 使用 /api/elder/{elderId}/health/realtime，返回 HealthLatestDto (camelCase)。
   Future<LatestVitals> fetchLatestVitals({String elderId = '100'}) async {
-    final resp = await _get('/api/health/latest/$elderId');
+    final resp = await _get('/api/elder/$elderId/health/realtime');
     final data = _extractData(resp) as Map<String, dynamic>?;
     if (data == null) {
       return LatestVitals(
@@ -216,22 +315,78 @@ class ApiService {
     );
   }
 
+  /// 获取体征历史数据。
+  ///
+  /// 使用 /api/health-vital/list 获取综合体征记录（每条记录包含全部体征），
+  /// 然后按 period 计算日期范围过滤，按 measuredAt 分组。
   Future<VitalsHistory> fetchHistory(String period, {String elderId = '100'}) async {
+    try {
+      final now = DateTime.now();
+      String start;
+      switch (period) {
+        case 'day':
+          start = '${now.year}-${_pad(now.month)}-${_pad(now.day)} 00:00:00';
+          break;
+        case 'month':
+          final monthAgo = now.subtract(const Duration(days: 30));
+          start = '${monthAgo.year}-${_pad(monthAgo.month)}-${_pad(monthAgo.day)} 00:00:00';
+          break;
+        default: // week
+          final weekAgo = now.subtract(const Duration(days: 7));
+          start = '${weekAgo.year}-${_pad(weekAgo.month)}-${_pad(weekAgo.day)} 00:00:00';
+      }
+      final end = '${now.year}-${_pad(now.month)}-${_pad(now.day)} 23:59:59';
+
+      final resp = await _get('/api/health-vital/list', queryParams: {
+        'elderId': elderId,
+        'start': start,
+        'end': end,
+      });
+      final data = _extractData(resp);
+      if (data is List && data.isNotEmpty) {
+        final points = <VitalsHistoryPoint>[];
+        for (final r in data) {
+          final m = r as Map<String, dynamic>;
+          points.add(VitalsHistoryPoint(
+            label: _formatTimeShort(m['measuredAt'] ?? m['createdAt']),
+            temperature: (m['temperature'] as num?)?.toDouble(),
+            heartRate: (m['heartRate'] as num?)?.toInt(),
+            systolic: (m['systolic'] as num?)?.toInt(),
+            diastolic: (m['diastolic'] as num?)?.toInt(),
+          ));
+        }
+        if (points.isNotEmpty) {
+          return VitalsHistory(period: period, points: points);
+        }
+      }
+    } catch (_) {
+      // 后端无数据或接口不可用时回退 mock
+    }
+    return _mockHistory[period] ?? _mockHistory['week']!;
+  }
+
+  /// 获取单项体征趋势。
+  ///
+  /// 使用 /api/elder/{elderId}/health/history，返回 HealthTrendDto。
+  /// HealthTrendDto.data 是 List<HealthTrendItemDto>，每项含 time/value/systolic/diastolic。
+  Future<VitalsHistory> fetchTrend({String elderId = '100', String? type, String period = 'week'}) async {
+    final vitalType = type ?? 'heart_rate';
     final resp = await _get('/api/elder/$elderId/health/history', queryParams: {
-      'type': 'heart_rate',
+      'type': vitalType,
       'range': period,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
     final points = <VitalsHistoryPoint>[];
-    if (data != null && data['points'] is List) {
-      for (final p in data['points'] as List) {
+    if (data != null && data['data'] is List) {
+      for (final p in data['data'] as List) {
         final m = p as Map<String, dynamic>;
+        final isBP = vitalType == 'blood_pressure';
         points.add(VitalsHistoryPoint(
-          label: m['label'] as String? ?? '',
-          temperature: (m['temperature'] as num?)?.toDouble() ?? 0,
-          heartRate: (m['heartRate'] as num?)?.toInt() ?? 0,
-          systolic: (m['systolic'] as num?)?.toInt() ?? 0,
-          diastolic: (m['diastolic'] as num?)?.toInt() ?? 0,
+          label: m['time'] as String? ?? '',
+          temperature: isBP ? null : (vitalType == 'temperature' ? (m['value'] as num?)?.toDouble() : null),
+          heartRate: isBP ? null : (vitalType == 'heart_rate' ? (m['value'] as num?)?.toInt() : null),
+          systolic: (m['systolic'] as num?)?.toInt(),
+          diastolic: (m['diastolic'] as num?)?.toInt(),
         ));
       }
     }
@@ -241,53 +396,27 @@ class ApiService {
     return VitalsHistory(period: period, points: points);
   }
 
-  Future<VitalsHistory> fetchTrend({String elderId = '100', String? type, String period = 'week'}) async {
-    final resp = await _get('/api/health/trend/$elderId', queryParams: {
-      if (type != null) 'type': type,
-      'period': period,
-    });
-    final data = _extractData(resp) as Map<String, dynamic>?;
-    final points = <VitalsHistoryPoint>[];
-    if (data != null && data['points'] is List) {
-      for (final p in data['points'] as List) {
-        final m = p as Map<String, dynamic>;
-        points.add(VitalsHistoryPoint(
-          label: m['label'] as String? ?? '',
-          temperature: (m['temperature'] as num?)?.toDouble() ?? 0,
-          heartRate: (m['heartRate'] as num?)?.toInt() ?? 0,
-          systolic: (m['systolic'] as num?)?.toInt() ?? 0,
-          diastolic: (m['diastolic'] as num?)?.toInt() ?? 0,
-        ));
-      }
-    }
-    if (points.isEmpty) {
-      return _mockHistory[period] ?? _mockHistory['week']!;
-    }
-    return VitalsHistory(period: period, points: points);
-  }
-
+  /// AI 健康分析。
+  ///
+  /// 注意：后端 HealthAnalysisDto 已定义但未通过 REST 端点暴露。
+  /// 当前始终返回 mock 分析数据。
   Future<AiAnalysis> analyzeAi({String elderId = '100', String period = 'week'}) async {
-    final resp = await _get('/api/health/analysis/$elderId', queryParams: {'period': period});
-    final data = _extractData(resp) as Map<String, dynamic>?;
-    if (data == null) {
-      return _mockAi[period] ?? _mockAi['week']!;
-    }
-    return AiAnalysis(
-      summary: data['summary'] as String? ?? '',
-      suggestion: data['suggestion'] as String? ?? '',
-      fromLlm: false,
-    );
+    // 后端 /api/health/analysis 端点不存在，使用本地 mock
+    return _mockAi[period] ?? _mockAi['week']!;
   }
 
   // ---------- 告警 ----------
 
+  /// 获取告警列表。
+  /// 后端返回 PageResult<AlarmDto>（data.list）。
   Future<List<AlertItem>> fetchAlerts({String elderId = '100'}) async {
     final resp = await _get('/api/alarm/list', queryParams: {
-      if (elderId != null) 'elderId': elderId,
+      'elderId': elderId,
       'page': '1',
       'pageSize': '50',
     });
     final data = _extractData(resp);
+    // data 可能是 PageResult（含 list 字段）或直接是 List
     final list = (data is Map && data['list'] is List)
         ? data['list'] as List
         : (data is List ? data : <dynamic>[]);
@@ -309,15 +438,18 @@ class ApiService {
     return (data?['count'] as num?)?.toInt() ?? 0;
   }
 
+  /// 将 AlarmDto (camelCase) 转为 AlertItem
   AlertItem _convertAlarm(Map<String, dynamic> m) {
-    String typeRaw = (m['alarmType'] as String? ?? '').toUpperCase();
+    final typeRaw = (m['alarmType'] as String? ?? '').toUpperCase();
     AlertTypeCode type;
-    if (typeRaw.contains('心率')) {
+    if (typeRaw.contains('心率') || typeRaw.contains('HEART')) {
       type = AlertTypeCode.heartRateHigh;
-    } else if (typeRaw.contains('血压')) {
+    } else if (typeRaw.contains('血压') || typeRaw.contains('BLOOD_PRESSURE') || typeRaw.contains('PRESSURE')) {
       type = AlertTypeCode.pressureHigh;
-    } else if (typeRaw.contains('体温') || typeRaw.contains('温度')) {
+    } else if (typeRaw.contains('体温') || typeRaw.contains('温度') || typeRaw.contains('TEMPERATURE')) {
       type = AlertTypeCode.temperatureHigh;
+    } else if (typeRaw.contains('FALL') || typeRaw.contains('跌倒')) {
+      type = AlertTypeCode.heartRateHigh; // 暂无跌倒枚举，归入心率告警
     } else {
       type = AlertTypeCode.heartRateHigh;
     }
@@ -331,28 +463,33 @@ class ApiService {
 
   // ---------- 通知 ----------
 
+  /// 获取通知列表。
+  /// 后端返回 PageResult<NotificationDto>（data.list）。
   Future<List<NotificationItem>> fetchNotifications({
-    String userId = '100',
+    String? userId,
     String userType = 'family',
     int page = 1,
     int pageSize = 20,
   }) async {
+    final uid = userId ?? _userId ?? '100';
     final resp = await _get('/api/notification/list', queryParams: {
-      'userId': userId,
+      'userId': uid,
       'userType': userType,
       'page': page.toString(),
       'pageSize': pageSize.toString(),
     });
     final data = _extractData(resp);
+    // data 可能是 PageResult（含 list 字段）或直接是 List
     final list = (data is Map && data['list'] is List)
         ? data['list'] as List
         : (data is List ? data : <dynamic>[]);
     return list.map((n) => _convertNotification(n as Map<String, dynamic>)).toList();
   }
 
-  Future<int> fetchUnreadNotificationCount({String userId = '100', String userType = 'family'}) async {
+  Future<int> fetchUnreadNotificationCount({String? userId, String userType = 'family'}) async {
+    final uid = userId ?? _userId ?? '100';
     final resp = await _get('/api/notification/unread-count', queryParams: {
-      'userId': userId,
+      'userId': uid,
       'userType': userType,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
@@ -363,10 +500,12 @@ class ApiService {
     await _post('/api/notification/$notificationId/read');
   }
 
+  /// 将 NotificationDto (camelCase) 转为 NotificationItem。
+  /// 后端 NotificationDto.type 对应通知类型。
   NotificationItem _convertNotification(Map<String, dynamic> m) {
     return NotificationItem(
       id: int.tryParse(m['notificationId']?.toString() ?? '') ?? 0,
-      type: _parseNotificationType(m['notificationType'] as String? ?? 'ALERT'),
+      type: _parseNotificationType(m['type'] as String? ?? 'ALERT'),
       title: m['title'] as String? ?? '',
       content: m['content'] as String? ?? '',
       time: _parseDateTime(m['createTime']),
@@ -394,11 +533,14 @@ class ApiService {
 
   // ---------- 监控申请 ----------
 
-  Future<List<CameraRequest>> fetchCameraRequests({String familyId = '100'}) async {
-    final resp = await _get('/api/monitor-request/list/family', queryParams: {'familyId': familyId});
+  /// 获取家属的监控申请列表。
+  /// 后端返回 List<MonitorRequestDto>。
+  Future<List<CameraRequest>> fetchCameraRequests({String? familyId}) async {
+    final fid = familyId ?? _userId ?? '100';
+    final resp = await _get('/api/monitor-request/list/family', queryParams: {'familyId': fid});
     final data = _extractData(resp);
     final list = data is List ? data : <dynamic>[];
-    return list.map((r) => CameraRequest.fromJson(r as Map<String, dynamic>)).toList();
+    return list.map((r) => _convertCameraRequest(r as Map<String, dynamic>)).toList();
   }
 
   Future<void> approveCameraRequest(String requestId) async {
@@ -413,36 +555,62 @@ class ApiService {
     await _post('/api/monitor-request/$requestId/revoke');
   }
 
+  /// 将 MonitorRequestDto 转为 CameraRequest
+  CameraRequest _convertCameraRequest(Map<String, dynamic> m) {
+    return CameraRequest(
+      id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
+      elderName: m['elderName'] as String? ?? '',
+      staffName: m['staffName'] as String? ?? '',
+      staffPhone: m['staffPhone'] as String? ?? '',
+      reason: m['reason'] as String? ?? '',
+      requestTime: _parseDateTime(m['createTime']),
+      status: m['status'] as String? ?? 'pending',
+      expiresAt: _parseDateTimeNullable(m['expiredAt']),
+      approvedAt: _parseDateTimeNullable(m['approvedAt']),
+    );
+  }
+
   // ---------- 服务申请 ----------
 
-  Future<List<ServiceRequest>> fetchServiceRequests({String familyId = '100'}) async {
-    final resp = await _get('/api/service-request/my-list', queryParams: {'familyId': familyId});
+  /// 获取家属的服务申请列表。
+  /// 后端返回 List<ServiceRequestDto>。
+  Future<List<ServiceRequest>> fetchServiceRequests({String? familyId}) async {
+    final fid = familyId ?? _userId ?? '100';
+    final resp = await _get('/api/service-request/my-list', queryParams: {'familyId': fid});
     final data = _extractData(resp);
     final list = data is List ? data : <dynamic>[];
     return list.map((r) => _convertServiceRequest(r as Map<String, dynamic>)).toList();
   }
 
+  /// 提交服务申请。
+  /// 后端 ServiceRequestDto 字段名为 type（非 requestType）。
   Future<void> submitServiceRequest(ServiceRequest request) async {
     await _post('/api/service-request', body: {
-      'requestType': request.type,
+      'type': request.type,
       'content': request.content,
+      if (_userId != null) 'familyId': _userId,
+      if (request.elderName.isNotEmpty) 'elderName': request.elderName,
     });
   }
 
+  /// 将 ServiceRequestDto 转为 ServiceRequest。
+  /// 后端 DTO 字段：requestId, type, content, status, createTime, convertedWorkOrderId, elderName 等。
   ServiceRequest _convertServiceRequest(Map<String, dynamic> m) {
     return ServiceRequest(
       id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
-      type: m['requestType'] as String? ?? '上门看护',
+      type: m['type'] as String? ?? '上门看护',
       elderName: m['elderName'] as String? ?? '曾姐',
       content: m['content'] as String? ?? '',
       requestTime: _parseDateTime(m['createTime']),
       status: m['status'] as String? ?? 'pending',
-      convertedTo: m['relatedOrderId'] as String?,
+      convertedTo: m['convertedWorkOrderId'] as String?,
     );
   }
 
   // ---------- SOS ----------
 
+  /// 触发 SOS 求救。
+  /// 后端 POST /api/sos，body 为 SosDto。
   Future<Map<String, dynamic>> triggerSos(String elderId) async {
     final resp = await _post('/api/sos', body: {
       'sosId': 'SOS-${DateTime.now().millisecondsSinceEpoch}',
@@ -451,6 +619,8 @@ class ApiService {
     return (_extractData(resp) as Map<String, dynamic>?) ?? {};
   }
 
+  /// 获取 SOS 历史记录。
+  /// 后端返回 List<SosDto>（无分页）。
   Future<List<Map<String, dynamic>>> fetchSosHistory(String elderId) async {
     final resp = await _get('/api/sos/list', queryParams: {'elderId': elderId});
     final data = _extractData(resp);
@@ -460,6 +630,8 @@ class ApiService {
 
   // ---------- 紧急联系人 ----------
 
+  /// 获取紧急联系人列表。
+  /// 后端返回 List<EmergencyContactDto>（无分页）。
   Future<List<Map<String, dynamic>>> fetchEmergencyContacts(String elderId) async {
     final resp = await _get('/api/emergency-contact/list', queryParams: {'elderId': elderId});
     final data = _extractData(resp);
@@ -467,6 +639,8 @@ class ApiService {
     return list.cast<Map<String, dynamic>>();
   }
 
+  /// 创建紧急联系人。
+  /// 后端 POST /api/emergency-contact，body 为 EmergencyContactDto。
   Future<Map<String, dynamic>> createEmergencyContact(Map<String, dynamic> data) async {
     final resp = await _post('/api/emergency-contact', body: data);
     return (_extractData(resp) as Map<String, dynamic>?) ?? {};
@@ -526,10 +700,30 @@ class ApiService {
     return DateTime.now();
   }
 
+  DateTime? _parseDateTimeNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      try {
+        return DateTime.parse(value.replaceFirst(' ', 'T'));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   String _formatTime(dynamic value) {
     final dt = _parseDateTime(value);
     return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
+
+  String _formatTimeShort(dynamic value) {
+    final dt = _parseDateTime(value);
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
 

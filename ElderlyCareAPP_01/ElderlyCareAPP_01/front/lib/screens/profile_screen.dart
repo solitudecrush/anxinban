@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,6 +17,8 @@ import '../screens/sos_sim_settings_screen.dart';
 import '../services/api_service.dart';
 import '../services/emergency_contact_store.dart';
 import '../services/sos_sim_store.dart';
+import '../widgets/avatar_picker.dart';
+import '../widgets/avatar_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -98,33 +98,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (c) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
-              onTap: () => Navigator.pop(c, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
-              onTap: () => Navigator.pop(c, ImageSource.camera),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('app_user_id') ?? '100';
+    final role = prefs.getString('app_user_role') ?? 'family';
+
+    final url = await showAvatarPicker(
+      context,
+      userId: userId,
+      role: role,
     );
-    if (source == null) return;
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source);
-    if (picked != null && mounted) {
-      setState(() => _avatarPath = picked.path);
-      await _saveProfile();
+    if (url != null && mounted) {
+      setState(() => _avatarPath = url);
+      await prefs.setString('profile_avatar', url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('头像已更新')),
@@ -554,34 +539,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
-                    _avatarPath != null
-                        ? ClipOval(
-                            child: Image.file(
-                              File(_avatarPath!),
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  CircleAvatar(
-                                radius: 40,
-                                backgroundColor: Colors.grey.shade300,
-                                child: Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          )
-                        : CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.grey.shade300,
-                            child: Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
+                    AvatarWidget(
+                      avatarUrl: _avatarPath,
+                      radius: 40,
+                    ),
                     Container(
                       width: 26,
                       height: 26,

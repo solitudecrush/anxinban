@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_shell.dart';
@@ -152,13 +153,19 @@ class _AuthScreenState extends State<AuthScreen>
     }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       final result = await api.login(phone, pwd, userType: 'family');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('app_is_logged_in', true);
       await prefs.setString('app_login_phone', phone);
       await prefs.setString('app_access_token', result['accessToken'] ?? '');
       await prefs.setString('app_user_id', result['userId'] ?? '');
+      await prefs.setString('app_user_name', result['name'] ?? '');
+      await prefs.setString('app_user_role', result['role'] ?? '');
+      final avatar = result['avatar'];
+      if (avatar != null && avatar is String && avatar.isNotEmpty) {
+        await prefs.setString('profile_avatar', avatar);
+      }
       if (_loginRemember) {
         await prefs.setString('app_login_remember', '$phone|$pwd');
       } else {
@@ -185,7 +192,7 @@ class _AuthScreenState extends State<AuthScreen>
     if (pwd != pwd2) { _showSnack('两次输入的密码不一致'); return; }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.register({
         'name': phone,
         'phone': phone,
@@ -214,7 +221,7 @@ class _AuthScreenState extends State<AuthScreen>
     if (pwd != pwd2) { _showSnack('两次输入的密码不一致'); return; }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.resetPassword(phone, pwd);
       _showSnack('密码重置成功！请登录');
       _loginPhoneCtrl.text = phone;
