@@ -2,7 +2,7 @@ package com.anxinban.entity;
 
 
 /**
- * ServiceRequest 实体类 — 家属服务申请表（family_request）。
+ * ServiceRequest 实体类 — 家属服务申请表（service_request）。
  * 存储家属通过 APP 提交的服务申请。
  *
  * @author 安心伴开发团队
@@ -13,7 +13,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "family_request")
+@Table(name = "service_request")
 public class ServiceRequest {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,29 +28,22 @@ public class ServiceRequest {
     /** 关联家属用户 ID */
     private String familyId;
 
-    @Column(name = "family_name")
-    /** 申请人姓名 */
-    private String familyName;
-
-    @Column(name = "family_phone")
-    /** 申请人电话 */
-    private String familyPhone;
-
     @Column(name = "elder_id", nullable = false)
     /** 关联老人 ID */
     private String elderId;
 
-    @Column(name = "type")
+    @Column(name = "request_type")
     /** 申请类型：上门看护 / 设备维修 / 健康咨询 / 紧急求助 / 生活物资代购 */
     private String type;
 
+    @Column(columnDefinition = "TEXT")
     /** 申请内容 */
     private String content;
 
     /** 处理状态：pending / converted / completed / ignored */
     private String status;
 
-    @Column(name = "converted_work_order_id")
+    @Column(name = "related_order_id")
     /** 转为工单后关联 work_order.id */
     private String convertedWorkOrderId;
 
@@ -58,15 +51,11 @@ public class ServiceRequest {
     /** 拒绝原因 */
     private String rejectReason;
 
-    @Column(name = "request_time")
-    /** 申请时间 */
-    private LocalDateTime requestTime;
-
     @Column(name = "created_at")
     /** 创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "update_time")
     /** 更新时间 */
     private LocalDateTime updatedAt;
 
@@ -108,12 +97,6 @@ public class ServiceRequest {
      * @param familyId 关联家属用户 ID
      */
     public void setFamilyId(String familyId) { this.familyId = familyId; }
-
-    public String getFamilyName() { return familyName; }
-    public void setFamilyName(String familyName) { this.familyName = familyName; }
-
-    public String getFamilyPhone() { return familyPhone; }
-    public void setFamilyPhone(String familyPhone) { this.familyPhone = familyPhone; }
 
     /**
      * 获取关联老人用户 ID。
@@ -192,19 +175,6 @@ public class ServiceRequest {
      * @param rejectReason 拒绝原因
      */
     public void setRejectReason(String rejectReason) { this.rejectReason = rejectReason; }
-
-    /**
-     * 获取申请时间。
-     *
-     * @return 申请时间
-     */
-    public LocalDateTime getRequestTime() { return requestTime; }
-    /**
-     * 设置申请时间。
-     *
-     * @param requestTime 申请时间
-     */
-    public void setRequestTime(LocalDateTime requestTime) { this.requestTime = requestTime; }
 
     /**
      * 获取创建时间。

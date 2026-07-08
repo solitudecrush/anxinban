@@ -21,4 +21,5 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, 
     List<ServiceRequest> findByElderId(String elderId);
     List<ServiceRequest> findByStatus(String status);
     List<ServiceRequest> findByType(String requestType);
+    List<ServiceRequest> findByTypeAndStatus(String requestType, String status);
 }

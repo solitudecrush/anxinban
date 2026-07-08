@@ -1480,6 +1480,323 @@ curl -s "http://120.27.129.78:8080/api/camera-view-record/list?cameraRequestId=m
 
 ---
 
+## 33. 生命体征独立查询（心率 / 血压 / 血氧 / 体温）
+
+> 本组接口基于独立的生命体征数据表（`heart_rate`、`blood_pressure`、`blood_oxygen`、`body_temperature`），
+> 提供按老人查询列表、按时间范围筛选、获取最新记录、以及一键获取四项综合最新数据的能力。
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 148 | 心率列表 | GET | `/api/vital-signs/heart-rate/list?elderId=elder_001` | 查询心率记录 |
+| 149 | 最新心率 | GET | `/api/vital-signs/heart-rate/latest?elderId=elder_001` | 最新心率值 |
+| 150 | 血压列表 | GET | `/api/vital-signs/blood-pressure/list?elderId=elder_001` | 查询血压记录 |
+| 151 | 最新血压 | GET | `/api/vital-signs/blood-pressure/latest?elderId=elder_001` | 最新血压值 |
+| 152 | 血氧列表 | GET | `/api/vital-signs/blood-oxygen/list?elderId=elder_001` | 查询血氧记录 |
+| 153 | 最新血氧 | GET | `/api/vital-signs/blood-oxygen/latest?elderId=elder_001` | 最新血氧值 |
+| 154 | 体温列表 | GET | `/api/vital-signs/body-temperature/list?elderId=elder_001` | 查询体温记录 |
+| 155 | 最新体温 | GET | `/api/vital-signs/body-temperature/latest?elderId=elder_001` | 最新体温值 |
+| 156 | 综合最新体征 | GET | `/api/vital-signs/latest/{elderId}` | 四项体征最新值 |
+
+### 33.1 心率查询
+
+```bash
+# 查询心率列表（全部）
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/list?elderId=elder_001"
+
+# 按时间范围查询心率
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/list?elderId=elder_001&start=2025-04-01T00:00:00&end=2025-05-31T23:59:59"
+
+# 最新心率
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/latest?elderId=elder_001"
+```
+
+**心率列表响应示例**：
+```json
+{
+  "code": 200, "message": "success",
+  "data": [
+    {"id":1, "hrId":"hr_001", "elderId":"elder_001", "value":74, "unit":"次/分",
+     "timestamp":"2025-04-18T06:47:00", "createdAt":"2025-04-18T06:48:00"},
+    {"id":2, "hrId":"hr_002", "elderId":"elder_001", "value":85, "unit":"次/分",
+     "timestamp":"2025-04-21T13:14:00", "createdAt":"2025-04-21T13:15:00"}
+  ]
+}
+```
+
+### 33.2 血压查询
+
+```bash
+# 查询血压列表
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-pressure/list?elderId=elder_001"
+
+# 按时间范围查询
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-pressure/list?elderId=elder_001&start=2025-04-01T00:00:00&end=2025-05-31T23:59:59"
+
+# 最新血压
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-pressure/latest?elderId=elder_001"
+```
+
+**血压列表响应示例**：
+```json
+{
+  "code": 200, "message": "success",
+  "data": [
+    {"id":1, "bpId":"bp_001", "elderId":"elder_001", "systolic":135, "diastolic":85,
+     "timestamp":"2025-05-17T08:30:00", "createdAt":"2025-05-17T08:31:00"},
+    {"id":2, "bpId":"bp_002", "elderId":"elder_001", "systolic":132, "diastolic":84,
+     "timestamp":"2025-05-16T08:30:00", "createdAt":"2025-05-16T08:31:00"}
+  ]
+}
+```
+
+### 33.3 血氧查询
+
+```bash
+# 查询血氧列表
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-oxygen/list?elderId=elder_001"
+
+# 按时间范围查询
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-oxygen/list?elderId=elder_001&start=2025-04-01T00:00:00&end=2025-05-31T23:59:59"
+
+# 最新血氧
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-oxygen/latest?elderId=elder_001"
+```
+
+**血氧列表响应示例**：
+```json
+{
+  "code": 200, "message": "success",
+  "data": [
+    {"id":1, "boId":"bo_001", "elderId":"elder_001", "value":97.9, "unit":"%",
+     "timestamp":"2025-04-18T06:47:00", "createdAt":"2025-04-18T06:48:00"}
+  ]
+}
+```
+
+### 33.4 体温查询
+
+```bash
+# 查询体温列表
+curl -s "http://120.27.129.78:8080/api/vital-signs/body-temperature/list?elderId=elder_001"
+
+# 按时间范围查询
+curl -s "http://120.27.129.78:8080/api/vital-signs/body-temperature/list?elderId=elder_001&start=2025-04-01T00:00:00&end=2025-05-31T23:59:59"
+
+# 最新体温
+curl -s "http://120.27.129.78:8080/api/vital-signs/body-temperature/latest?elderId=elder_001"
+```
+
+**体温列表响应示例**：
+```json
+{
+  "code": 200, "message": "success",
+  "data": [
+    {"id":1, "btId":"bt_001", "elderId":"elder_001", "value":36.3, "unit":"℃",
+     "timestamp":"2025-04-18T06:47:00", "createdAt":"2025-04-18T06:48:00"}
+  ]
+}
+```
+
+### 33.5 综合最新体征（一键获取四项）
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/latest/elder_001"
+```
+
+**响应示例**：
+```json
+{
+  "code": 200, "message": "success",
+  "data": {
+    "elderId": "elder_001",
+    "heartRate": 95,
+    "heartRateUnit": "次/分",
+    "heartRateTime": "2025-05-16T20:34:00",
+    "systolic": 135,
+    "diastolic": 85,
+    "bloodPressureUnit": "mmHg",
+    "bloodPressureTime": "2025-05-17T08:30:00",
+    "bloodOxygen": 100.0,
+    "bloodOxygenUnit": "%",
+    "bloodOxygenTime": "2025-05-16T20:34:00",
+    "bodyTemperature": 36.8,
+    "bodyTemperatureUnit": "℃",
+    "bodyTemperatureTime": "2025-05-16T20:34:00"
+  }
+}
+```
+
+### 33.6 数据库表结构（DDL）
+
+以下为四个独立生命体征表的建表语句：
+
+```sql
+-- ============================================================
+-- 血压记录表 (blood_pressure)
+-- ============================================================
+DROP TABLE IF EXISTS `blood_pressure`;
+CREATE TABLE `blood_pressure` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `bp_id` VARCHAR(50) NOT NULL UNIQUE COMMENT '血压记录业务ID',
+  `elder_id` VARCHAR(50) NOT NULL COMMENT '老人ID',
+  `systolic` INT NOT NULL COMMENT '收缩压',
+  `diastolic` INT NOT NULL COMMENT '舒张压',
+  `timestamp` DATETIME NOT NULL COMMENT '测量时间',
+  `created_at` DATETIME NOT NULL COMMENT '入库时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='血压记录表';
+
+-- ============================================================
+-- 心率记录表 (heart_rate)
+-- ============================================================
+DROP TABLE IF EXISTS `heart_rate`;
+CREATE TABLE `heart_rate` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `hr_id` VARCHAR(50) NOT NULL UNIQUE COMMENT '心率记录业务ID',
+  `elder_id` VARCHAR(50) NOT NULL COMMENT '老人ID',
+  `value` INT NOT NULL COMMENT '心率值',
+  `unit` VARCHAR(20) NOT NULL DEFAULT '次/分' COMMENT '单位',
+  `timestamp` DATETIME NOT NULL COMMENT '测量时间',
+  `created_at` DATETIME NOT NULL COMMENT '入库时间',
+  INDEX `idx_hr_elder` (`elder_id`),
+  INDEX `idx_hr_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='心率记录表';
+
+-- ============================================================
+-- 血氧记录表 (blood_oxygen)
+-- ============================================================
+DROP TABLE IF EXISTS `blood_oxygen`;
+CREATE TABLE `blood_oxygen` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `bo_id` VARCHAR(50) NOT NULL UNIQUE COMMENT '血氧记录业务ID',
+  `elder_id` VARCHAR(50) NOT NULL COMMENT '老人ID',
+  `value` DECIMAL(5,1) NOT NULL COMMENT '血氧值',
+  `unit` VARCHAR(20) NOT NULL DEFAULT '%' COMMENT '单位',
+  `timestamp` DATETIME NOT NULL COMMENT '测量时间',
+  `created_at` DATETIME NOT NULL COMMENT '入库时间',
+  INDEX `idx_bo_elder` (`elder_id`),
+  INDEX `idx_bo_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='血氧记录表';
+
+-- ============================================================
+-- 体温记录表 (body_temperature)
+-- ============================================================
+DROP TABLE IF EXISTS `body_temperature`;
+CREATE TABLE `body_temperature` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `bt_id` VARCHAR(50) NOT NULL UNIQUE COMMENT '体温记录业务ID',
+  `elder_id` VARCHAR(50) NOT NULL COMMENT '老人ID',
+  `value` DECIMAL(4,1) NOT NULL COMMENT '体温值',
+  `unit` VARCHAR(20) NOT NULL DEFAULT '℃' COMMENT '单位',
+  `timestamp` DATETIME NOT NULL COMMENT '测量时间',
+  `created_at` DATETIME NOT NULL COMMENT '入库时间',
+  INDEX `idx_bt_elder` (`elder_id`),
+  INDEX `idx_bt_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体温记录表';
+```
+
+### 33.7 后端代码结构
+
+```
+entity/                              # 实体类
+├── HeartRate.java                   # 心率实体
+├── BloodPressure.java               # 血压实体（已有）
+├── BloodOxygen.java                 # 血氧实体
+└── BodyTemperature.java             # 体温实体
+
+mapper/                              # 数据访问层
+├── HeartRateRepository.java
+├── BloodPressureRepository.java
+├── BloodOxygenRepository.java
+└── BodyTemperatureRepository.java
+
+service/
+└── VitalSignsService.java           # 统一服务层（四种体征）
+
+controller/
+└── VitalSignsController.java        # REST API 入口 /api/vital-signs
+```
+
+### 33.8 前端调用示例（JavaScript / fetch）
+
+```javascript
+// 基础路径
+const BASE = 'http://120.27.129.78:8080';
+
+// 1. 获取心率列表
+async function getHeartRateList(elderId, start, end) {
+  let url = `${BASE}/api/vital-signs/heart-rate/list?elderId=${elderId}`;
+  if (start && end) url += `&start=${start}&end=${end}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+// 2. 获取最新心率
+async function getLatestHeartRate(elderId) {
+  const res = await fetch(`${BASE}/api/vital-signs/heart-rate/latest?elderId=${elderId}`);
+  return res.json();
+}
+
+// 3. 获取血压列表
+async function getBloodPressureList(elderId, start, end) {
+  let url = `${BASE}/api/vital-signs/blood-pressure/list?elderId=${elderId}`;
+  if (start && end) url += `&start=${start}&end=${end}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+// 4. 获取最新血压
+async function getLatestBloodPressure(elderId) {
+  const res = await fetch(`${BASE}/api/vital-signs/blood-pressure/latest?elderId=${elderId}`);
+  return res.json();
+}
+
+// 5. 获取血氧列表
+async function getBloodOxygenList(elderId, start, end) {
+  let url = `${BASE}/api/vital-signs/blood-oxygen/list?elderId=${elderId}`;
+  if (start && end) url += `&start=${start}&end=${end}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+// 6. 获取最新血氧
+async function getLatestBloodOxygen(elderId) {
+  const res = await fetch(`${BASE}/api/vital-signs/blood-oxygen/latest?elderId=${elderId}`);
+  return res.json();
+}
+
+// 7. 获取体温列表
+async function getBodyTemperatureList(elderId, start, end) {
+  let url = `${BASE}/api/vital-signs/body-temperature/list?elderId=${elderId}`;
+  if (start && end) url += `&start=${start}&end=${end}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+// 8. 获取最新体温
+async function getLatestBodyTemperature(elderId) {
+  const res = await fetch(`${BASE}/api/vital-signs/body-temperature/latest?elderId=${elderId}`);
+  return res.json();
+}
+
+// 9. 一键获取四项综合最新体征（推荐用于仪表盘）
+async function getLatestVitalSigns(elderId) {
+  const res = await fetch(`${BASE}/api/vital-signs/latest/${elderId}`);
+  return res.json();
+}
+
+// 使用示例
+getLatestVitalSigns('elder_001').then(data => {
+  if (data.code === 200) {
+    console.log('心率:', data.data.heartRate, data.data.heartRateUnit);
+    console.log('血压:', data.data.systolic + '/' + data.data.diastolic, data.data.bloodPressureUnit);
+    console.log('血氧:', data.data.bloodOxygen, data.data.bloodOxygenUnit);
+    console.log('体温:', data.data.bodyTemperature, data.data.bodyTemperatureUnit);
+  }
+});
+```
+
+---
+
 ## 附录 A：统一响应格式
 
 所有接口返回统一结构：
@@ -1642,6 +1959,15 @@ POST   /api/local-agent/alarm-report                    # 本地告警
 GET    /api/local-agent/{agentId}/commands              # 本地指令
 POST   /api/local-agent/intent                          # 本地意图
 POST   /api/local-agent/control                         # 本地控制
+GET    /api/vital-signs/heart-rate/list?elderId=          # 心率记录列表
+GET    /api/vital-signs/heart-rate/latest?elderId=       # 最新心率
+GET    /api/vital-signs/blood-pressure/list?elderId=     # 血压记录列表
+GET    /api/vital-signs/blood-pressure/latest?elderId=   # 最新血压
+GET    /api/vital-signs/blood-oxygen/list?elderId=       # 血氧记录列表
+GET    /api/vital-signs/blood-oxygen/latest?elderId=     # 最新血氧
+GET    /api/vital-signs/body-temperature/list?elderId=   # 体温记录列表
+GET    /api/vital-signs/body-temperature/latest?elderId= # 最新体温
+GET    /api/vital-signs/latest/{elderId}                 # 综合最新体征（四项）
 POST   /api/health-vital                                # 创建体征记录
 GET    /api/health-vital/list?elderId=                  # 体征记录列表
 GET    /api/health-vital/latest?elderId=                # 最新体征记录
@@ -1655,4 +1981,4 @@ POST   /api/camera-view-record                          # 创建查看记录
 GET    /api/camera-view-record/list?cameraRequestId=    # 查看记录列表
 ```
 
-**总计：147 个 API 接口**
+**总计：156 个 API 接口**

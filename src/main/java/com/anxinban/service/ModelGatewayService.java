@@ -54,14 +54,14 @@ public class ModelGatewayService {
          */
     public String ruleBasedResponse(String intent) {
         switch (intent) {
-            case "health_query":
-                return "老人近日健康指标平稳，建议保持规律作息。";
-            case "emergency.fall_help":
-                return "已检测到紧急求助，正在联系家属和社区护理员。";
-            case "home_control.light_on":
-                return "已为您打开灯光。";
+            case "find_item":
+                return "正在帮您查找物品，请稍等。";
+            case "control_music":
+                return "已为您播放音乐，祝您心情愉快。";
+            case "companion_chat":
+                return "我在呢，您慢慢说。我一直在这儿陪着您。";
             default:
-                return "收到您的请求，正在处理中。";
+                return "收到您的消息，我正在为您处理。";
         }
     }
 }

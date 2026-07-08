@@ -16,12 +16,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class ServiceRequestService {
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private final ServiceRequestRepository serviceRequestRepository;
     private final FamilyUserRepository familyUserRepository;
     /** 数据访问仓库，用于持久化操作 */
@@ -81,9 +84,13 @@ public class ServiceRequestService {
          */
     public PageResult<ServiceRequestDto> listRequests(String type, String status, int page, int size) {
         List<ServiceRequest> entities;
-        if (status != null && !status.isEmpty()) {
+        boolean hasType = type != null && !type.isEmpty();
+        boolean hasStatus = status != null && !status.isEmpty();
+        if (hasType && hasStatus) {
+            entities = serviceRequestRepository.findByTypeAndStatus(type, status);
+        } else if (hasStatus) {
             entities = serviceRequestRepository.findByStatus(status);
-        } else if (type != null && !type.isEmpty()) {
+        } else if (hasType) {
             entities = serviceRequestRepository.findByType(type);
         } else {
             entities = serviceRequestRepository.findAll();
@@ -151,8 +158,8 @@ public class ServiceRequestService {
         dto.setStatus(entity.getStatus());
         dto.setConvertedWorkOrderId(entity.getConvertedWorkOrderId());
         dto.setRejectReason(entity.getRejectReason());
-        dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
-        dto.setUpdatedAt(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toString() : null);
+        dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().format(DTF) : null);
+        dto.setUpdatedAt(entity.getUpdatedAt() != null ? entity.getUpdatedAt().format(DTF) : null);
         return dto;
     }
 
