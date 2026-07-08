@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老人管理 - 社区养老管理端</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon"><i class="material-icons" style="font-size:20px;">home</i></div>
+        <div class="logo-text">社区养老管理端</div>
+      </div>
+      <nav class="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar"><i class="material-icons" style="font-size:16px;">person</i></div>
+          <div>
+            <div class="user-name">shequ01</div>
+            <div class="user-role">社区管理员</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-danger btn-block" onclick="logout()">退出登录</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-title"><i class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px;">elderly</i>老人管理</div>
+        <div class="topbar-time" id="clock"></div>
+      </header>
+
+      <div class="page-content">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">老人列表</div>
+            <button class="btn btn-primary" onclick="openElderForm()">+ 新增老人</button>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="elder-search" placeholder="搜索姓名、房号或联系电话...">
+            <select id="elder-filter-status">
+              <option value="all">全部状态</option>
+              <option value="normal">正常</option>
+              <option value="warning">关注</option>
+              <option value="danger">高危</option>
+            </select>
+            <select id="elder-filter-building">
+              <option value="all">全部楼栋</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>姓名</th>
+                  <th>年龄</th>
+                  <th>性别</th>
+                  <th>楼栋</th>
+                  <th>房号</th>
+                  <th>联系电话</th>
+                  <th>紧急联系人</th>
+                  <th>紧急联系人电话</th>
+                  <th>健康状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="elder-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Elder Modal -->
+  <div class="modal-overlay" id="elder-form-modal">
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-header">
+        <div class="modal-title" id="form-modal-title">新增老人</div>
+        <button class="modal-close" onclick="closeElderForm()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>姓名 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-name" placeholder="请输入姓名">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>年龄 <span style="color:var(--danger);">*</span></label>
+            <input type="number" id="ef-age" placeholder="请输入年龄" min="1" max="150">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>性别 <span style="color:var(--danger);">*</span></label>
+            <select id="ef-gender" style="width:100%; padding:10px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>楼栋 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-building" placeholder="如：1号楼">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>房号 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-room" placeholder="如：1-201">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>联系电话 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-phone" placeholder="请输入联系电话">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>健康状态 <span style="color:var(--danger);">*</span></label>
+            <select id="ef-status" style="width:100%; padding:10px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
+              <option value="normal">正常</option>
+              <option value="warning">关注</option>
+              <option value="danger">高危</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>紧急联系人姓名 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-contact" placeholder="请输入紧急联系人姓名">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>紧急联系人电话 <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="ef-contact-phone" placeholder="请输入紧急联系人电话">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeElderForm()">取消</button>
+        <button class="btn btn-primary" onclick="submitElderForm()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Elder Detail Modal -->
+  <div class="modal-overlay" id="elder-detail-modal">
+    <div class="modal" style="max-width:720px;">
+      <div class="modal-header">
+        <div class="modal-title" id="detail-modal-title">老人详情</div>
+        <button class="modal-close" onclick="closeElderDetail()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="info-grid" id="detail-info"></div>
+
+        <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+          <div class="info-label" style="margin-bottom:12px; font-size:14px; font-weight:600;">历史告警记录</div>
+          <div id="detail-alerts" style="max-height:200px; overflow-y:auto;"></div>
+        </div>
+
+        <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+          <div class="info-label" style="margin-bottom:12px; font-size:14px; font-weight:600;">健康数据趋势（近7天）</div>
+          <div class="health-charts-row">
+            <div class="health-chart-box">
+              <div class="health-chart-title">血压 (mmHg)</div>
+              <div class="health-chart" id="chart-bp"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">心率 (次/分)</div>
+              <div class="health-chart" id="chart-hr"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">血氧 (%)</div>
+              <div class="health-chart" id="chart-spo2"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">体温 (°C)</div>
+              <div class="health-chart" id="chart-temp"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeElderDetail()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <div class="modal-title">确认删除</div>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align:center;">
+        <div style="font-size:48px; margin-bottom:12px;"><i class="material-icons" style="font-size:48px; color:var(--warning);">warning</i></div>
+        <div style="font-size:16px; font-weight:600; margin-bottom:8px;">确定要删除该老人吗？</div>
+        <div style="color:var(--text-secondary); font-size:13px;">删除后无法恢复，请谨慎操作。</div>
+      </div>
+      <div class="modal-footer" style="justify-content:center;">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeDeleteModal()">取消</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    checkAuth();
+    initSidebar("elderly");
+    (async function init() {
+      try {
+        await loadElderly();
+        await loadBuildings();
+        initBuildingFilter();
+        renderElderlyTable();
+      } catch (e) {
+        console.error('加载失败', e);
+      }
+    })();
+
+    setInterval(() => {
+      document.getElementById("clock").textContent = new Date().toLocaleString("zh-CN");
+    }, 1000);
+
+    let editingElderId = null;
+    let deletingElderId = null;
+    let detailCharts = [];
+
+    function getBuildings() {
+      return _cache.buildings || [];
+    }
+
+    function initBuildingFilter() {
+      const select = document.getElementById("elder-filter-building");
+      const current = select.value;
+      const buildings = getBuildings();
+      select.innerHTML = `<option value="all">全部楼栋</option>` +
+        buildings.map(b => `<option value="${b}">${b}</option>`).join("");
+      if ([...select.options].some(o => o.value === current)) select.value = current;
+    }
+
+    function renderElderlyTable() {
+      const data = getElderly();
+      const search = document.getElementById("elder-search").value.trim();
+      const statusFilter = document.getElementById("elder-filter-status").value;
+      const buildingFilter = document.getElementById("elder-filter-building").value;
+
+      const filtered = data.filter(e => {
+        const matchSearch = !search || e.name.includes(search) || e.room.includes(search) || e.phone.includes(search);
+        const matchStatus = statusFilter === "all" || e.status === statusFilter;
+        const matchBuilding = buildingFilter === "all" || e.building === buildingFilter;
+        return matchSearch && matchStatus && matchBuilding;
+      });
+
+      const tbody = document.getElementById("elder-tbody");
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-secondary); padding:40px;">暂无数据</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(e => {
+        const healthClass = e.status === "normal" ? "status-done" : e.status === "warning" ? "status-processing" : "status-pending";
+        const gender = e.gender || "-";
+        return `
+          <tr style="cursor:pointer;" onclick="openElderDetail(${e.id})">
+            <td>${e.name}</td>
+            <td>${e.age}</td>
+            <td>${gender}</td>
+            <td>${e.building}</td>
+            <td>${e.room}</td>
+            <td>${e.phone}</td>
+            <td>${e.contact}</td>
+            <td>${e.contactPhone}</td>
+            <td><span class="status-badge ${healthClass}">${e.health}</span></td>
+            <td>
+              <div class="table-actions">
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openElderForm(${e.id})">编辑</button>
+                <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); openDeleteModal(${e.id})">删除</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function openElderForm(id) {
+      editingElderId = id || null;
+      const modal = document.getElementById("elder-form-modal");
+      const title = document.getElementById("form-modal-title");
+
+      if (id) {
+        title.textContent = "编辑老人";
+        const e = getElderly().find(x => x.id === id);
+        if (!e) return;
+        document.getElementById("ef-name").value = e.name;
+        document.getElementById("ef-age").value = e.age;
+        document.getElementById("ef-gender").value = e.gender || "男";
+        document.getElementById("ef-building").value = e.building;
+        document.getElementById("ef-room").value = e.room;
+        document.getElementById("ef-phone").value = e.phone;
+        document.getElementById("ef-contact").value = e.contact;
+        document.getElementById("ef-contact-phone").value = e.contactPhone;
+        document.getElementById("ef-status").value = e.status;
+      } else {
+        title.textContent = "新增老人";
+        document.getElementById("ef-name").value = "";
+        document.getElementById("ef-age").value = "";
+        document.getElementById("ef-gender").value = "男";
+        document.getElementById("ef-building").value = "";
+        document.getElementById("ef-room").value = "";
+        document.getElementById("ef-phone").value = "";
+        document.getElementById("ef-contact").value = "";
+        document.getElementById("ef-contact-phone").value = "";
+        document.getElementById("ef-status").value = "normal";
+      }
+
+      modal.classList.add("show");
+    }
+
+    function closeElderForm() {
+      document.getElementById("elder-form-modal").classList.remove("show");
+      editingElderId = null;
+    }
+
+    async function submitElderForm() {
+      const name = document.getElementById("ef-name").value.trim();
+      const age = parseInt(document.getElementById("ef-age").value);
+      const gender = document.getElementById("ef-gender").value;
+      const building = document.getElementById("ef-building").value.trim();
+      const room = document.getElementById("ef-room").value.trim();
+      const phone = document.getElementById("ef-phone").value.trim();
+      const contact = document.getElementById("ef-contact").value.trim();
+      const contactPhone = document.getElementById("ef-contact-phone").value.trim();
+      const status = document.getElementById("ef-status").value;
+
+      if (!name || !age || !building || !room || !phone || !contact || !contactPhone) {
+        alert("请填写所有必填项");
+        return;
+      }
+
+      const healthMap = { normal: "正常", warning: "关注", danger: "高危" };
+      const dto = {
+        name, age, gender, building, roomNumber: room, phone,
+        guardianPhone: contactPhone, familyPhone: contactPhone,
+        healthStatus: status, healthStatusText: healthMap[status]
+      };
+
+      try {
+        if (editingElderId) {
+          const elder = getElderly().find(e => e.id === editingElderId);
+          await ElderAPI.update(String(editingElderId), { ...dto, elderId: String(editingElderId) });
+          addAuditLog("编辑老人", `工作人员 ${getCurrentUser()} 编辑了老人信息：${name}`);
+        } else {
+          await ElderAPI.create(dto);
+          addAuditLog("新增老人", `工作人员 ${getCurrentUser()} 新增了老人：${name}`);
+        }
+        await loadElderly();
+        closeElderForm();
+        renderElderlyTable();
+        initBuildingFilter();
+      } catch (err) {
+        alert(err.message || '保存失败');
+      }
+    }
+
+    function openDeleteModal(id) {
+      deletingElderId = id;
+      document.getElementById("delete-modal").classList.add("show");
+    }
+
+    function closeDeleteModal() {
+      document.getElementById("delete-modal").classList.remove("show");
+      deletingElderId = null;
+    }
+
+    async function confirmDelete() {
+      if (!deletingElderId) return;
+      try {
+        const name = getElderly().find(e => e.id === deletingElderId)?.name || '';
+        await ElderAPI.remove(String(deletingElderId));
+        addAuditLog("删除老人", `工作人员 ${getCurrentUser()} 删除了老人：${name}`);
+        await loadElderly();
+        renderElderlyTable();
+        initBuildingFilter();
+      } catch (err) {
+        alert(err.message || '删除失败');
+      }
+      closeDeleteModal();
+    }
+
+    function openElderDetail(id) {
+      const e = getElderly().find(x => x.id === id);
+      if (!e) return;
+
+      document.getElementById("detail-modal-title").textContent = `${e.name} 详情`;
+      const gender = e.gender || "-";
+      document.getElementById("detail-info").innerHTML = `
+        <div class="info-item"><div class="info-label">姓名</div><div class="info-value">${e.name}</div></div>
+        <div class="info-item"><div class="info-label">年龄</div><div class="info-value">${e.age} 岁</div></div>
+        <div class="info-item"><div class="info-label">性别</div><div class="info-value">${gender}</div></div>
+        <div class="info-item"><div class="info-label">楼栋</div><div class="info-value">${e.building}</div></div>
+        <div class="info-item"><div class="info-label">房号</div><div class="info-value">${e.room}</div></div>
+        <div class="info-item"><div class="info-label">联系电话</div><div class="info-value">${e.phone}</div></div>
+        <div class="info-item"><div class="info-label">紧急联系人</div><div class="info-value">${e.contact}</div></div>
+        <div class="info-item"><div class="info-label">紧急联系人电话</div><div class="info-value">${e.contactPhone}</div></div>
+        <div class="info-item"><div class="info-label">健康状态</div><div class="info-value"><span class="health-tag ${e.status}">${e.health}</span></div></div>
+        <div class="info-item"><div class="info-label">失眠等级</div><div class="info-value"><span class="insomnia-tag insomnia-${e.insomnia==='无'?'none':e.insomnia==='轻度'?'light':e.insomnia==='中度'?'medium':'severe'}">${e.insomnia}</span></div></div>
+        <div class="info-item"><div class="info-label">入睡时间</div><div class="info-value">${e.sleepTime}</div></div>
+        <div class="info-item"><div class="info-label">最后在线</div><div class="info-value">${e.lastOnline}</div></div>
+        <div class="info-item full"><div class="info-label">最新健康数据</div><div class="info-value">血压 ${e.bp} mmHg · 心率 ${e.hr} 次/分 · 血氧 ${e.spo2}% · 体温 ${e.temp}°C</div></div>
+      `;
+
+      // Alert history
+      const alerts = getAlerts().filter(a => a.elderId === id).sort((a, b) => new Date(b.time) - new Date(a.time));
+      const alertsContainer = document.getElementById("detail-alerts");
+      if (alerts.length === 0) {
+        alertsContainer.innerHTML = `<div style="text-align:center; color:var(--text-secondary); padding:16px;">暂无历史告警</div>`;
+      } else {
+        alertsContainer.innerHTML = `
+          <table class="modal-table">
+            <thead><tr><th>时间</th><th>类型</th><th>位置</th><th>状态</th></tr></thead>
+            <tbody>${alerts.map(a => `
+              <tr>
+                <td>${a.time}</td>
+                <td>${a.type}</td>
+                <td>${a.location}</td>
+                <td><span class="status-badge ${a.status==='pending'?'status-pending':'status-done'}">${a.status==='pending'?'待处理':'已处理'}</span></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      }
+
+      document.getElementById("elder-detail-modal").classList.add("show");
+      addAuditLog("查看老人详情", `工作人员 ${getCurrentUser()} 查看了老人详情：${e.name}`);
+
+      // Render health trend charts after modal is shown
+      setTimeout(() => renderHealthTrends(e), 100);
+    }
+
+    function closeElderDetail() {
+      document.getElementById("elder-detail-modal").classList.remove("show");
+      detailCharts.forEach(c => c.dispose());
+      detailCharts = [];
+    }
+
+    function generateTrendData(baseValue, type) {
+      const dates = [];
+      const values = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        dates.push(`${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+      }
+
+      if (type === "bp") {
+        const [sysBase, diaBase] = baseValue.split("/").map(Number);
+        for (let i = 0; i < 7; i++) {
+          const sys = Math.round(sysBase + (Math.random() - 0.5) * 20);
+          const dia = Math.round(diaBase + (Math.random() - 0.5) * 12);
+          values.push(`${sys}/${dia}`);
+        }
+        return { dates, values };
+      }
+
+      const base = parseFloat(baseValue);
+      for (let i = 0; i < 7; i++) {
+        let val;
+        if (type === "temp") {
+          val = (base + (Math.random() - 0.5) * 1.2).toFixed(1);
+        } else {
+          val = Math.round(base + (Math.random() - 0.5) * (type === "hr" ? 16 : 6));
+        }
+        values.push(val);
+      }
+      return { dates, values };
+    }
+
+    function renderHealthTrends(elder) {
+      detailCharts.forEach(c => c.dispose());
+      detailCharts = [];
+
+      // BP chart - show systolic only for line chart
+      const bpData = generateTrendData(elder.bp, "bp");
+      const bpChart = echarts.init(document.getElementById("chart-bp"));
+      const bpSys = bpData.values.map(v => parseInt(v.split("/")[0]));
+      const bpDia = bpData.values.map(v => parseInt(v.split("/")[1]));
+      bpChart.setOption({
+        backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        grid: { left: 10, right: 10, top: 10, bottom: 20 },
+        xAxis: { type: "category", data: bpData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+        yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+        series: [
+          { data: bpSys, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#ef4444", width: 2 }, itemStyle: { color: "#ef4444" } },
+          { data: bpDia, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#3b82f6", width: 2 }, itemStyle: { color: "#3b82f6" } }
+        ]
+      });
+      detailCharts.push(bpChart);
+
+      // HR chart
+      const hrData = generateTrendData(elder.hr, "hr");
+      const hrChart = echarts.init(document.getElementById("chart-hr"));
+      hrChart.setOption({
+        backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        grid: { left: 10, right: 10, top: 10, bottom: 20 },
+        xAxis: { type: "category", data: hrData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+        yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+        series: [{ data: hrData.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#f59e0b", width: 2 }, itemStyle: { color: "#f59e0b" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(245,158,11,0.2)" }, { offset: 1, color: "rgba(245,158,11,0.02)" }] } } }]
+      });
+      detailCharts.push(hrChart);
+
+      // SpO2 chart
+      const spo2Data = generateTrendData(elder.spo2, "spo2");
+      const spo2Chart = echarts.init(document.getElementById("chart-spo2"));
+      spo2Chart.setOption({
+        backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        grid: { left: 10, right: 10, top: 10, bottom: 20 },
+        xAxis: { type: "category", data: spo2Data.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+        yAxis: { type: "value", min: 85, splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+        series: [{ data: spo2Data.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#10b981", width: 2 }, itemStyle: { color: "#10b981" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(16,185,129,0.2)" }, { offset: 1, color: "rgba(16,185,129,0.02)" }] } } }]
+      });
+      detailCharts.push(spo2Chart);
+
+      // Temp chart
+      const tempData = generateTrendData(elder.temp, "temp");
+      const tempChart = echarts.init(document.getElementById("chart-temp"));
+      tempChart.setOption({
+        backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        grid: { left: 10, right: 10, top: 10, bottom: 20 },
+        xAxis: { type: "category", data: tempData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+        yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+        series: [{ data: tempData.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#8b5cf6", width: 2 }, itemStyle: { color: "#8b5cf6" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(139,92,246,0.2)" }, { offset: 1, color: "rgba(139,92,246,0.02)" }] } } }]
+      });
+      detailCharts.push(tempChart);
+
+      window.addEventListener("resize", () => {
+        detailCharts.forEach(c => c.resize());
+      });
+    }
+
+    document.getElementById("elder-search").addEventListener("input", renderElderlyTable);
+    document.getElementById("elder-filter-status").addEventListener("change", renderElderlyTable);
+    document.getElementById("elder-filter-building").addEventListener("change", renderElderlyTable);
+
+    // ==================== Cross-Page Sync ====================
+    syncWatch(["elderly_data"], async () => {
+      try {
+        await loadElderly();
+        initBuildingFilter();
+        renderElderlyTable();
+      } catch (e) {}
+    });
+    startAutoRefresh(async () => {
+      try {
+        await loadElderly();
+        initBuildingFilter();
+        renderElderlyTable();
+      } catch (e) {}
+    }, 3000);
+  </script>
+</body>
+</html>
