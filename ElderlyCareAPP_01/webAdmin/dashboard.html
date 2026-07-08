@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据驾驶舱 - 社区养老管理端</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon"><i class="material-icons" style="font-size:20px;">home</i></div>
+        <div class="logo-text">社区养老管理端</div>
+      </div>
+      <nav class="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar"><i class="material-icons" style="font-size:16px;">person</i></div>
+          <div>
+            <div class="user-name">shequ01</div>
+            <div class="user-role">社区管理员</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-danger btn-block" onclick="logout()">退出登录</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-title"><i class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px;">dashboard</i>数据驾驶舱</div>
+        <div class="topbar-time" id="clock"></div>
+      </header>
+
+      <div class="page-content">
+        <!-- Stats -->
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <div class="dashboard-grid">
+          <div class="dashboard-main">
+            <!-- Elderly Cards -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">老人状态监控</div>
+                <a href="elderly.html" class="btn btn-sm btn-primary">进入老人管理 →</a>
+              </div>
+              <div class="elderly-toolbar">
+                <input type="text" id="elder-search" placeholder="搜索姓名或房号...">
+                <select id="elder-filter">
+                  <option value="all">全部状态</option>
+                  <option value="normal">正常</option>
+                  <option value="warning">关注</option>
+                  <option value="danger">高危</option>
+                </select>
+              </div>
+              <div class="elderly-grid" id="elderly-grid"></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-row">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">近7天告警趋势</div>
+                </div>
+                <div class="chart-container" id="trend-chart"></div>
+              </div>
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">告警类型分布</div>
+                </div>
+                <div class="chart-container" id="pie-chart"></div>
+              </div>
+            </div>
+
+            <!-- Devices -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">设备监控</div>
+              </div>
+              <table class="device-table">
+                <thead>
+                  <tr>
+                    <th>设备名称</th>
+                    <th>类型</th>
+                    <th>楼栋</th>
+                    <th>状态</th>
+                    <th>电量</th>
+                  </tr>
+                </thead>
+                <tbody id="device-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Side: Alerts & Family Requests -->
+          <div class="dashboard-side">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">告警中心</div>
+                <select id="alert-filter" style="padding:4px 8px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                  <option value="all">全部</option>
+                  <option value="pending">待处理</option>
+                  <option value="handled">已处理</option>
+                </select>
+              </div>
+              <div class="alert-list" id="alert-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">家属申请</div>
+              </div>
+              <div id="family-request-list" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Elder Detail Modal -->
+  <div class="modal-overlay" id="elder-modal">
+    <div class="modal" style="max-width:720px;">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">老人详情</div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="info-grid" id="modal-info"></div>
+        <div class="camera-section" id="camera-section" style="display:none;">
+          <div class="info-label" style="margin-bottom:10px;">室内监控</div>
+          <div id="camera-area"></div>
+        </div>
+        <div id="modal-alert-section" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border); display:none;">
+          <div class="info-label" style="margin-bottom:12px; font-size:14px; font-weight:600;">历史告警记录</div>
+          <div id="modal-alerts" style="max-height:200px; overflow-y:auto;"></div>
+        </div>
+        <div id="modal-health-section" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border); display:none;">
+          <div class="info-label" style="margin-bottom:12px; font-size:14px; font-weight:600;">健康数据趋势（近7天）</div>
+          <div class="health-charts-row">
+            <div class="health-chart-box">
+              <div class="health-chart-title">血压 (mmHg)</div>
+              <div class="health-chart" id="dash-chart-bp"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">心率 (次/分)</div>
+              <div class="health-chart" id="dash-chart-hr"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">血氧 (%)</div>
+              <div class="health-chart" id="dash-chart-spo2"></div>
+            </div>
+            <div class="health-chart-box">
+              <div class="health-chart-title">体温 (°C)</div>
+              <div class="health-chart" id="dash-chart-temp"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat Detail Modal -->
+  <div class="modal-overlay" id="stat-modal">
+    <div class="modal" style="max-width:800px;">
+      <div class="modal-header">
+        <div class="modal-title" id="stat-modal-title">详情</div>
+        <button class="modal-close" onclick="closeStatModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="stat-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeStatModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Family Request Convert Modal -->
+  <div class="modal-overlay" id="convert-modal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title">转为工单</div>
+        <button class="modal-close" onclick="closeConvertModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>工单类型</label>
+          <select id="convert-type" style="width:100%; padding:10px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary);">
+            <option value="上门护理">上门护理</option>
+            <option value="健康巡检">健康巡检</option>
+            <option value="设备维修">设备维修</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>工单描述</label>
+          <textarea id="convert-desc" rows="3" style="width:100%; padding:10px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="background:var(--bg-hover); color:var(--text-primary);" onclick="closeConvertModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitConvert()">确认转工单</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    checkAuth();
+    initSidebar("dashboard");
+    // 异步加载数据
+    (async function init() {
+      try {
+        await refreshAllData();
+        renderStats();
+        renderElderly();
+        renderAlerts();
+        renderDevices();
+        renderFamilyRequests();
+        initCharts();
+      } catch (e) {
+        console.error('数据加载失败', e);
+      }
+    })();
+
+    clearExpiredCameraAuth();
+
+    setInterval(() => {
+      document.getElementById("clock").textContent = new Date().toLocaleString("zh-CN");
+    }, 1000);
+
+    let currentElder = null;
+    let currentConvertRequest = null;
+
+    function renderStats() {
+      const s = getStats();
+      const items = [
+        { icon: "elderly", label: "老人总数", value: s.totalElderly, color: "blue", type: "elderly" },
+        { icon: "notification_important", label: "今日告警", value: s.todayAlerts, color: "red", type: "alerts" },
+        { icon: "sensors", label: "在线设备", value: s.onlineDevices, color: "green", type: "devices" },
+        { icon: "assignment", label: "待处理工单", value: s.pendingOrders, color: "orange", type: "orders" },
+        { icon: "health_and_safety", label: "健康异常", value: s.abnormalHealth, color: "purple", type: "abnormal" },
+        { icon: "door_front", label: "今日闯入", value: s.todayIntrusions, color: "red", type: "intrusions" }
+      ];
+      document.getElementById("stats-grid").innerHTML = items.map(it => `
+        <div class="stat-card" onclick="openStatModal('${it.type}')">
+          <div class="stat-icon ${it.color}"><i class="material-icons">${it.icon}</i></div>
+          <div class="stat-info">
+            <div class="stat-value" style="color:var(--${it.color === 'blue' ? 'accent' : it.color});">${it.value}</div>
+            <div class="stat-label">${it.label}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function openStatModal(type) {
+      const modal = document.getElementById("stat-modal");
+      const title = document.getElementById("stat-modal-title");
+      const body = document.getElementById("stat-modal-body");
+      modal.classList.add("show");
+
+      if (type === "elderly") {
+        title.textContent = "老人列表";
+        const data = getElderly();
+        body.innerHTML = `
+          <table class="modal-table">
+            <thead><tr><th>姓名</th><th>年龄</th><th>楼栋</th><th>房号</th><th>健康状态</th><th>联系电话</th></tr></thead>
+            <tbody>${data.map(e => `
+              <tr>
+                <td>${e.name}</td>
+                <td>${e.age}</td>
+                <td>${e.building}</td>
+                <td>${e.room}</td>
+                <td><span class="health-tag ${e.status}">${e.health}</span></td>
+                <td>${e.phone}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else if (type === "alerts") {
+        title.textContent = "今日告警";
+        const data = getAlerts().filter(a => a.time.startsWith("2026-05-22"));
+        body.innerHTML = data.length === 0 ? "<div style='text-align:center; color:var(--text-secondary); padding:20px;'>今日暂无告警</div>" :
+          `<table class="modal-table">
+            <thead><tr><th>时间</th><th>类型</th><th>老人</th><th>位置</th><th>状态</th></tr></thead>
+            <tbody>${data.map(a => `
+              <tr>
+                <td>${a.time.split(" ")[1]}</td>
+                <td>${a.type}</td>
+                <td>${a.elderName}</td>
+                <td>${a.location}</td>
+                <td><span class="status-badge ${a.status==='pending'?'status-pending':'status-done'}">${a.status==='pending'?'待处理':'已处理'}</span></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else if (type === "devices") {
+        title.textContent = "设备列表";
+        const data = getDevices();
+        body.innerHTML = `
+          <table class="modal-table">
+            <thead><tr><th>名称</th><th>类型</th><th>楼栋</th><th>状态</th><th>电量</th></tr></thead>
+            <tbody>${data.map(d => `
+              <tr>
+                <td>${d.name}</td>
+                <td>${d.type}</td>
+                <td>${d.building}</td>
+                <td><span class="badge ${d.online?'badge-online':'badge-offline'}">${d.online?"在线":"离线"}</span></td>
+                <td>${d.battery}%</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else if (type === "orders") {
+        title.textContent = "待处理工单";
+        const data = getWorkOrders().filter(o => o.status === "待分配" || o.status === "处理中");
+        body.innerHTML = data.length === 0 ? "<div style='text-align:center; color:var(--text-secondary); padding:20px;'>暂无待处理工单</div>" :
+          `<table class="modal-table">
+            <thead><tr><th>工单号</th><th>老人</th><th>类型</th><th>状态</th><th>处理人</th></tr></thead>
+            <tbody>${data.map(o => `
+              <tr>
+                <td>${o.id}</td>
+                <td>${o.elderName}</td>
+                <td>${o.type}</td>
+                <td><span class="status-badge ${o.status==='待分配'?'status-pending':'status-processing'}">${o.status}</span></td>
+                <td>${o.assignee || "-"}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else if (type === "abnormal") {
+        title.textContent = "健康异常老人";
+        const data = getElderly().filter(e => e.status !== "normal");
+        body.innerHTML = `
+          <table class="modal-table">
+            <thead><tr><th>姓名</th><th>年龄</th><th>楼栋</th><th>房号</th><th>健康状态</th><th>失眠等级</th></tr></thead>
+            <tbody>${data.map(e => `
+              <tr>
+                <td>${e.name}</td>
+                <td>${e.age}</td>
+                <td>${e.building}</td>
+                <td>${e.room}</td>
+                <td><span class="health-tag ${e.status}">${e.health}</span></td>
+                <td><span class="insomnia-tag insomnia-${e.insomnia==='无'?'none':e.insomnia==='轻度'?'light':e.insomnia==='中度'?'medium':'severe'}">${e.insomnia}</span></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else if (type === "intrusions") {
+        title.textContent = "今日陌生人闯入告警";
+        const todayStr = formatDateTime().slice(0,10);
+        const data = getIntrusionAlerts().filter(a => a.time.startsWith(todayStr));
+        body.innerHTML = data.length === 0 ? "<div style='text-align:center; color:var(--text-secondary); padding:20px;'>今日暂无闯入告警</div>" :
+          `<table class="modal-table">
+            <thead><tr><th>时间</th><th>楼栋</th><th>房间</th><th>状态</th><th>处理人</th></tr></thead>
+            <tbody>${data.map(a => `
+              <tr>
+                <td>${a.time}</td>
+                <td>${a.building}</td>
+                <td>${a.room}</td>
+                <td><span class="status-badge ${a.status==='pending'?'status-pending':'status-done'}">${a.status==='pending'?'待处理':'已处理'}</span></td>
+                <td>${a.handler || '-'}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      }
+    }
+
+    function closeStatModal() {
+      document.getElementById("stat-modal").classList.remove("show");
+    }
+
+    function renderElderly() {
+      const data = getElderly();
+      const search = document.getElementById("elder-search").value.trim();
+      const filter = document.getElementById("elder-filter").value;
+      const filtered = data.filter(e => {
+        const matchSearch = !search || e.name.includes(search) || e.room.includes(search);
+        const matchFilter = filter === "all" || e.status === filter;
+        return matchSearch && matchFilter;
+      });
+      document.getElementById("elderly-grid").innerHTML = filtered.map(e => `
+        <div class="elder-card" onclick="openElderModal(${e.id})">
+          <div class="status-dot ${e.status}"></div>
+          <div class="elder-name">${e.name}</div>
+          <div class="elder-meta">
+            <span><span class="label">年龄</span><span class="value">${e.age}岁</span></span>
+            <span><span class="label">楼栋</span><span class="value">${e.building}</span></span>
+            <span><span class="label">房号</span><span class="value">${e.room}</span></span>
+            <span><span class="label">健康</span><span class="value" style="color:${e.status==='normal'?'var(--success)':e.status==='warning'?'var(--warning)':'var(--danger)'};">${e.health}</span></span>
+            <span><span class="label">失眠</span><span class="value"><span class="insomnia-tag insomnia-${e.insomnia==='无'?'none':e.insomnia==='轻度'?'light':e.insomnia==='中度'?'medium':'severe'}">${e.insomnia}</span></span></span>
+            <span><span class="label">在线</span><span class="value">${e.lastOnline}</span></span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function openElderModal(id) {
+      const e = getElderly().find(x => x.id === id);
+      if (!e) return;
+      currentElder = e;
+      document.getElementById("modal-title").textContent = `${e.name} 详情`;
+      const gender = e.gender || "-";
+      document.getElementById("modal-info").innerHTML = `
+        <div class="info-item"><div class="info-label">姓名</div><div class="info-value">${e.name}</div></div>
+        <div class="info-item"><div class="info-label">年龄</div><div class="info-value">${e.age} 岁</div></div>
+        <div class="info-item"><div class="info-label">性别</div><div class="info-value">${gender}</div></div>
+        <div class="info-item"><div class="info-label">楼栋</div><div class="info-value">${e.building}</div></div>
+        <div class="info-item"><div class="info-label">房号</div><div class="info-value">${e.room}</div></div>
+        <div class="info-item"><div class="info-label">联系电话</div><div class="info-value">${e.phone}</div></div>
+        <div class="info-item"><div class="info-label">紧急联系人</div><div class="info-value">${e.contact} (${e.contactPhone})</div></div>
+        <div class="info-item"><div class="info-label">健康状态</div><div class="info-value"><span class="health-tag ${e.status}">${e.health}</span></div></div>
+        <div class="info-item"><div class="info-label">失眠等级</div><div class="info-value"><span class="insomnia-tag insomnia-${e.insomnia==='无'?'none':e.insomnia==='轻度'?'light':e.insomnia==='中度'?'medium':'severe'}">${e.insomnia}</span></div></div>
+        <div class="info-item"><div class="info-label">入睡时间</div><div class="info-value">${e.sleepTime}</div></div>
+        <div class="info-item"><div class="info-label">血压</div><div class="info-value">${e.bp} mmHg</div></div>
+        <div class="info-item"><div class="info-label">心率</div><div class="info-value">${e.hr} 次/分</div></div>
+        <div class="info-item"><div class="info-label">血氧</div><div class="info-value">${e.spo2}%</div></div>
+        <div class="info-item"><div class="info-label">体温</div><div class="info-value">${e.temp}°C</div></div>
+        <div class="info-item full"><div class="info-label">最后在线</div><div class="info-value">${e.lastOnline}</div></div>
+      `;
+
+      const camSection = document.getElementById("camera-section");
+      if (e.hasCamera) {
+        camSection.style.display = "block";
+        const camArea = document.getElementById("camera-area");
+        if (isCameraAuthValid(e)) {
+          const remainHours = Math.ceil((e.cameraAuthUntil - Date.now()) / 3600000);
+          camArea.innerHTML = `
+            <div class="camera-placeholder" style="border-style:solid; border-color:var(--success);">
+              <div style="font-size:40px;"><i class="material-icons" style="font-size:40px; color:var(--success);">videocam</i></div>
+              <div>监控画面实时播放中</div>
+              <div style="font-size:12px; color:var(--text-secondary);">室内摄像头 · ${e.room} · 权限剩余 ${remainHours} 小时</div>
+            </div>`;
+        } else if (e.cameraPending) {
+          camArea.innerHTML = `
+            <div class="camera-placeholder">
+              <div style="font-size:40px;"><i class="material-icons" style="font-size:40px; color:var(--warning);">hourglass_empty</i></div>
+              <div>已发送申请，等待家属同意...</div>
+              <button class="btn btn-success btn-sm" onclick="simulateApprove()">模拟家属同意</button>
+            </div>`;
+        } else {
+          camArea.innerHTML = `<button class="btn btn-primary" onclick="openCameraReasonModal()"><i class="material-icons" style="font-size:16px;">videocam</i> 申请查看监控</button>`;
+        }
+      } else {
+        camSection.style.display = "none";
+      }
+
+      // Alert history
+      const alerts = getAlerts().filter(a => a.elderId === id).sort((a, b) => new Date(b.time) - new Date(a.time));
+      const alertSection = document.getElementById("modal-alert-section");
+      const alertContainer = document.getElementById("modal-alerts");
+      if (alerts.length > 0) {
+        alertSection.style.display = "block";
+        alertContainer.innerHTML = `
+          <table class="modal-table">
+            <thead><tr><th>时间</th><th>类型</th><th>位置</th><th>状态</th></tr></thead>
+            <tbody>${alerts.map(a => `
+              <tr>
+                <td>${a.time}</td>
+                <td>${a.type}</td>
+                <td>${a.location}</td>
+                <td><span class="status-badge ${a.status==='pending'?'status-pending':'status-done'}">${a.status==='pending'?'待处理':'已处理'}</span></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`;
+      } else {
+        alertSection.style.display = "none";
+      }
+
+      // Health trends
+      const healthSection = document.getElementById("modal-health-section");
+      healthSection.style.display = "block";
+      document.getElementById("elder-modal").classList.add("show");
+      addAuditLog("查看老人详情", `工作人员 ${getCurrentUser()} 查看了老人：${e.name}`);
+
+      setTimeout(() => {
+        dashCharts.forEach(c => c.dispose());
+        dashCharts = [];
+
+        const bpData = generateTrendData(e.bp, "bp");
+        const bpChart = echarts.init(document.getElementById("dash-chart-bp"));
+        bpChart.setOption({
+          backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+          grid: { left: 10, right: 10, top: 10, bottom: 20 },
+          xAxis: { type: "category", data: bpData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+          series: [
+            { data: bpData.values.map(v => parseInt(v.split("/")[0])), type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#ef4444", width: 2 }, itemStyle: { color: "#ef4444" } },
+            { data: bpData.values.map(v => parseInt(v.split("/")[1])), type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#3b82f6", width: 2 }, itemStyle: { color: "#3b82f6" } }
+          ]
+        });
+        dashCharts.push(bpChart);
+
+        const hrData = generateTrendData(e.hr, "hr");
+        const hrChart = echarts.init(document.getElementById("dash-chart-hr"));
+        hrChart.setOption({
+          backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+          grid: { left: 10, right: 10, top: 10, bottom: 20 },
+          xAxis: { type: "category", data: hrData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+          series: [{ data: hrData.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#f59e0b", width: 2 }, itemStyle: { color: "#f59e0b" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(245,158,11,0.2)" }, { offset: 1, color: "rgba(245,158,11,0.02)" }] } } }]
+        });
+        dashCharts.push(hrChart);
+
+        const spo2Data = generateTrendData(e.spo2, "spo2");
+        const spo2Chart = echarts.init(document.getElementById("dash-chart-spo2"));
+        spo2Chart.setOption({
+          backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+          grid: { left: 10, right: 10, top: 10, bottom: 20 },
+          xAxis: { type: "category", data: spo2Data.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+          yAxis: { type: "value", min: 85, splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+          series: [{ data: spo2Data.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#10b981", width: 2 }, itemStyle: { color: "#10b981" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(16,185,129,0.2)" }, { offset: 1, color: "rgba(16,185,129,0.02)" }] } } }]
+        });
+        dashCharts.push(spo2Chart);
+
+        const tempData = generateTrendData(e.temp, "temp");
+        const tempChart = echarts.init(document.getElementById("dash-chart-temp"));
+        tempChart.setOption({
+          backgroundColor: "transparent", tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+          grid: { left: 10, right: 10, top: 10, bottom: 20 },
+          xAxis: { type: "category", data: tempData.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af", fontSize: 10 }, axisTick: { show: false } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af", fontSize: 10 } },
+          series: [{ data: tempData.values, type: "line", smooth: true, symbol: "circle", symbolSize: 4, lineStyle: { color: "#8b5cf6", width: 2 }, itemStyle: { color: "#8b5cf6" }, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(139,92,246,0.2)" }, { offset: 1, color: "rgba(139,92,246,0.02)" }] } } }]
+        });
+        dashCharts.push(tempChart);
+      }, 100);
+    }
+
+    let dashCharts = [];
+
+    function closeModal() {
+      document.getElementById("elder-modal").classList.remove("show");
+      dashCharts.forEach(c => c.dispose());
+      dashCharts = [];
+      currentElder = null;
+    }
+
+    function generateTrendData(baseValue, type) {
+      const dates = [];
+      const values = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        dates.push(`${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+      }
+      if (type === "bp") {
+        const [sysBase, diaBase] = baseValue.split("/").map(Number);
+        for (let i = 0; i < 7; i++) {
+          const sys = Math.round(sysBase + (Math.random() - 0.5) * 20);
+          const dia = Math.round(diaBase + (Math.random() - 0.5) * 12);
+          values.push(`${sys}/${dia}`);
+        }
+        return { dates, values };
+      }
+      const base = parseFloat(baseValue);
+      for (let i = 0; i < 7; i++) {
+        let val;
+        if (type === "temp") {
+          val = (base + (Math.random() - 0.5) * 1.2).toFixed(1);
+        } else {
+          val = Math.round(base + (Math.random() - 0.5) * (type === "hr" ? 16 : 6));
+        }
+        values.push(val);
+      }
+      return { dates, values };
+    }
+
+    let cameraReasonElder = null;
+
+    function openCameraReasonModal() {
+      if (!currentElder) return;
+      cameraReasonElder = currentElder;
+      document.getElementById("camera-reason-input").value = "";
+      document.getElementById("camera-reason-error").style.display = "none";
+      document.getElementById("camera-reason-modal").classList.add("show");
+    }
+
+    function closeCameraReasonModal() {
+      document.getElementById("camera-reason-modal").classList.remove("show");
+      cameraReasonElder = null;
+    }
+
+    async function submitCameraRequest() {
+      if (!cameraReasonElder) return;
+      const reasonInput = document.getElementById("camera-reason-input");
+      const reason = reasonInput.value.trim();
+      const errorEl = document.getElementById("camera-reason-error");
+      if (!reason) {
+        errorEl.style.display = "block";
+        return;
+      }
+      errorEl.style.display = "none";
+
+      try {
+        await MonitorRequestAPI.create({
+          elderId: String(currentElder.id),
+          elderName: currentElder.name,
+          staffId: getCurrentStaff()?.userId || getCurrentStaff()?.staffId || '',
+          staffName: getCurrentUser(),
+          staffPhone: getCurrentStaff()?.phone || '',
+          reason: reason
+        });
+        await loadCameraRequests();
+        // 更新老人缓存中的 cameraPending 状态
+        const elderly = getElderly();
+        const idx = elderly.findIndex(e => e.id === currentElder.id);
+        if (idx > -1) {
+          elderly[idx].cameraPending = true;
+          saveElderly(elderly);
+        }
+        currentElder = elderly[idx] || currentElder;
+
+        // 通知 App
+        notifyApp({
+          type: "camera",
+          title: "监控查看申请",
+          content: `社区管理员${getCurrentUser()}申请查看老人${currentElder.name}的室内监控，原因：${reason}`,
+          elderId: currentElder.id,
+          elderName: currentElder.name
+        });
+
+        document.getElementById("camera-area").innerHTML = `
+          <div class="camera-placeholder">
+            <div style="font-size:40px;"><i class="material-icons" style="font-size:40px; color:var(--warning);">hourglass_empty</i></div>
+            <div>已发送申请，等待家属同意...</div>
+            <button class="btn btn-success btn-sm" onclick="simulateApprove()">模拟家属同意</button>
+          </div>`;
+        addAuditLog("查看监控", `工作人员 ${getCurrentUser()} 申请查看老人：${currentElder.name} 的监控，原因：${reason}`);
+      } catch (err) {
+        alert(err.message || '申请失败');
+      }
+      closeCameraReasonModal();
+    }
+
+    function simulateApprove() {
+      if (!currentElder) return;
+      const elderly = getElderly();
+      const idx = elderly.findIndex(e => e.id === currentElder.id);
+      if (idx > -1) {
+        elderly[idx].cameraAuthUntil = Date.now() + 24 * 3600 * 1000; // 24小时有效期
+        elderly[idx].cameraPending = false;
+        saveElderly(elderly);
+        currentElder = elderly[idx];
+        document.getElementById("camera-area").innerHTML = `
+          <div class="camera-placeholder" style="border-style:solid; border-color:var(--success);">
+            <div style="font-size:40px;"><i class="material-icons" style="font-size:40px; color:var(--success);">videocam</i></div>
+            <div>监控画面实时播放中</div>
+            <div style="font-size:12px; color:var(--text-secondary);">室内摄像头 · ${currentElder.room} · 权限剩余 24 小时</div>
+          </div>`;
+        addAuditLog("查看监控", `家属同意后，工作人员 ${getCurrentUser()} 查看老人：${currentElder.name} 的监控`);
+        // Notify app
+        notifyApp({ type: "camera", title: "监控申请已同意", content: `您已同意社区人员查看 ${currentElder.name} 的室内监控，有效期24小时`, elderName: currentElder.name });
+      }
+    }
+
+    // 检查监控权限是否被撤销（App端操作）
+    function checkCameraRevoked() {
+      if (!currentElder) return;
+      const elderly = getElderly();
+      const e = elderly.find(x => x.id === currentElder.id);
+      if (!e) return;
+      // 如果当前弹窗显示的是监控画面，但权限已失效
+      const camArea = document.getElementById("camera-area");
+      if (camArea && camArea.innerHTML.includes("监控画面实时播放中") && !isCameraAuthValid(e)) {
+        camArea.innerHTML = `<button class="btn btn-primary" onclick="openCameraReasonModal()"><i class="material-icons" style="font-size:16px;">videocam</i> 申请查看监控</button>`;
+        alert("监控权限已被家属撤销");
+        currentElder = e;
+      }
+    }
+
+    function renderAlerts() {
+      const data = getAlerts();
+      const intrusions = getIntrusionAlerts();
+      const filter = document.getElementById("alert-filter").value;
+      const allAlerts = [...data.map(a => ({...a, _kind: 'normal'})), ...intrusions.map(a => ({...a, _kind: 'intrusion', type: '陌生人闯入'}))];
+      const filtered = filter === "all" ? allAlerts : allAlerts.filter(a => a.status === filter);
+      filtered.sort((a,b) => new Date(b.time) - new Date(a.time));
+      document.getElementById("alert-list").innerHTML = filtered.map(a => `
+        <div class="alert-item ${a.status}">
+          <div class="alert-header">
+            <span class="alert-type ${a.status === 'pending' ? 'danger' : 'info'}">${a.type}</span>
+            <span class="alert-time">${a.time}</span>
+          </div>
+          <div class="alert-body">${a.elderName || '未知老人'} · ${a.location}</div>
+          ${a._kind === 'intrusion' && a.snapshot ? `<div style="margin-top:8px;"><img src="${a.snapshot}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; background:#1f2937;"></div>` : ''}
+          <div class="alert-footer">
+            <span class="alert-status">${a.status === "pending" ? "待处理" : `已处理 · ${a.handler || ''}`}</span>
+            ${a.status === "pending" ? `<button class="btn btn-sm btn-success" onclick="${a._kind==='intrusion'?'handleIntrusionAlert('+a.id+')':'handleAlert('+a.id+')'}">标记处理</button>` : ""}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function handleIntrusionAlert(id) {
+      try {
+        await AlarmAPI.resolve(id, getCurrentUser(), formatDateTime(), '已确认');
+        await loadIntrusionAlerts();
+        renderAlerts();
+        renderStats();
+        addAuditLog("处理闯入告警", `工作人员 ${getCurrentUser()} 处理了陌生人闯入告警ID：${id}`);
+      } catch (err) {
+        alert(err.message || '处理失败');
+      }
+    }
+
+    async function handleAlert(id) {
+      try {
+        await AlarmAPI.resolve(id, getCurrentUser(), formatDateTime(), '已处理');
+        await loadAlerts();
+        await loadIntrusionAlerts();
+        renderAlerts();
+        renderStats();
+        addAuditLog("处理告警", `工作人员 ${getCurrentUser()} 处理了告警ID：${id}`);
+      } catch (err) {
+        alert(err.message || '处理失败');
+      }
+    }
+
+    function renderDevices() {
+      const data = getDevices();
+      document.getElementById("device-tbody").innerHTML = data.map(d => {
+        const batteryClass = d.battery > 50 ? "high" : d.battery > 20 ? "medium" : "low";
+        return `
+          <tr>
+            <td>${d.name}</td>
+            <td>${d.type}</td>
+            <td>${d.building}</td>
+            <td><span class="badge ${d.online ? 'badge-online' : 'badge-offline'}">${d.online ? "在线" : "离线"}</span></td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="battery-bar"><div class="battery-fill ${batteryClass}" style="width:${d.battery}%"></div></div>
+                <span style="font-size:12px; color:var(--text-secondary);">${d.battery}%</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderFamilyRequests() {
+      const requests = getFamilyRequests().filter(r => r.status === "pending");
+      const container = document.getElementById("family-request-list");
+      if (requests.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:var(--text-secondary); padding:20px;">暂无待处理申请</div>`;
+        return;
+      }
+      container.innerHTML = requests.map(r => `
+        <div class="family-request-card">
+          <div class="family-request-header">
+            <span class="family-request-title">${r.type}</span>
+            <span class="badge-family">家属申请</span>
+          </div>
+          <div class="family-request-meta">${r.elderName} · ${r.familyName}（${r.familyPhone}）· ${r.requestTime}</div>
+          <div class="family-request-content">${r.content}</div>
+          <div class="family-request-actions">
+            <button class="btn btn-sm btn-primary" onclick="openConvertModal(${r.id})">转为工单</button>
+            <button class="btn btn-sm" style="background:var(--bg-hover); color:var(--text-primary);" onclick="ignoreRequest(${r.id})">忽略</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function openConvertModal(reqId) {
+      const req = getFamilyRequests().find(r => r.id === reqId);
+      if (!req) return;
+      currentConvertRequest = req;
+      const typeMap = { "上门看护": "上门护理", "生活物资代购": "上门护理", "设备维修": "设备维修", "健康咨询": "健康巡检", "紧急求助": "上门护理" };
+      document.getElementById("convert-type").value = typeMap[req.type] || req.type;
+      document.getElementById("convert-desc").value = req.content;
+      document.getElementById("convert-modal").classList.add("show");
+    }
+
+    function closeConvertModal() {
+      document.getElementById("convert-modal").classList.remove("show");
+      currentConvertRequest = null;
+    }
+
+    async function submitConvert() {
+      if (!currentConvertRequest) return;
+      const type = document.getElementById("convert-type").value;
+      const desc = document.getElementById("convert-desc").value.trim();
+      try {
+        const newOrder = await WorkOrderAPI.create({
+          elderId: String(currentConvertRequest.elderId),
+          elderName: currentConvertRequest.elderName,
+          orderType: type,
+          description: desc || type + "服务",
+          status: "待分配"
+        });
+        const orderId = newOrder?.orderId || newOrder?.id;
+        if (orderId) {
+          await ServiceRequestAPI.convert(currentConvertRequest.id, orderId);
+        }
+        await loadWorkOrders();
+        await loadFamilyRequests();
+        renderFamilyRequests();
+        renderStats();
+        addAuditLog("创建工单", `工作人员 ${getCurrentUser()} 将家属申请转为工单，老人：${currentConvertRequest.elderName}`);
+        closeConvertModal();
+      } catch (err) {
+        alert(err.message || '转工单失败');
+      }
+    }
+
+    async function ignoreRequest(reqId) {
+      if (!confirm("确定要忽略该家属申请吗？忽略后状态将变为“已拒绝”。")) return;
+      try {
+        await ServiceRequestAPI.reject(reqId, "社区工作人员忽略");
+        await loadFamilyRequests();
+        renderFamilyRequests();
+        renderStats();
+        addAuditLog("忽略申请", `工作人员 ${getCurrentUser()} 忽略了家属申请`);
+      } catch (err) {
+        alert(err.message || '操作失败');
+      }
+    }
+
+    function initCharts() {
+      const trendChart = echarts.init(document.getElementById("trend-chart"));
+      trendChart.setOption({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        grid: { left: 40, right: 20, top: 20, bottom: 30 },
+        xAxis: { type: "category", data: ALERT_TREND_7D.dates, axisLine: { lineStyle: { color: "#4b5563" } }, axisLabel: { color: "#9ca3af" } },
+        yAxis: { type: "value", splitLine: { lineStyle: { color: "#374151" } }, axisLabel: { color: "#9ca3af" } },
+        series: [{
+          data: ALERT_TREND_7D.values,
+          type: "line",
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 8,
+          lineStyle: { color: "#3b82f6", width: 3 },
+          itemStyle: { color: "#3b82f6", borderColor: "#1f2937", borderWidth: 2 },
+          areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(59,130,246,0.3)" }, { offset: 1, color: "rgba(59,130,246,0.02)" }] } }
+        }]
+      });
+
+      const pieChart = echarts.init(document.getElementById("pie-chart"));
+      pieChart.setOption({
+        backgroundColor: "transparent",
+        tooltip: { trigger: "item", backgroundColor: "rgba(17,24,39,0.9)", borderColor: "#374151", textStyle: { color: "#f3f4f6" } },
+        legend: { show: false },
+        series: [{
+          type: "pie",
+          radius: ["40%", "70%"],
+          center: ["50%", "50%"],
+          itemStyle: { borderRadius: 6, borderColor: "#1f2937", borderWidth: 2 },
+          label: { color: "#9ca3af", fontSize: 11 },
+          labelLine: { lineStyle: { color: "#4b5563" } },
+          data: ALERT_TYPE_DIST.map((item, i) => ({
+            ...item,
+            itemStyle: { color: ["#3b82f6", "#ef4444", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#06b6d4", "#f97316", "#6366f1"][i % 9] }
+          }))
+        }]
+      });
+
+      window.addEventListener("resize", () => { trendChart.resize(); pieChart.resize(); });
+    }
+
+    document.getElementById("elder-search").addEventListener("input", renderElderly);
+    document.getElementById("elder-filter").addEventListener("change", renderElderly);
+    document.getElementById("alert-filter").addEventListener("change", renderAlerts);
+
+    // ==================== Cross-Page Sync ====================
+    syncWatch(["elderly_data", "alerts_data", "workorders_data", "family_requests", "intrusion_alerts", "camera_requests", "app_notifications"], async (key) => {
+      await refreshAllData();
+      renderStats();
+      renderElderly();
+      renderAlerts();
+      renderDevices();
+      renderFamilyRequests();
+      if (key === "camera_requests" || key === "elderly_data") {
+        checkCameraRevoked();
+      }
+    });
+
+    // 定时轮询兜底
+    startAutoRefresh(async () => {
+      try {
+        await refreshAllData();
+        renderStats();
+        renderElderly();
+        renderAlerts();
+        renderDevices();
+        renderFamilyRequests();
+        checkCameraRevoked();
+      } catch (e) {}
+    }, 3000);
+  </script>
+</body>
+</html>
