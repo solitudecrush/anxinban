@@ -1,0 +1,69 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'app_shell.dart';
+import 'screens/auth_screen.dart';
+import 'services/api_service.dart';
+import 'state/nav_controller.dart';
+import 'theme/app_theme.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ElderlyCareApp());
+}
+
+class ElderlyCareApp extends StatelessWidget {
+  const ElderlyCareApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        Provider(create: (_) => ApiService()),
+        ChangeNotifierProvider(create: (_) => NavController()),
+      ],
+      child: MaterialApp(
+        title: '健康助手',
+        theme: AppTheme.light(),
+        home: const _AuthGate(),
+      ),
+    );
+  }
+}
+
+/// 登录状态闸门：已登录则进 AppShell，未登录则进 AuthScreen
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  bool? _isLoggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLogin();
+  }
+
+  Future<void> _checkLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final loggedIn = prefs.getBool('app_is_logged_in') ?? false;
+    if (mounted) {
+      setState(() => _isLoggedIn = loggedIn);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoggedIn == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return _isLoggedIn! ? const AppShell() : const AuthScreen();
+  }
+}
