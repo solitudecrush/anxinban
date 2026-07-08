@@ -68,4 +68,12 @@ public interface BloodPressureRepository extends JpaRepository<BloodPressure, Lo
      * @return 该老年人最新一次的血压记录；若不存在则返回 {@code null}
      */
     BloodPressure findFirstByElderIdOrderByTimestampDesc(String elderId);
+
+    /**
+     * 根据老年人编号查询其所有血压测量记录，按时间降序排列。
+     *
+     * @param elderId 老年人编号
+     * @return 该老年人的血压记录列表（按时间降序）；无记录时返回空列表
+     */
+    List<BloodPressure> findByElderIdOrderByTimestampDesc(String elderId);
 }

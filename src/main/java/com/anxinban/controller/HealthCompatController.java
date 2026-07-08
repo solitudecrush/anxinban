@@ -1,9 +1,15 @@
 package com.anxinban.controller;
 
 import com.anxinban.dto.ApiResponse;
+import com.anxinban.entity.BloodOxygen;
 import com.anxinban.entity.BloodPressure;
+import com.anxinban.entity.BodyTemperature;
+import com.anxinban.entity.HeartRate;
 import com.anxinban.entity.SensorData;
+import com.anxinban.mapper.BloodOxygenRepository;
 import com.anxinban.mapper.BloodPressureRepository;
+import com.anxinban.mapper.BodyTemperatureRepository;
+import com.anxinban.mapper.HeartRateRepository;
 import com.anxinban.mapper.SensorDataRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +34,15 @@ public class HealthCompatController {
     @Autowired
     private BloodPressureRepository bloodPressureRepository;
 
+    @Autowired
+    private HeartRateRepository heartRateRepository;
+
+    @Autowired
+    private BloodOxygenRepository bloodOxygenRepository;
+
+    @Autowired
+    private BodyTemperatureRepository bodyTemperatureRepository;
+
     /**
      * 查询指定老人最新健康数据。
      *
@@ -39,10 +54,29 @@ public class HealthCompatController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("elder_id", elderId);
 
-        // 从 sensor_data 中获取各项最新值
-        data.put("heart_rate", getLatestSensorDouble(elderId, "heart_rate"));
-        data.put("spo2", getLatestSensorDouble(elderId, "spo2"));
-        data.put("temperature", getLatestSensorDouble(elderId, "temperature"));
+        // 心率：优先从独立表 heart_rate 读取
+        HeartRate latestHr = heartRateRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        if (latestHr != null) {
+            data.put("heart_rate", latestHr.getValue());
+        } else {
+            data.put("heart_rate", getLatestSensorDouble(elderId, "heart_rate"));
+        }
+
+        // 血氧：优先从独立表 blood_oxygen 读取
+        BloodOxygen latestBo = bloodOxygenRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        if (latestBo != null) {
+            data.put("spo2", latestBo.getValue() != null ? latestBo.getValue().intValue() : null);
+        } else {
+            data.put("spo2", getLatestSensorDouble(elderId, "spo2"));
+        }
+
+        // 体温：优先从独立表 body_temperature 读取
+        BodyTemperature latestBt = bodyTemperatureRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        if (latestBt != null) {
+            data.put("temperature", latestBt.getValue() != null ? latestBt.getValue().doubleValue() : null);
+        } else {
+            data.put("temperature", getLatestSensorDouble(elderId, "temperature"));
+        }
 
         // 血压从 blood_pressure 表获取
         BloodPressure latestBp = bloodPressureRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
@@ -60,7 +94,11 @@ public class HealthCompatController {
         data.put("fall_status", mapFallFromDouble(fallVal));
 
         // 最新数据时间
-        String latestTime = getLatestSensorTime(elderId, "heart_rate");
+        String latestTime = null;
+        if (latestHr != null) latestTime = latestHr.getTimestamp().toString();
+        if (latestTime == null && latestBo != null) latestTime = latestBo.getTimestamp().toString();
+        if (latestTime == null && latestBt != null) latestTime = latestBt.getTimestamp().toString();
+        if (latestTime == null) latestTime = getLatestSensorTime(elderId, "heart_rate");
         if (latestTime == null || latestTime.isEmpty()) {
             latestTime = getLatestSensorTime(elderId, "spo2");
         }

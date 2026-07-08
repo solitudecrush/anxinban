@@ -95,6 +95,15 @@ public class AgentConversationService {
     }
 
     /**
+     * 查询全部对话记录。
+     *
+     * @return 全部对话列表，不会为 {@code null}
+     */
+    public List<AgentConversation> listAll() {
+        return agentConversationRepository.findAll();
+    }
+
+    /**
      * 按老人与代理类型组合查询对话记录。
      *
      * @param elderId   老人唯一标识

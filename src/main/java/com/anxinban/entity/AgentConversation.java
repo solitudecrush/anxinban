@@ -8,11 +8,13 @@ package com.anxinban.entity;
  * @since 0.0.1-SNAPSHOT
  */
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "agent_conversation")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class AgentConversation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

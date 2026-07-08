@@ -37,40 +37,49 @@ public class AIAgentService {
     private final ObjectMapper objectMapper;
     private static final String DEFAULT_HOUSE_ID = "demo-house";
 
-    /** Mock 意图映射表 */
+    /** 意图映射表 — 将用户输入关键词映射到三大意图分类 */
     private static final Map<String, String> INTENT_MAP = new HashMap<>();
 
     static {
-        // 灯光控制意图
-        INTENT_MAP.put("打开灯", "light-control");
-        INTENT_MAP.put("关灯", "light-control");
-        INTENT_MAP.put("开灯", "light-control");
-        INTENT_MAP.put("灯光", "light-control");
-        
-        // 窗帘控制意图
-        INTENT_MAP.put("打开窗帘", "curtain-control");
-        INTENT_MAP.put("关闭窗帘", "curtain-control");
-        INTENT_MAP.put("窗帘", "curtain-control");
-        
-        // 查找物品意图
-        INTENT_MAP.put("找", "find-item");
-        INTENT_MAP.put("查找", "find-item");
-        INTENT_MAP.put("在哪里", "find-item");
-        
-        // 健康查询意图
-        INTENT_MAP.put("心率", "health-query");
-        INTENT_MAP.put("血压", "health-query");
-        INTENT_MAP.put("健康", "health-query");
-        
-        // 紧急呼叫意图
-        INTENT_MAP.put("救命", "emergency");
-        INTENT_MAP.put("求救", "emergency");
-        INTENT_MAP.put("紧急", "emergency");
-        
-        // 闲聊意图
-        INTENT_MAP.put("你好", "chat");
-        INTENT_MAP.put("嗨", "chat");
-        INTENT_MAP.put("在吗", "chat");
+        // ========== 找东西 (find_item) ==========
+        INTENT_MAP.put("找", "find_item");
+        INTENT_MAP.put("查找", "find_item");
+        INTENT_MAP.put("在哪里", "find_item");
+        INTENT_MAP.put("找不到", "find_item");
+        INTENT_MAP.put("眼镜", "find_item");
+        INTENT_MAP.put("钥匙", "find_item");
+
+        // ========== 音乐 (control_music) ==========
+        INTENT_MAP.put("音乐", "control_music");
+        INTENT_MAP.put("歌", "control_music");
+        INTENT_MAP.put("播放", "control_music");
+        INTENT_MAP.put("听", "control_music");
+        INTENT_MAP.put("戏曲", "control_music");
+        INTENT_MAP.put("收音机", "control_music");
+
+        // ========== 陪伴互动 (companion_chat) — 其余所有日常对话 ==========
+        // 健康相关
+        INTENT_MAP.put("心率", "companion_chat");
+        INTENT_MAP.put("血压", "companion_chat");
+        INTENT_MAP.put("健康", "companion_chat");
+        INTENT_MAP.put("不舒服", "companion_chat");
+        INTENT_MAP.put("疼", "companion_chat");
+        // 家居控制（通过对话方式）
+        INTENT_MAP.put("开灯", "companion_chat");
+        INTENT_MAP.put("关灯", "companion_chat");
+        INTENT_MAP.put("灯光", "companion_chat");
+        INTENT_MAP.put("窗帘", "companion_chat");
+        // 闲聊
+        INTENT_MAP.put("你好", "companion_chat");
+        INTENT_MAP.put("嗨", "companion_chat");
+        INTENT_MAP.put("在吗", "companion_chat");
+        INTENT_MAP.put("天气", "companion_chat");
+        INTENT_MAP.put("心情", "companion_chat");
+        INTENT_MAP.put("孤单", "companion_chat");
+        INTENT_MAP.put("想", "companion_chat");
+        INTENT_MAP.put("开心", "companion_chat");
+        INTENT_MAP.put("睡", "companion_chat");
+        // 注意：不再包含 emergency 关键词 — 紧急呼救通过手表按键触发，不经过语音对话
     }
 
     public AIAgentService(MqttClientService mqttClientService,
@@ -111,7 +120,7 @@ public class AIAgentService {
             saveConversation(userId, response.getReplyText(), request.getSessionId(), "agent");
 
             // 根据意图执行联动操作
-            executeIntentAction(response, houseId != null ? houseId : DEFAULT_HOUSE_ID);
+            executeIntentAction(response, request.getText(), houseId != null ? houseId : DEFAULT_HOUSE_ID);
 
             return CompletableFuture.completedFuture(response);
 
@@ -148,26 +157,17 @@ public class AIAgentService {
 
         // 根据意图生成响应
         switch (intent) {
-            case "light-control":
-                response.setReplyText("好的，我来帮您控制灯光。请问您想打开还是关闭哪个房间的灯？");
+            case "find_item":
+                response.setReplyText("好的，我来帮您找。请告诉我您想找什么物品？我帮您启动摄像头查找。");
                 break;
-            case "curtain-control":
-                response.setReplyText("好的，我来帮您控制窗帘。请问您想打开还是关闭窗帘？");
+            case "control_music":
+                response.setReplyText("好的，正在为您播放音乐。如果想换一首或者调节音量，随时告诉我。");
                 break;
-            case "find-item":
-                response.setReplyText("好的，我来帮您查找物品。请告诉我您想找什么东西？");
-                break;
-            case "health-query":
-                response.setReplyText("好的，我来帮您查询健康数据。");
-                break;
-            case "emergency":
-                response.setReplyText("已收到紧急呼叫请求，正在通知紧急联系人并启动应急预案。");
-                break;
-            case "chat":
-                response.setReplyText("您好！我是您的智能家居助手，请问有什么可以帮您的？");
+            case "companion_chat":
+                response.setReplyText(generateCompanionReply(request.getText()));
                 break;
             default:
-                response.setReplyText("好的，我明白了。");
+                response.setReplyText("我在呢，您慢慢说。有什么我可以帮您的？");
                 break;
         }
 
@@ -188,39 +188,32 @@ public class AIAgentService {
     }
 
     /**
-     * 根据意图执行联动操作。
+     * 根据用户输入文本中的关键词执行联动操作。
+     * 注：intent 已简化为三大类，具体的设备控制通过原始文本关键词判断。
      */
-    private void executeIntentAction(AiConversationResp response, String houseId) throws MqttException {
-        String intent = response.getIntent();
-
-        switch (intent) {
-            case "light-control":
-                // 模拟灯光控制
-                LightCmd cmd = new LightCmd("light-001", "toggle", "living-room");
-                mqttClientService.publishJson(
-                        MqttTopicConstants.actuatorCmd(houseId, "living-room", "light-001"),
-                        cmd
-                );
-                log.info("已下发灯光控制指令");
-                break;
-            case "curtain-control":
-                // 模拟窗帘控制
-                CurtainCmd curtainCmd = new CurtainCmd("curtain-001", "toggle", "living-room");
-                curtainCmd.setTargetPercent(50);
-                mqttClientService.publishJson(
-                        MqttTopicConstants.actuatorCmd(houseId, "living-room", "curtain-001"),
-                        curtainCmd
-                );
-                log.info("已下发窗帘控制指令");
-                break;
-            case "emergency":
-                // 紧急呼叫联动
-                sendBuzzerCommand(houseId, "living-room", "beep", "紧急呼叫");
-                log.info("紧急呼叫联动已执行");
-                break;
-            default:
-                // 其他意图无需联动
+    private void executeIntentAction(AiConversationResp response, String userText, String houseId) throws MqttException {
+        // 灯光控制：检测文本中包含灯相关关键词
+        if (userText.contains("灯")) {
+            LightCmd cmd = new LightCmd("light-001", "toggle", "living-room");
+            mqttClientService.publishJson(
+                    MqttTopicConstants.actuatorCmd(houseId, "living-room", "light-001"),
+                    cmd
+            );
+            log.info("已下发灯光控制指令（用户输入: {}）", userText);
         }
+
+        // 窗帘控制：检测文本中包含窗帘关键词
+        if (userText.contains("窗帘")) {
+            CurtainCmd curtainCmd = new CurtainCmd("curtain-001", "toggle", "living-room");
+            curtainCmd.setTargetPercent(50);
+            mqttClientService.publishJson(
+                    MqttTopicConstants.actuatorCmd(houseId, "living-room", "curtain-001"),
+                    curtainCmd
+            );
+            log.info("已下发窗帘控制指令（用户输入: {}）", userText);
+        }
+
+        // 注意：不再处理 emergency 意图 — 紧急呼救通过手表硬件按键触发，不走语音对话通道
     }
 
     // ==================== AI 查找物品 ====================
@@ -295,16 +288,56 @@ public class AIAgentService {
     // ==================== 辅助方法 ====================
 
     /**
+     * 生成陪伴互动的温暖回复。
+     */
+    private String generateCompanionReply(String userText) {
+        if (userText == null) return "我在呢，有什么可以帮您的？";
+
+        if (userText.contains("心情") || userText.contains("不开心") || userText.contains("难过")) {
+            return "我理解您的心情。有时候说出来就会好很多，我一直在这儿陪着您呢。要不要我给您放首喜欢的歌，或者帮您给家人打个电话？";
+        }
+        if (userText.contains("孤单") || userText.contains("寂寞")) {
+            return "您不孤单，我一直都在您身边。您的家人们也都惦记着您呢。要不我陪您聊聊天，讲讲今天的新闻？";
+        }
+        if (userText.contains("想") && (userText.contains("孙子") || userText.contains("儿子") || userText.contains("女儿") || userText.contains("家人"))) {
+            return "亲情是最温暖的牵挂。要不要我现在帮您拨个视频电话给他们？看到他们的笑脸您一定会开心的。";
+        }
+        if (userText.contains("开心") || userText.contains("高兴") || userText.contains("好吃")) {
+            return "真好！开心的时候就要好好享受。您把开心的心情保持下去，身体也会越来越好的。";
+        }
+        if (userText.contains("疼") || userText.contains("不舒服")) {
+            return "您哪里不舒服要告诉我，别忍着。我先帮您联系医护人员，同时您深呼吸放松一下，我在这儿陪着您。";
+        }
+        if (userText.contains("睡") && (userText.contains("不好") || userText.contains("失眠"))) {
+            return "睡不好确实让人心烦。我给您放一段舒缓的音乐，您躺下来慢慢放松。睡前别想太多，我在这儿守着您。";
+        }
+        if (userText.contains("血压") || userText.contains("心率") || userText.contains("健康")) {
+            return "您的健康数据我已经帮您查看了。记得按时吃药、保持心情愉快，有什么不舒服随时告诉我。";
+        }
+        if (userText.contains("天气") || userText.contains("出去")) {
+            return "今天天气不错呢！晒晒太阳、散散步对身体特别好。出门记得带好拐杖，注意安全，别走太远哦。";
+        }
+        if (userText.contains("灯")) {
+            return "好的，我来帮您控制灯光。已经为您操作好了。还有其他需要我帮忙的吗？";
+        }
+        if (userText.contains("窗帘")) {
+            return "好的，我来帮您控制窗帘。已经为您调整好了。还有其他需要我帮忙的吗？";
+        }
+        // 默认陪伴回复
+        return "我在呢，您说吧。不管什么事儿，我都在这儿陪着您。";
+    }
+
+    /**
      * 记录对话日志到数据库。
      */
     private void saveConversation(String userId, String content, String sessionId, String role) {
         try {
             AgentConversation conversation = new AgentConversation();
-            conversation.setConversationId(UUID.randomUUID().toString());
+            conversation.setConversationId(sessionId + "_" + role);
             conversation.setElderId(userId);
             conversation.setUserText(content);
-            conversation.setConversationId(sessionId);
             conversation.setAgentType(role);
+            conversation.setRiskLevel("low");
             conversation.setCreatedAt(LocalDateTime.now());
             conversationRepository.save(conversation);
         } catch (Exception e) {

@@ -4,6 +4,7 @@ import com.anxinban.dto.AlarmDto;
 import com.anxinban.dto.ApiResponse;
 import com.anxinban.dto.InterventionDto;
 import com.anxinban.dto.InterventionResultDto;
+import com.anxinban.dto.PageResult;
 import com.anxinban.entity.AgentConversation;
 import com.anxinban.entity.AiAdvice;
 import com.anxinban.service.AgentConversationService;
@@ -12,6 +13,7 @@ import com.anxinban.service.CloudAgentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -123,6 +125,55 @@ public class CloudAgentController {
     public ApiResponse<AgentConversation> chat(@RequestBody AgentConversation request) {
         AgentConversation saved = agentConversationService.createConversation(request);
         return ApiResponse.created(saved);
+    }
+
+    /**
+     * 查询对话记录列表（支持按老人筛选和分页）。
+     *
+     * @param elderId  可选，按老人ID筛选
+     * @param page     页码，从 1 开始，默认 1
+     * @param pageSize 每页大小，默认 20
+     * @return 分页对话记录列表
+     */
+    @GetMapping("/conversations")
+    public ApiResponse<PageResult<AgentConversation>> listConversations(
+            @RequestParam(required = false) String elderId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        List<AgentConversation> all;
+        if (elderId != null && !elderId.isEmpty()) {
+            all = agentConversationService.listByElder(elderId);
+        } else {
+            all = agentConversationService.listAll();
+        }
+        // 按创建时间倒序
+        all.sort((a, b) -> {
+            if (a.getCreatedAt() == null || b.getCreatedAt() == null) return 0;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+        int total = all.size();
+        int from = Math.max((page - 1) * pageSize, 0);
+        int to = Math.min(from + pageSize, total);
+        List<AgentConversation> paginated = from < total
+                ? new ArrayList<>(all.subList(from, to))
+                : new ArrayList<>();
+        PageResult<AgentConversation> result = new PageResult<>(paginated, total, page, pageSize);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 查询单条对话记录详情。
+     *
+     * @param conversationId 对话ID
+     * @return 对话记录
+     */
+    @GetMapping("/conversations/{conversationId}")
+    public ApiResponse<AgentConversation> getConversation(@PathVariable String conversationId) {
+        AgentConversation conv = agentConversationService.getConversation(conversationId);
+        if (conv == null) {
+            return ApiResponse.error(404, "对话记录不存在: " + conversationId);
+        }
+        return ApiResponse.success(conv);
     }
     /**
      * 新增接口，处理 POST /advice 请求。
