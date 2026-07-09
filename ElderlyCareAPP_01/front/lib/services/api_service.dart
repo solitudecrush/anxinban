@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-// import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 import '../config/api_config.dart';
 import '../models/ai_analysis.dart';
@@ -50,6 +51,17 @@ class ApiService {
 
   final _client = http.Client();
   String? _accessToken;
+  String? _userId; // 当前登录用户 ID（family 用户即为 familyId）
+  String? _elderId; // 当前绑定老人 ID（由 fetchAndSetElderId 自动获取）
+
+  /// 当前登录令牌（供外部读取，如 main.dart 恢复登录状态）
+  String? get accessToken => _accessToken;
+
+  /// 当前登录用户 ID
+  String? get userId => _userId;
+
+  /// 当前绑定老人 ID（从 /api/elder/bound 获取）
+  String? get elderId => _elderId;
 
   // ---------- 基础请求封装 ----------
 
@@ -122,24 +134,34 @@ class ApiService {
 
   // ---------- 认证模块 ----------
 
+  /// App 端家属登录（使用新端点 /api/auth/login/app）
   Future<Map<String, dynamic>> login(String phone, String password, {String userType = 'family'}) async {
-    final resp = await _post('/api/auth/login', body: {
+    final resp = await _post('/api/auth/login/app', body: {
       'phone': phone,
       'password': password,
-      'userType': userType,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
     if (data != null && data['accessToken'] != null) {
       _accessToken = data['accessToken'] as String;
+      _userId = data['userId'] as String?;
     }
     return data ?? {};
   }
 
   Future<Map<String, dynamic>> register(Map<String, dynamic> data) async {
-    final resp = await _post('/api/auth/register', body: data);
+    final resp = await _post('/api/auth/register', body: {
+      'phone': data['phone'],
+      'password': data['password'],
+      'name': data['name'] ?? data['phone'],
+      'verifyCode': data['verifyCode'],
+      'userType': data['userType'] ?? 'family',
+      if (data['elderId'] != null) 'elderId': data['elderId'],
+      if (data['relation'] != null) 'relation': data['relation'],
+    });
     final result = _extractData(resp) as Map<String, dynamic>?;
     if (result != null && result['accessToken'] != null) {
       _accessToken = result['accessToken'] as String;
+      _userId = result['userId'] as String?;
     }
     return result ?? {};
   }
@@ -156,15 +178,120 @@ class ApiService {
       await _post('/api/auth/logout');
     } catch (_) {}
     _accessToken = null;
+    _userId = null;
   }
 
+  /// 获取当前用户信息。
+  ///
+  /// 注意：后端 /api/auth/me 仅查询 staff 表，family 用户会返回 404。
+  /// family 用户应使用登录时返回的 LoginResponse 中的信息。
   Future<Map<String, dynamic>> fetchCurrentUser(String phone) async {
-    final resp = await _get('/api/auth/me', queryParams: {'phone': phone});
-    return (_extractData(resp) as Map<String, dynamic>?) ?? {};
+    try {
+      final resp = await _get('/api/auth/me', queryParams: {'phone': phone});
+      return (_extractData(resp) as Map<String, dynamic>?) ?? {};
+    } on ApiException {
+      // family 用户查不到 staff 表，返回空（使用方应从登录缓存中获取）
+      return {};
+    }
   }
 
+  /// 从 SharedPreferences 恢复登录令牌（App 启动时调用）
   void setToken(String token) {
     _accessToken = token;
+  }
+
+  /// 从 SharedPreferences 恢复用户 ID（App 启动时调用）
+  void setUserId(String id) {
+    _userId = id;
+  }
+
+  /// 从 SharedPreferences 恢复老人 ID（App 启动时调用）
+  void setElderId(String id) {
+    _elderId = id;
+  }
+
+  /// 根据当前登录的 familyId 查询绑定的老人 ID，并存储到 _elderId。
+  ///
+  /// 返回获取到的 elderId，如果未绑定则返回 null。
+  /// 调用时机：登录成功后、App 启动恢复登录状态后。
+  Future<String?> fetchAndSetElderId() async {
+    if (_userId == null || _userId!.isEmpty) return null;
+    try {
+      final elder = await fetchBoundElder(_userId!);
+      final eid = elder['elderId'] as String?;
+      if (eid != null && eid.isNotEmpty) {
+        _elderId = eid;
+        return eid;
+      }
+    } catch (_) {
+      // 用户可能还未绑定老人
+    }
+    return null;
+  }
+
+  // ---------- 头像上传 ----------
+
+  /// 上传用户头像。
+  ///
+  /// [filePath] 本地图片文件路径（来自 image_picker）。
+  /// [userId] 当前登录用户的 ID。
+  /// [role] 用户角色，默认 "family"。
+  ///
+  /// 返回后端存储的相对路径（如 /uploads/avatars/avatar-xxx.jpg），
+  /// 可通过 [avatarFullUrl] 获取完整访问地址。
+  Future<String> uploadAvatar(String filePath, String userId, {String role = 'family'}) async {
+    final uri = Uri.parse(ApiConfig.baseUrl + '/api/upload/avatar');
+
+    final mimeType = lookupMimeType(filePath) ?? 'image/jpeg';
+    final mediaType = MediaType.parse(mimeType);
+
+    final request = http.MultipartRequest('POST', uri)
+      ..headers.addAll({
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      })
+      ..fields['userId'] = userId
+      ..fields['role'] = role
+      ..files.add(await http.MultipartFile.fromPath('file', filePath, contentType: mediaType));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode >= 500) {
+      throw ApiException('服务器错误 (${response.statusCode})');
+    }
+
+    final jsonBody = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(jsonBody, (d) => d as Map<String, dynamic>);
+
+    if (!apiResp.isSuccess) {
+      throw ApiException(apiResp.message);
+    }
+
+    final data = apiResp.data;
+    return data?['url'] as String? ?? '';
+  }
+
+  /// 删除用户头像（恢复默认头像）。
+  Future<String> deleteAvatar(String userId, {String role = 'family'}) async {
+    final resp = await _delete('/api/upload/avatar', queryParams: {
+      'userId': userId,
+      'role': role,
+    });
+    final data = _extractData(resp) as Map<String, dynamic>?;
+    return data?['url'] as String? ?? '/uploads/avatars/default.png';
+  }
+
+  /// 根据相对路径构建完整的头像访问 URL。
+  ///
+  /// 如果 [relativePath] 为空或 null，返回默认头像 URL。
+  static String avatarFullUrl(String? relativePath) {
+    if (relativePath == null || relativePath.isEmpty) {
+      return '${ApiConfig.baseUrl}/uploads/avatars/default.png';
+    }
+    if (relativePath.startsWith('http')) {
+      return relativePath;
+    }
+    return '${ApiConfig.baseUrl}$relativePath';
   }
 
   // ---------- 老人信息 ----------
@@ -176,62 +303,194 @@ class ApiService {
 
   // ---------- Profile（兼容旧接口） ----------
 
+  /// 获取当前绑定老人的 Profile 信息。
+  ///
+  /// 通过 /api/elder/bound 获取老人真实信息，映射为 Profile 模型。
+  /// 若未绑定老人或请求失败，返回默认占位信息。
   Future<Profile> fetchProfile() async {
-    // App 端当前无独立 profile 接口，从绑定老人信息映射
-    // 如需真实接口，可后续扩展 /api/auth/me
+    try {
+      final elder = await fetchBoundElder(_userId ?? '');
+      if (elder.isNotEmpty) {
+        final building = elder['building'] as String? ?? '';
+        final room = elder['room'] as String? ?? '';
+        final address = elder['address'] as String? ?? '';
+        final fullAddress = address.isNotEmpty
+            ? address
+            : (building.isNotEmpty && room.isNotEmpty
+                ? '$building $room'
+                : (building.isNotEmpty ? building : (room.isNotEmpty ? room : '')));
+        return Profile(
+          name: elder['name'] as String? ?? '未知',
+          age: (elder['age'] as num?)?.toInt() ?? 0,
+          gender: elder['gender'] as String? ?? '未知',
+          familyPhone: elder['familyPhone'] as String? ?? elder['guardianPhone'] as String? ?? '',
+          address: fullAddress.isNotEmpty ? fullAddress : '暂无地址',
+        );
+      }
+    } catch (_) {
+      // fall through to default
+    }
     return const Profile(
-      name: '曾姐',
-      age: 76,
-      gender: '女',
-      familyPhone: '13887654321',
-      address: '6号楼 6-201',
+      name: '未绑定老人',
+      age: 0,
+      gender: '未知',
+      familyPhone: '',
+      address: '',
     );
   }
 
   Future<Profile> patchProfileField(String field, String value) async {
-    // 本地兼容，后续可对接真实接口
     return fetchProfile();
   }
 
   // ---------- 体征数据 ----------
 
-  Future<LatestVitals> fetchLatestVitals({String elderId = '100'}) async {
-    final resp = await _get('/api/health/latest/$elderId');
+  /// 获取老人最新体征数据。
+  /// 使用 /api/elder/{elderId}/health/realtime，返回 HealthLatestDto (camelCase)。
+  Future<LatestVitals> fetchLatestVitals({String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) {
+      return LatestVitals(
+        temperature: 0,
+        heartRate: 0,
+        systolic: 0,
+        diastolic: 0,
+        measuredAt: DateTime.now(),
+      );
+    }
+    final resp = await _get('/api/elder/$eid/health/realtime');
     final data = _extractData(resp) as Map<String, dynamic>?;
     if (data == null) {
       return LatestVitals(
-        temperature: 36.5,
-        heartRate: 72,
-        systolic: 125,
-        diastolic: 82,
-        measuredAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        temperature: 0,
+        heartRate: 0,
+        systolic: 0,
+        diastolic: 0,
+        measuredAt: DateTime.now(),
       );
     }
     return LatestVitals(
-      temperature: (data['temperature'] as num?)?.toDouble() ?? 36.5,
-      heartRate: (data['heartRate'] as num?)?.toInt() ?? 72,
-      systolic: (data['systolic'] as num?)?.toInt() ?? 125,
-      diastolic: (data['diastolic'] as num?)?.toInt() ?? 82,
+      temperature: (data['temperature'] as num?)?.toDouble() ?? 0,
+      heartRate: (data['heartRate'] as num?)?.toInt() ?? 0,
+      systolic: (data['systolic'] as num?)?.toInt() ?? 0,
+      diastolic: (data['diastolic'] as num?)?.toInt() ?? 0,
       measuredAt: _parseDateTime(data['updateTime']),
     );
   }
 
-  Future<VitalsHistory> fetchHistory(String period, {String elderId = '100'}) async {
-    final resp = await _get('/api/elder/$elderId/health/history', queryParams: {
-      'type': 'heart_rate',
+  /// 获取体征历史数据（综合）。
+  ///
+  /// 使用 /api/elder/{elderId}/health/history 分别获取三种体征趋势后合并，
+  /// 确保与后端独立体征表（body_temperature, heart_rate, blood_pressure）对齐。
+  Future<VitalsHistory> fetchHistory(String period, {String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) {
+      return _mockHistory[period] ?? _mockHistory['week']!;
+    }
+    try {
+      // 并行获取三种体征趋势
+      final results = await Future.wait([
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'temperature', 'range': period}),
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'heart_rate', 'range': period}),
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'blood_pressure', 'range': period}),
+      ]);
+
+      final tempData = _extractTrendItems(results[0]);
+      final hrData = _extractTrendItems(results[1]);
+      final bpData = _extractTrendItems(results[2]);
+
+      // 合并：按时间对齐
+      final merged = <String, VitalsHistoryPoint>{};
+      for (final t in tempData) {
+        final label = _formatTimeShort(t['time']);
+        merged[label] = VitalsHistoryPoint(
+          label: label,
+          temperature: (t['value'] as num?)?.toDouble(),
+        );
+      }
+      for (final h in hrData) {
+        final label = _formatTimeShort(h['time']);
+        final existing = merged[label];
+        if (existing != null) {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            temperature: existing.temperature,
+            heartRate: (h['value'] as num?)?.toInt(),
+          );
+        } else {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            heartRate: (h['value'] as num?)?.toInt(),
+          );
+        }
+      }
+      for (final b in bpData) {
+        final label = _formatTimeShort(b['time']);
+        final existing = merged[label];
+        if (existing != null) {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            temperature: existing.temperature,
+            heartRate: existing.heartRate,
+            systolic: (b['systolic'] as num?)?.toInt(),
+            diastolic: (b['diastolic'] as num?)?.toInt(),
+          );
+        } else {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            systolic: (b['systolic'] as num?)?.toInt(),
+            diastolic: (b['diastolic'] as num?)?.toInt(),
+          );
+        }
+      }
+
+      final points = merged.values.toList()
+        ..sort((a, b) => a.label.compareTo(b.label));
+
+      if (points.isNotEmpty) {
+        return VitalsHistory(period: period, points: points);
+      }
+    } catch (_) {
+      // 后端无数据或接口不可用时回退 mock
+    }
+    return _mockHistory[period] ?? _mockHistory['week']!;
+  }
+
+  /// 从 health/history 响应中提取 data 列表
+  List<Map<String, dynamic>> _extractTrendItems(Map<String, dynamic> resp) {
+    final data = _extractData(resp);
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+  /// 获取单项体征趋势。
+  ///
+  /// 使用 /api/elder/{elderId}/health/history，返回 HealthTrendDto。
+  /// HealthTrendDto.data 是 List<HealthTrendItemDto>，每项含 time/value/systolic/diastolic。
+  Future<VitalsHistory> fetchTrend({String? elderId, String? type, String period = 'week'}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) {
+      return _mockHistory[period] ?? _mockHistory['week']!;
+    }
+    final vitalType = type ?? 'heart_rate';
+    final resp = await _get('/api/elder/$eid/health/history', queryParams: {
+      'type': vitalType,
       'range': period,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
     final points = <VitalsHistoryPoint>[];
-    if (data != null && data['points'] is List) {
-      for (final p in data['points'] as List) {
+    if (data != null && data['data'] is List) {
+      for (final p in data['data'] as List) {
         final m = p as Map<String, dynamic>;
+        final isBP = vitalType == 'blood_pressure';
         points.add(VitalsHistoryPoint(
-          label: m['label'] as String? ?? '',
-          temperature: (m['temperature'] as num?)?.toDouble() ?? 0,
-          heartRate: (m['heartRate'] as num?)?.toInt() ?? 0,
-          systolic: (m['systolic'] as num?)?.toInt() ?? 0,
-          diastolic: (m['diastolic'] as num?)?.toInt() ?? 0,
+          label: m['time'] as String? ?? '',
+          temperature: isBP ? null : (vitalType == 'temperature' ? (m['value'] as num?)?.toDouble() : null),
+          heartRate: isBP ? null : (vitalType == 'heart_rate' ? (m['value'] as num?)?.toInt() : null),
+          systolic: (m['systolic'] as num?)?.toInt(),
+          diastolic: (m['diastolic'] as num?)?.toInt(),
         ));
       }
     }
@@ -241,61 +500,78 @@ class ApiService {
     return VitalsHistory(period: period, points: points);
   }
 
-  Future<VitalsHistory> fetchTrend({String elderId = '100', String? type, String period = 'week'}) async {
-    final resp = await _get('/api/health/trend/$elderId', queryParams: {
-      if (type != null) 'type': type,
-      'period': period,
-    });
-    final data = _extractData(resp) as Map<String, dynamic>?;
-    final points = <VitalsHistoryPoint>[];
-    if (data != null && data['points'] is List) {
-      for (final p in data['points'] as List) {
-        final m = p as Map<String, dynamic>;
-        points.add(VitalsHistoryPoint(
-          label: m['label'] as String? ?? '',
-          temperature: (m['temperature'] as num?)?.toDouble() ?? 0,
-          heartRate: (m['heartRate'] as num?)?.toInt() ?? 0,
-          systolic: (m['systolic'] as num?)?.toInt() ?? 0,
-          diastolic: (m['diastolic'] as num?)?.toInt() ?? 0,
-        ));
+  /// AI 健康分析。
+  ///
+  /// 从后端体征趋势数据计算平均值并生成分析摘要。
+  Future<AiAnalysis> analyzeAi({String? elderId, String period = 'week'}) async {
+    try {
+      final eid = elderId ?? _elderId;
+      if (eid == null || eid.isEmpty) {
+        return _mockAi[period] ?? _mockAi['week']!;
       }
-    }
-    if (points.isEmpty) {
-      return _mockHistory[period] ?? _mockHistory['week']!;
-    }
-    return VitalsHistory(period: period, points: points);
-  }
+      // 获取三种体征趋势用于计算平均值
+      final results = await Future.wait([
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'heart_rate', 'range': period}),
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'blood_pressure', 'range': period}),
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'temperature', 'range': period}),
+      ]);
 
-  Future<AiAnalysis> analyzeAi({String elderId = '100', String period = 'week'}) async {
-    final resp = await _get('/api/health/analysis/$elderId', queryParams: {'period': period});
-    final data = _extractData(resp) as Map<String, dynamic>?;
-    if (data == null) {
-      return _mockAi[period] ?? _mockAi['week']!;
+      final hrItems = _extractTrendItems(results[0]);
+      final bpItems = _extractTrendItems(results[1]);
+      final tempItems = _extractTrendItems(results[2]);
+
+      final avgHr = hrItems.isNotEmpty
+          ? hrItems.map((e) => (e['value'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / hrItems.length
+          : 0.0;
+      final avgSys = bpItems.isNotEmpty
+          ? bpItems.map((e) => (e['systolic'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / bpItems.length
+          : 0.0;
+      final avgDia = bpItems.isNotEmpty
+          ? bpItems.map((e) => (e['diastolic'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / bpItems.length
+          : 0.0;
+      final avgTemp = tempItems.isNotEmpty
+          ? tempItems.map((e) => (e['value'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / tempItems.length
+          : 0.0;
+
+      if (avgHr > 0 || avgSys > 0 || avgTemp > 0) {
+        final periodName = period == 'day' ? '今日' : (period == 'month' ? '本月' : '本周');
+        final summary = avgTemp > 0 && avgHr > 0 && avgSys > 0
+            ? '$periodName老人平均心率 ${avgHr.round()}bpm，平均血压 ${avgSys.round()}/${avgDia.round()} mmHg，平均体温 ${avgTemp.toStringAsFixed(1)}℃。'
+            : '$periodName已获取健康趋势数据。';
+        final suggestion = avgSys > 140 || avgDia > 90
+            ? '血压偏高，建议咨询医生。'
+            : '建议继续监测，保持适度活动。';
+        return AiAnalysis(summary: summary, suggestion: suggestion, fromLlm: false);
+      }
+    } catch (_) {
+      // fall through to mock
     }
-    return AiAnalysis(
-      summary: data['summary'] as String? ?? '',
-      suggestion: data['suggestion'] as String? ?? '',
-      fromLlm: false,
-    );
+    return _mockAi[period] ?? _mockAi['week']!;
   }
 
   // ---------- 告警 ----------
 
-  Future<List<AlertItem>> fetchAlerts({String elderId = '100'}) async {
+  /// 获取告警列表。
+  /// 后端返回 PageResult<AlarmDto>（data.list）。
+  Future<List<AlertItem>> fetchAlerts({String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) return [];
     final resp = await _get('/api/alarm/list', queryParams: {
-      if (elderId != null) 'elderId': elderId,
+      'elderId': eid,
       'page': '1',
       'pageSize': '50',
     });
     final data = _extractData(resp);
+    // data 可能是 PageResult（含 list 字段）或直接是 List
     final list = (data is Map && data['list'] is List)
         ? data['list'] as List
         : (data is List ? data : <dynamic>[]);
     return list.map((a) => _convertAlarm(a as Map<String, dynamic>)).toList();
   }
 
-  Future<AlertItem?> fetchLatestAlert({String elderId = '100'}) async {
-    final list = await fetchAlerts(elderId: elderId);
+  Future<AlertItem?> fetchLatestAlert({String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    final list = await fetchAlerts(elderId: eid);
     return list.isNotEmpty ? list.first : null;
   }
 
@@ -304,20 +580,25 @@ class ApiService {
   }
 
   Future<int> fetchAlarmUnreadCount(String elderId) async {
-    final resp = await _get('/api/alarm/unread-count', queryParams: {'elderId': elderId});
+    final eid = elderId.isNotEmpty ? elderId : _elderId;
+    if (eid == null || eid.isEmpty) return 0;
+    final resp = await _get('/api/alarm/unread-count', queryParams: {'elderId': eid});
     final data = _extractData(resp) as Map<String, dynamic>?;
     return (data?['count'] as num?)?.toInt() ?? 0;
   }
 
+  /// 将 AlarmDto (camelCase) 转为 AlertItem
   AlertItem _convertAlarm(Map<String, dynamic> m) {
-    String typeRaw = (m['alarmType'] as String? ?? '').toUpperCase();
+    final typeRaw = (m['alarmType'] as String? ?? '').toUpperCase();
     AlertTypeCode type;
-    if (typeRaw.contains('心率')) {
+    if (typeRaw.contains('心率') || typeRaw.contains('HEART')) {
       type = AlertTypeCode.heartRateHigh;
-    } else if (typeRaw.contains('血压')) {
+    } else if (typeRaw.contains('血压') || typeRaw.contains('BLOOD_PRESSURE') || typeRaw.contains('PRESSURE')) {
       type = AlertTypeCode.pressureHigh;
-    } else if (typeRaw.contains('体温') || typeRaw.contains('温度')) {
+    } else if (typeRaw.contains('体温') || typeRaw.contains('温度') || typeRaw.contains('TEMPERATURE')) {
       type = AlertTypeCode.temperatureHigh;
+    } else if (typeRaw.contains('FALL') || typeRaw.contains('跌倒')) {
+      type = AlertTypeCode.heartRateHigh; // 暂无跌倒枚举，归入心率告警
     } else {
       type = AlertTypeCode.heartRateHigh;
     }
@@ -331,28 +612,35 @@ class ApiService {
 
   // ---------- 通知 ----------
 
+  /// 获取通知列表。
+  /// 后端返回 PageResult<NotificationDto>（data.list）。
   Future<List<NotificationItem>> fetchNotifications({
-    String userId = '100',
+    String? userId,
     String userType = 'family',
     int page = 1,
     int pageSize = 20,
   }) async {
+    final uid = userId ?? _userId;
+    if (uid == null || uid.isEmpty) return [];
     final resp = await _get('/api/notification/list', queryParams: {
-      'userId': userId,
+      'userId': uid,
       'userType': userType,
       'page': page.toString(),
       'pageSize': pageSize.toString(),
     });
     final data = _extractData(resp);
+    // data 可能是 PageResult（含 list 字段）或直接是 List
     final list = (data is Map && data['list'] is List)
         ? data['list'] as List
         : (data is List ? data : <dynamic>[]);
     return list.map((n) => _convertNotification(n as Map<String, dynamic>)).toList();
   }
 
-  Future<int> fetchUnreadNotificationCount({String userId = '100', String userType = 'family'}) async {
+  Future<int> fetchUnreadNotificationCount({String? userId, String userType = 'family'}) async {
+    final uid = userId ?? _userId;
+    if (uid == null || uid.isEmpty) return 0;
     final resp = await _get('/api/notification/unread-count', queryParams: {
-      'userId': userId,
+      'userId': uid,
       'userType': userType,
     });
     final data = _extractData(resp) as Map<String, dynamic>?;
@@ -363,10 +651,12 @@ class ApiService {
     await _post('/api/notification/$notificationId/read');
   }
 
+  /// 将 NotificationDto (camelCase) 转为 NotificationItem。
+  /// 后端 NotificationDto.type 对应通知类型。
   NotificationItem _convertNotification(Map<String, dynamic> m) {
     return NotificationItem(
       id: int.tryParse(m['notificationId']?.toString() ?? '') ?? 0,
-      type: _parseNotificationType(m['notificationType'] as String? ?? 'ALERT'),
+      type: _parseNotificationType(m['type'] as String? ?? 'ALERT'),
       title: m['title'] as String? ?? '',
       content: m['content'] as String? ?? '',
       time: _parseDateTime(m['createTime']),
@@ -394,11 +684,15 @@ class ApiService {
 
   // ---------- 监控申请 ----------
 
-  Future<List<CameraRequest>> fetchCameraRequests({String familyId = '100'}) async {
-    final resp = await _get('/api/monitor-request/list/family', queryParams: {'familyId': familyId});
+  /// 获取家属的监控申请列表。
+  /// 后端返回 List<MonitorRequestDto>。
+  Future<List<CameraRequest>> fetchCameraRequests({String? familyId}) async {
+    final fid = familyId ?? _userId;
+    if (fid == null || fid.isEmpty) return [];
+    final resp = await _get('/api/monitor-request/list/family', queryParams: {'familyId': fid});
     final data = _extractData(resp);
     final list = data is List ? data : <dynamic>[];
-    return list.map((r) => CameraRequest.fromJson(r as Map<String, dynamic>)).toList();
+    return list.map((r) => _convertCameraRequest(r as Map<String, dynamic>)).toList();
   }
 
   Future<void> approveCameraRequest(String requestId) async {
@@ -413,36 +707,63 @@ class ApiService {
     await _post('/api/monitor-request/$requestId/revoke');
   }
 
+  /// 将 MonitorRequestDto 转为 CameraRequest
+  CameraRequest _convertCameraRequest(Map<String, dynamic> m) {
+    return CameraRequest(
+      id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
+      elderName: m['elderName'] as String? ?? '',
+      staffName: m['staffName'] as String? ?? '',
+      staffPhone: m['staffPhone'] as String? ?? '',
+      reason: m['reason'] as String? ?? '',
+      requestTime: _parseDateTime(m['createTime']),
+      status: m['status'] as String? ?? 'pending',
+      expiresAt: _parseDateTimeNullable(m['expiredAt']),
+      approvedAt: _parseDateTimeNullable(m['approvedAt']),
+    );
+  }
+
   // ---------- 服务申请 ----------
 
-  Future<List<ServiceRequest>> fetchServiceRequests({String familyId = '100'}) async {
-    final resp = await _get('/api/service-request/my-list', queryParams: {'familyId': familyId});
+  /// 获取家属的服务申请列表。
+  /// 后端返回 List<ServiceRequestDto>。
+  Future<List<ServiceRequest>> fetchServiceRequests({String? familyId}) async {
+    final fid = familyId ?? _userId;
+    if (fid == null || fid.isEmpty) return [];
+    final resp = await _get('/api/service-request/my-list', queryParams: {'familyId': fid});
     final data = _extractData(resp);
     final list = data is List ? data : <dynamic>[];
     return list.map((r) => _convertServiceRequest(r as Map<String, dynamic>)).toList();
   }
 
+  /// 提交服务申请。
+  /// 后端 ServiceRequestDto 字段名为 type（非 requestType）。
   Future<void> submitServiceRequest(ServiceRequest request) async {
     await _post('/api/service-request', body: {
-      'requestType': request.type,
+      'type': request.type,
       'content': request.content,
+      if (_userId != null) 'familyId': _userId,
+      if (request.elderName.isNotEmpty) 'elderName': request.elderName,
     });
   }
 
+  /// 将 ServiceRequestDto 转为 ServiceRequest。
+  /// 后端 DTO 字段：requestId, type, content, status, createTime, convertedWorkOrderId, elderName 等。
   ServiceRequest _convertServiceRequest(Map<String, dynamic> m) {
     return ServiceRequest(
       id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
-      type: m['requestType'] as String? ?? '上门看护',
+      type: m['type'] as String? ?? '上门看护',
       elderName: m['elderName'] as String? ?? '曾姐',
       content: m['content'] as String? ?? '',
       requestTime: _parseDateTime(m['createTime']),
       status: m['status'] as String? ?? 'pending',
-      convertedTo: m['relatedOrderId'] as String?,
+      convertedTo: m['convertedWorkOrderId'] as String?,
     );
   }
 
   // ---------- SOS ----------
 
+  /// 触发 SOS 求救。
+  /// 后端 POST /api/sos，body 为 SosDto。
   Future<Map<String, dynamic>> triggerSos(String elderId) async {
     final resp = await _post('/api/sos', body: {
       'sosId': 'SOS-${DateTime.now().millisecondsSinceEpoch}',
@@ -451,6 +772,8 @@ class ApiService {
     return (_extractData(resp) as Map<String, dynamic>?) ?? {};
   }
 
+  /// 获取 SOS 历史记录。
+  /// 后端返回 List<SosDto>（无分页）。
   Future<List<Map<String, dynamic>>> fetchSosHistory(String elderId) async {
     final resp = await _get('/api/sos/list', queryParams: {'elderId': elderId});
     final data = _extractData(resp);
@@ -460,6 +783,8 @@ class ApiService {
 
   // ---------- 紧急联系人 ----------
 
+  /// 获取紧急联系人列表。
+  /// 后端返回 List<EmergencyContactDto>（无分页）。
   Future<List<Map<String, dynamic>>> fetchEmergencyContacts(String elderId) async {
     final resp = await _get('/api/emergency-contact/list', queryParams: {'elderId': elderId});
     final data = _extractData(resp);
@@ -467,6 +792,8 @@ class ApiService {
     return list.cast<Map<String, dynamic>>();
   }
 
+  /// 创建紧急联系人。
+  /// 后端 POST /api/emergency-contact，body 为 EmergencyContactDto。
   Future<Map<String, dynamic>> createEmergencyContact(Map<String, dynamic> data) async {
     final resp = await _post('/api/emergency-contact', body: data);
     return (_extractData(resp) as Map<String, dynamic>?) ?? {};
@@ -526,10 +853,30 @@ class ApiService {
     return DateTime.now();
   }
 
+  DateTime? _parseDateTimeNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) {
+      try {
+        return DateTime.parse(value.replaceFirst(' ', 'T'));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   String _formatTime(dynamic value) {
     final dt = _parseDateTime(value);
     return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
+
+  String _formatTimeShort(dynamic value) {
+    final dt = _parseDateTime(value);
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_shell.dart';
@@ -152,13 +153,24 @@ class _AuthScreenState extends State<AuthScreen>
     }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       final result = await api.login(phone, pwd, userType: 'family');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('app_is_logged_in', true);
       await prefs.setString('app_login_phone', phone);
       await prefs.setString('app_access_token', result['accessToken'] ?? '');
       await prefs.setString('app_user_id', result['userId'] ?? '');
+      await prefs.setString('app_user_name', result['name'] ?? '');
+      await prefs.setString('app_user_role', result['role'] ?? '');
+      final avatar = result['avatar'];
+      if (avatar != null && avatar is String && avatar.isNotEmpty) {
+        await prefs.setString('profile_avatar', avatar);
+      }
+      // 登录成功后解析绑定老人 ID
+      final elderId = await api.fetchAndSetElderId();
+      if (elderId != null && elderId.isNotEmpty) {
+        await prefs.setString('app_elder_id', elderId);
+      }
       if (_loginRemember) {
         await prefs.setString('app_login_remember', '$phone|$pwd');
       } else {
@@ -185,7 +197,7 @@ class _AuthScreenState extends State<AuthScreen>
     if (pwd != pwd2) { _showSnack('两次输入的密码不一致'); return; }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.register({
         'name': phone,
         'phone': phone,
@@ -198,7 +210,14 @@ class _AuthScreenState extends State<AuthScreen>
       _loginPwdCtrl.text = pwd;
       _switchPage(AuthPage.login);
     } catch (e) {
-      _showSnack(e.toString());
+      final msg = e.toString();
+      if (msg.contains('409') || msg.contains('已注册') || msg.contains('已存在')) {
+        _showSnack('该手机号已注册，请直接登录');
+      } else if (msg.contains('500') || msg.contains('服务器')) {
+        _showSnack('注册失败：服务器内部错误，请稍后重试（演示验证码：123456）');
+      } else {
+        _showSnack('注册失败：$msg');
+      }
     }
   }
 
@@ -214,7 +233,7 @@ class _AuthScreenState extends State<AuthScreen>
     if (pwd != pwd2) { _showSnack('两次输入的密码不一致'); return; }
 
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.resetPassword(phone, pwd);
       _showSnack('密码重置成功！请登录');
       _loginPhoneCtrl.text = phone;
