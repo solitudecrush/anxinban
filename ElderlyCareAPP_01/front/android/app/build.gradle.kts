@@ -73,6 +73,11 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // R8 混淆规则（忽略可选 API 缺失类，如 androidx.window 折叠屏 API）
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
