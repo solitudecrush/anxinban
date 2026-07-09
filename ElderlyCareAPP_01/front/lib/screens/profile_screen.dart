@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/camera_request.dart';
 import '../models/emergency_contact_entry.dart';
 import '../models/profile.dart';
+import '../screens/auth_screen.dart';
 import '../screens/camera_request_screen.dart';
 import '../screens/emergency_contact_settings_screen.dart';
 import '../screens/health_record_screen.dart';
@@ -498,10 +499,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(c);
+              final api = context.read<ApiService>();
+              await api.logout();
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('已退出登录')),
+              );
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+                (_) => false,
               );
             },
             child: const Text('确定'),
@@ -816,9 +826,13 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
   }
 
   Future<void> _load() async {
-    final list = await widget.api.fetchCameraRequests();
-    if (!mounted) return;
-    setState(() => _requests = list);
+    try {
+      final list = await widget.api.fetchCameraRequests();
+      if (!mounted) return;
+      setState(() => _requests = list);
+    } catch (_) {
+      if (mounted) setState(() => _requests = []);
+    }
   }
 
   String _remainingTime(DateTime? expiresAt) {
@@ -866,7 +880,7 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
     final activeReq = _requests?.firstWhere(
       (r) => r.status == 'approved' && (r.expiresAt?.isAfter(DateTime.now()) ?? false),
       orElse: () => CameraRequest(
-        id: 0,
+        id: '',
         elderName: '曾姐',
         staffName: '-',
         staffPhone: '-',
@@ -875,12 +889,12 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
         status: 'none',
       ),
     );
-    final isActive = activeReq != null && activeReq.id != 0 && activeReq.status == 'approved';
+    final isActive = activeReq != null && activeReq.id.isNotEmpty && activeReq.status == 'approved';
     final pendingReq = _requests?.firstWhere(
       (r) => r.status == 'pending',
-      orElse: () => CameraRequest(id: 0, elderName: '曾姐', staffName: '-', staffPhone: '-', reason: '-', requestTime: DateTime.now(), status: 'none'),
+      orElse: () => CameraRequest(id: '', elderName: '曾姐', staffName: '-', staffPhone: '-', reason: '-', requestTime: DateTime.now(), status: 'none'),
     );
-    final hasPending = pendingReq != null && pendingReq.id != 0 && pendingReq.status == 'pending';
+    final hasPending = pendingReq != null && pendingReq.id.isNotEmpty && pendingReq.status == 'pending';
 
     return Material(
       color: Colors.transparent,

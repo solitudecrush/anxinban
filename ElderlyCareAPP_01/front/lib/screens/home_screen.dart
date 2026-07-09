@@ -142,7 +142,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   icon: const Icon(Icons.emergency, size: 24),
-                  onPressed: () => SosService.triggerSos(context),
+                  onPressed: () {
+                    SosService.triggerSos(context);
+                    // 同时记录 SOS 事件到后端
+                    final api = context.read<ApiService>();
+                    final eid = api.elderId;
+                    if (eid != null && eid.isNotEmpty) {
+                      api.triggerSos(eid);
+                    }
+                  },
                   label: const Text(
                     'SOS 紧急呼叫',
                     style: TextStyle(

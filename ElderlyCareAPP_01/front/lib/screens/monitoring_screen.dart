@@ -41,10 +41,14 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   }
 
   Future<void> _load() async {
-    final api = context.read<ApiService>();
-    final list = await api.fetchCameraRequests();
-    if (!mounted) return;
-    setState(() => _requests = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.fetchCameraRequests();
+      if (!mounted) return;
+      setState(() => _requests = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    } catch (_) {
+      if (mounted) setState(() => _requests = []);
+    }
   }
 
   void _openLiveLocation() {

@@ -15,6 +15,8 @@ public class ServiceRequestDto {
     private String familyId;
     /** 名称 */
     private String familyName;
+    /** 家属头像 URL（来自 app 应用端） */
+    private String avatar;
     /** 关联老人用户 ID */
     private String elderId;
     /** 名称 */
@@ -86,6 +88,24 @@ public class ServiceRequestDto {
      */
     public void setFamilyName(String familyName) {
         this.familyName = familyName;
+    }
+
+    /**
+     * 获取家属头像 URL（来自 app 应用端）。
+     *
+     * @return 家属头像 URL
+     */
+    public String getAvatar() {
+        return avatar;
+    }
+
+    /**
+     * 设置家属头像 URL（来自 app 应用端）。
+     *
+     * @param avatar 家属头像 URL
+     */
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
     }
 
     /**

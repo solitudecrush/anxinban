@@ -27,14 +27,14 @@ class AlertItem {
     required this.occurredAt,
   });
 
-  final int id;
+  final String id;
   final AlertTypeCode type;
   final String detail;
   final DateTime occurredAt;
 
   factory AlertItem.fromJson(Map<String, dynamic> json) {
     return AlertItem(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       type: AlertTypeCode.fromApi(json['type'] as String),
       detail: json['detail'] as String,
       occurredAt: DateTime.parse(json['occurredAt'] as String).toLocal(),

@@ -9,7 +9,7 @@ class ServiceRequest {
     this.convertedTo,
   });
 
-  final int id;
+  final String id;
   final String type; // 上门看护、设备维修、健康咨询、紧急求助、生活物资代购
   final String elderName;
   final String content;
@@ -19,7 +19,7 @@ class ServiceRequest {
 
   factory ServiceRequest.fromJson(Map<String, dynamic> json) {
     return ServiceRequest(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       type: json['type'] as String,
       elderName: json['elderName'] as String,
       content: json['content'] as String,

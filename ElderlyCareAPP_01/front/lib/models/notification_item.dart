@@ -28,7 +28,7 @@ class NotificationItem {
     this.extra,
   });
 
-  final int id;
+  final String id;
   final NotificationType type;
   final String title;
   final String content;
@@ -38,7 +38,7 @@ class NotificationItem {
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       type: NotificationType.fromApi(json['type'] as String),
       title: json['title'] as String,
       content: json['content'] as String,

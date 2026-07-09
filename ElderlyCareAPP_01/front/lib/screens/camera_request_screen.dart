@@ -37,10 +37,14 @@ class _CameraRequestScreenState extends State<CameraRequestScreen> {
   }
 
   Future<void> _load() async {
-    final api = context.read<ApiService>();
-    final list = await api.fetchCameraRequests();
-    if (!mounted) return;
-    setState(() => _items = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.fetchCameraRequests();
+      if (!mounted) return;
+      setState(() => _items = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    } catch (_) {
+      if (mounted) setState(() => _items = []);
+    }
   }
 
   String _formatTime(DateTime t) {

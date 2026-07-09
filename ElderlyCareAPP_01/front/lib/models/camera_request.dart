@@ -11,7 +11,7 @@ class CameraRequest {
     this.approvedAt,
   });
 
-  final int id;
+  final String id;
   final String elderName;
   final String staffName;
   final String staffPhone;
@@ -23,7 +23,7 @@ class CameraRequest {
 
   factory CameraRequest.fromJson(Map<String, dynamic> json) {
     return CameraRequest(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       elderName: json['elderName'] as String,
       staffName: json['staffName'] as String,
       staffPhone: json['staffPhone'] as String,

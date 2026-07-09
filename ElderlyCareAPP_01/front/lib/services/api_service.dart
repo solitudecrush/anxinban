@@ -100,11 +100,13 @@ class ApiService {
       throw ApiException('服务器错误 (${response.statusCode})');
     }
 
-    final jsonBody = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(jsonBody, (d) => d as Map<String, dynamic>);
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    final jsonBody = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
 
-    if (!apiResp.isSuccess) {
-      throw ApiException(apiResp.message);
+    final code = jsonBody['code'] as int? ?? 500;
+    if (code != 200 && code != 201) {
+      final message = jsonBody['message'] as String? ?? '未知错误';
+      throw ApiException(message);
     }
 
     return jsonBody;
@@ -603,7 +605,7 @@ class ApiService {
       type = AlertTypeCode.heartRateHigh;
     }
     return AlertItem(
-      id: int.tryParse(m['alarmId']?.toString() ?? '') ?? 0,
+      id: m['alarmId']?.toString() ?? '',
       type: type,
       detail: '${m['alarmType'] ?? ''} · ${m['description'] ?? ''} · ${_formatTime(m['occurTime'])}',
       occurredAt: _parseDateTime(m['occurTime']),
@@ -655,7 +657,7 @@ class ApiService {
   /// 后端 NotificationDto.type 对应通知类型。
   NotificationItem _convertNotification(Map<String, dynamic> m) {
     return NotificationItem(
-      id: int.tryParse(m['notificationId']?.toString() ?? '') ?? 0,
+      id: m['notificationId']?.toString() ?? '',
       type: _parseNotificationType(m['type'] as String? ?? 'ALERT'),
       title: m['title'] as String? ?? '',
       content: m['content'] as String? ?? '',
@@ -710,7 +712,7 @@ class ApiService {
   /// 将 MonitorRequestDto 转为 CameraRequest
   CameraRequest _convertCameraRequest(Map<String, dynamic> m) {
     return CameraRequest(
-      id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
+      id: m['requestId']?.toString() ?? '',
       elderName: m['elderName'] as String? ?? '',
       staffName: m['staffName'] as String? ?? '',
       staffPhone: m['staffPhone'] as String? ?? '',
@@ -736,12 +738,13 @@ class ApiService {
   }
 
   /// 提交服务申请。
-  /// 后端 ServiceRequestDto 字段名为 type（非 requestType）。
+  /// 后端 ServiceRequestDto 字段：type, content, familyId, elderId, elderName 等。
   Future<void> submitServiceRequest(ServiceRequest request) async {
     await _post('/api/service-request', body: {
       'type': request.type,
       'content': request.content,
       if (_userId != null) 'familyId': _userId,
+      if (_elderId != null) 'elderId': _elderId,
       if (request.elderName.isNotEmpty) 'elderName': request.elderName,
     });
   }
@@ -750,7 +753,7 @@ class ApiService {
   /// 后端 DTO 字段：requestId, type, content, status, createTime, convertedWorkOrderId, elderName 等。
   ServiceRequest _convertServiceRequest(Map<String, dynamic> m) {
     return ServiceRequest(
-      id: int.tryParse(m['requestId']?.toString() ?? '') ?? 0,
+      id: m['requestId']?.toString() ?? '',
       type: m['type'] as String? ?? '上门看护',
       elderName: m['elderName'] as String? ?? '曾姐',
       content: m['content'] as String? ?? '',

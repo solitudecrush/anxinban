@@ -43,10 +43,14 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   }
 
   Future<void> _load() async {
-    final api = context.read<ApiService>();
-    final list = await api.fetchServiceRequests();
-    if (!mounted) return;
-    setState(() => _items = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.fetchServiceRequests();
+      if (!mounted) return;
+      setState(() => _items = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
+    } catch (_) {
+      if (mounted) setState(() => _items = []);
+    }
   }
 
   String _formatTime(DateTime t) {
@@ -63,7 +67,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final api = context.read<ApiService>();
     final req = ServiceRequest(
-      id: DateTime.now().millisecondsSinceEpoch,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       type: _selectedType,
       elderName: _elderName,
       content: _contentController.text.trim(),
@@ -200,7 +204,8 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                         'pending': ('待处理', Colors.orange),
                         'converted': ('已受理', Colors.blue),
                         'completed': ('已完成', Colors.green),
-                        'ignored': ('已拒绝', Colors.grey),
+                        'rejected': ('已拒绝', Colors.grey),
+                        'ignored': ('已忽略', Colors.grey),
                       };
                       final s = statusMap[r.status] ?? (r.status == 'completed' ? ('已完成', Colors.green) : ('未知', Colors.grey));
                       return Container(

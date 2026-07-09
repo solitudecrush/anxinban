@@ -52,3 +52,7 @@ build/
 *.jar
 *.war
 *.ear
+
+### Android signing keys (do NOT commit) ###
+**/android/app/key.properties
+**/android/app/*.jks

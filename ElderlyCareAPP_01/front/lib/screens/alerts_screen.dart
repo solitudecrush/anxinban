@@ -39,10 +39,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _load() async {
-    final api = context.read<ApiService>();
-    final list = await api.fetchNotifications();
-    if (!mounted) return;
-    setState(() => _items = list.toList()..sort((a, b) => b.time.compareTo(a.time)));
+    try {
+      final api = context.read<ApiService>();
+      final list = await api.fetchNotifications();
+      if (!mounted) return;
+      setState(() => _items = list.toList()..sort((a, b) => b.time.compareTo(a.time)));
+    } catch (_) {
+      if (mounted) setState(() => _items = []);
+    }
   }
 
   (IconData icon, Color color) _style(NotificationType t) {

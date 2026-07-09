@@ -56,7 +56,7 @@ class _AuthGateState extends State<_AuthGate> {
 
     // 2. 检查登录状态
     final prefs = await SharedPreferences.getInstance();
-    final loggedIn = prefs.getBool('app_is_logged_in') ?? false;
+    bool loggedIn = prefs.getBool('app_is_logged_in') ?? false;
 
     // 3. 如果已登录，恢复 accessToken、userId 和 elderId 到 ApiService 中
     if (loggedIn && mounted) {
@@ -73,12 +73,24 @@ class _AuthGateState extends State<_AuthGate> {
       if (elderId != null && elderId.isNotEmpty) {
         api.setElderId(elderId);
       }
-      // 异步刷新 elderId（不阻塞 UI）
-      api.fetchAndSetElderId().then((eid) {
-        if (eid != null && eid.isNotEmpty) {
-          prefs.setString('app_elder_id', eid);
+
+      // 4. 验证 token 是否仍然有效（尝试获取绑定老人信息）
+      if (token != null && token.isNotEmpty && userId != null && userId.isNotEmpty) {
+        try {
+          final eid = await api.fetchAndSetElderId();
+          if (eid != null && eid.isNotEmpty) {
+            await prefs.setString('app_elder_id', eid);
+          }
+        } on ApiException catch (e) {
+          // 业务错误（如"未绑定老人"）说明 token 有效，只是还没绑定老人
+          // 不做处理，保持登录状态
+        } catch (_) {
+          // 网络错误（连接被拒绝、超时等）：服务器不可达，清除登录状态
+          // 让用户重新登录（可能是服务器地址变了）
+          await prefs.clear();
+          loggedIn = false;
         }
-      });
+      }
     }
 
     if (mounted) {

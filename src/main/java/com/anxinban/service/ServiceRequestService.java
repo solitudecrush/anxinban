@@ -144,6 +144,7 @@ public class ServiceRequestService {
             var family = familyUserRepository.findByFamilyId(entity.getFamilyId());
             if (family != null) {
                 dto.setFamilyName(family.getName());
+                dto.setAvatar(family.getAvatar());
             }
         }
         dto.setElderId(entity.getElderId());
