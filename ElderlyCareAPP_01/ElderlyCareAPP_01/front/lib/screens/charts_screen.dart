@@ -30,7 +30,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
   Future<void> _reloadAll() async {
     final api = context.read<ApiService>();
     final h = await api.fetchHistory(_period);
-    final a = await api.analyzeAi(_period);
+    final a = await api.analyzeAi(period: _period);
     if (!mounted) return;
     setState(() {
       _history = h;

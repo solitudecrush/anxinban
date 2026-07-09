@@ -99,8 +99,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAvatar() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('app_user_id') ?? '100';
+    final userId = prefs.getString('app_user_id') ?? '';
     final role = prefs.getString('app_user_role') ?? 'family';
+    if (userId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('用户信息未加载，请重新登录')),
+        );
+      }
+      return;
+    }
 
     final url = await showAvatarPicker(
       context,

@@ -166,6 +166,11 @@ class _AuthScreenState extends State<AuthScreen>
       if (avatar != null && avatar is String && avatar.isNotEmpty) {
         await prefs.setString('profile_avatar', avatar);
       }
+      // 登录成功后解析绑定老人 ID
+      final elderId = await api.fetchAndSetElderId();
+      if (elderId != null && elderId.isNotEmpty) {
+        await prefs.setString('app_elder_id', elderId);
+      }
       if (_loginRemember) {
         await prefs.setString('app_login_remember', '$phone|$pwd');
       } else {
@@ -205,7 +210,14 @@ class _AuthScreenState extends State<AuthScreen>
       _loginPwdCtrl.text = pwd;
       _switchPage(AuthPage.login);
     } catch (e) {
-      _showSnack(e.toString());
+      final msg = e.toString();
+      if (msg.contains('409') || msg.contains('已注册') || msg.contains('已存在')) {
+        _showSnack('该手机号已注册，请直接登录');
+      } else if (msg.contains('500') || msg.contains('服务器')) {
+        _showSnack('注册失败：服务器内部错误，请稍后重试（演示验证码：123456）');
+      } else {
+        _showSnack('注册失败：$msg');
+      }
     }
   }
 

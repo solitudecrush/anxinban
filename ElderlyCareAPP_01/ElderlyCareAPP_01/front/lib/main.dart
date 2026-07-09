@@ -58,10 +58,11 @@ class _AuthGateState extends State<_AuthGate> {
     final prefs = await SharedPreferences.getInstance();
     final loggedIn = prefs.getBool('app_is_logged_in') ?? false;
 
-    // 3. 如果已登录，恢复 accessToken 和 userId 到 ApiService 中
+    // 3. 如果已登录，恢复 accessToken、userId 和 elderId 到 ApiService 中
     if (loggedIn && mounted) {
       final token = prefs.getString('app_access_token');
       final userId = prefs.getString('app_user_id');
+      final elderId = prefs.getString('app_elder_id');
       final api = context.read<ApiService>();
       if (token != null && token.isNotEmpty) {
         api.setToken(token);
@@ -69,6 +70,15 @@ class _AuthGateState extends State<_AuthGate> {
       if (userId != null && userId.isNotEmpty) {
         api.setUserId(userId);
       }
+      if (elderId != null && elderId.isNotEmpty) {
+        api.setElderId(elderId);
+      }
+      // 异步刷新 elderId（不阻塞 UI）
+      api.fetchAndSetElderId().then((eid) {
+        if (eid != null && eid.isNotEmpty) {
+          prefs.setString('app_elder_id', eid);
+        }
+      });
     }
 
     if (mounted) {

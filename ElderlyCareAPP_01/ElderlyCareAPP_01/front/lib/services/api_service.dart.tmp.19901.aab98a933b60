@@ -727,8 +727,7 @@ class ApiService {
   /// 获取家属的服务申请列表。
   /// 后端返回 List<ServiceRequestDto>。
   Future<List<ServiceRequest>> fetchServiceRequests({String? familyId}) async {
-    final fid = familyId ?? _userId;
-    if (fid == null || fid.isEmpty) return [];
+    final fid = familyId ?? _userId ?? '100';
     final resp = await _get('/api/service-request/my-list', queryParams: {'familyId': fid});
     final data = _extractData(resp);
     final list = data is List ? data : <dynamic>[];
