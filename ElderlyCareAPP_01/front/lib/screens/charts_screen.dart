@@ -6,7 +6,7 @@ import '../models/ai_analysis.dart';
 import '../models/vitals_history.dart';
 import '../services/api_service.dart';
 
-enum _Metric { temperature, heartRate, bloodPressure }
+enum _Metric { temperature, heartRate, bloodPressure, bloodOxygen }
 
 class ChartsScreen extends StatefulWidget {
   const ChartsScreen({super.key});
@@ -36,6 +36,15 @@ class _ChartsScreenState extends State<ChartsScreen> {
       _history = h;
       _ai = a;
     });
+  }
+
+  String _metricLabel(_Metric m) {
+    return switch (m) {
+      _Metric.temperature => '体温',
+      _Metric.heartRate => '心率',
+      _Metric.bloodPressure => '血压',
+      _Metric.bloodOxygen => '血氧',
+    };
   }
 
   @override
@@ -82,6 +91,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
                 ChoiceChip(
                   label: const Text('体温'),
@@ -101,18 +111,36 @@ class _ChartsScreenState extends State<ChartsScreen> {
                   onSelected: (_) =>
                       setState(() => _metric = _Metric.bloodPressure),
                 ),
+                ChoiceChip(
+                  label: const Text('血氧'),
+                  selected: _metric == _Metric.bloodOxygen,
+                  onSelected: (_) =>
+                      setState(() => _metric = _Metric.bloodOxygen),
+                ),
               ],
             ),
             const SizedBox(height: 16),
+            if (_metric == _Metric.bloodPressure)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _LegendDot(color: Colors.deepPurple, label: '收缩压'),
+                    const SizedBox(width: 16),
+                    _LegendDot(color: Colors.lightBlue, label: '舒张压'),
+                  ],
+                ),
+              ),
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
                 child: SizedBox(
-                  height: 236,
+                  height: 280,
                   child: _history == null || _chartEmpty()
                       ? const Center(
                           child: Text(
@@ -121,7 +149,10 @@ class _ChartsScreenState extends State<ChartsScreen> {
                           ),
                         )
                       : _HealthLineChart(
-                          history: _history!, metric: _metric),
+                          history: _history!,
+                          metric: _metric,
+                          period: _period,
+                        ),
                 ),
               ),
             ),
@@ -213,18 +244,140 @@ class _ChartsScreenState extends State<ChartsScreen> {
       any |= switch (_metric) {
         _Metric.temperature => p.temperature != null,
         _Metric.heartRate => p.heartRate != null,
-        _Metric.bloodPressure => p.systolic != null && p.diastolic != null,
+        _Metric.bloodPressure => p.systolic != null || p.diastolic != null,
+        _Metric.bloodOxygen => p.bloodOxygen != null,
       };
     }
     return !any;
   }
 }
 
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+      ],
+    );
+  }
+}
+
 class _HealthLineChart extends StatelessWidget {
-  const _HealthLineChart({required this.history, required this.metric});
+  const _HealthLineChart({
+    required this.history,
+    required this.metric,
+    required this.period,
+  });
 
   final VitalsHistory history;
   final _Metric metric;
+  final String period;
+
+  /// Regenerate labels based on period to ensure correct x-axis display,
+  /// independent of backend time format.
+  /// Uses index-based fallback when raw labels don't match expected period format.
+  List<String> _buildLabels(List<VitalsHistoryPoint> pts, String period) {
+    final labels = <String>[];
+    for (var i = 0; i < pts.length; i++) {
+      final raw = pts[i].label;
+      // Check if label already matches expected period format
+      bool matchesExpected;
+      switch (period) {
+        case 'day':
+          matchesExpected = raw.contains(':');
+          break;
+        case 'week':
+          matchesExpected = raw.contains('周');
+          break;
+        case 'month':
+          matchesExpected = raw.contains('日');
+          break;
+        default:
+          matchesExpected = false;
+      }
+      if (matchesExpected) {
+        labels.add(raw);
+      } else {
+        // Try to parse and reformat from the raw label
+        final parsed = _tryParseLabel(raw, period, i, pts.length);
+        labels.add(parsed);
+      }
+    }
+    return labels;
+  }
+
+  String _tryParseLabel(String raw, String period, int index, int total) {
+    // Try parsing as datetime first
+    try {
+      final dt = DateTime.parse(raw.replaceFirst(' ', 'T'));
+      switch (period) {
+        case 'day':
+          return '${_pad(dt.hour)}:${_pad(dt.minute)}';
+        case 'month':
+          return '${dt.day}日';
+        case 'week':
+        default:
+          return _weekdayName(dt.weekday);
+      }
+    } catch (_) {
+      // Try parsing as "HH:mm" for day period
+      if (period == 'day' && raw.contains(':')) {
+        return raw;
+      }
+      // Try extracting digits from raw for week/month
+      final digits = RegExp(r'(\d+)').firstMatch(raw);
+      if (digits != null) {
+        final num = int.tryParse(digits.group(1) ?? '');
+        if (num != null) {
+          if (period == 'month') {
+            return '${num}日';
+          }
+          if (period == 'week' && num >= 1 && num <= 7) {
+            return _weekdayName(num);
+          }
+        }
+      }
+      // Last resort: index-based labels
+      if (period == 'week') {
+        return _weekdayName((index % 7) + 1);
+      }
+      if (period == 'month') {
+        // Distribute points across days 1..(28-31)
+        final dayNum = total > 1 ? 1 + (index * (28 ~/ total)).clamp(0, 30) : 1;
+        return '${dayNum}日';
+      }
+      // Day period: generate hourly labels
+      final hour = (8 + index * 2) % 24;
+      return '${_pad(hour)}:00';
+    }
+  }
+
+  String _weekdayName(int weekday) {
+    return switch (weekday) {
+      1 => '周一',
+      2 => '周二',
+      3 => '周三',
+      4 => '周四',
+      5 => '周五',
+      6 => '周六',
+      7 => '周日',
+      _ => '?',
+    };
+  }
+
+  String _pad(int n) => n.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +386,8 @@ class _HealthLineChart extends StatelessWidget {
     if (n == 0) {
       return const SizedBox.shrink();
     }
+
+    final labels = _buildLabels(pts, period);
 
     double minY;
     double maxY;
@@ -280,8 +435,8 @@ class _HealthLineChart extends StatelessWidget {
         ];
         break;
       case _Metric.bloodPressure:
-        minY = 60;
-        maxY = 160;
+        minY = 40;
+        maxY = 180;
         final sys = <FlSpot>[];
         final dia = <FlSpot>[];
         for (var i = 0; i < n; i++) {
@@ -311,6 +466,26 @@ class _HealthLineChart extends StatelessWidget {
           ),
         ];
         break;
+      case _Metric.bloodOxygen:
+        minY = 80;
+        maxY = 100;
+        final spots = <FlSpot>[];
+        for (var i = 0; i < n; i++) {
+          final bo = pts[i].bloodOxygen;
+          if (bo != null) {
+            spots.add(FlSpot(i.toDouble(), bo.toDouble()));
+          }
+        }
+        bars = [
+          LineChartBarData(
+            isCurved: true,
+            color: Colors.teal,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+            spots: spots,
+          ),
+        ];
+        break;
     }
 
     String yLabel(double v) {
@@ -320,91 +495,128 @@ class _HealthLineChart extends StatelessWidget {
       return v.round().toString();
     }
 
-    return InteractiveViewer(
-      minScale: 1,
-      maxScale: 3.2,
-      boundaryMargin: const EdgeInsets.symmetric(horizontal: 24),
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: (n - 1).toDouble(),
-          minY: minY,
-          maxY: maxY,
-          clipData: const FlClipData.all(),
-          gridData: FlGridData(show: true, drawVerticalLine: false),
-          borderData: FlBorderData(show: true),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 36,
-                getTitlesWidget: (v, m) =>
-                    Text(yLabel(v), style: const TextStyle(fontSize: 10)),
+    // Dynamic chart width: wider when many data points, at least full width.
+    // Use larger min width for week/month so labels are readable
+    final minBarWidth = period == 'day' ? 56.0 : 52.0;
+    final chartWidth = n * minBarWidth;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useWidth = chartWidth > constraints.maxWidth
+            ? chartWidth
+            : constraints.maxWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: SizedBox(
+            width: useWidth,
+            height: 260,
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: (n - 1).toDouble(),
+                minY: minY,
+                maxY: maxY,
+                clipData: const FlClipData.all(),
+                gridData: FlGridData(show: true, drawVerticalLine: false),
+                borderData: FlBorderData(show: true),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 48,
+                      interval: _leftInterval(minY, maxY),
+                      getTitlesWidget: (v, m) =>
+                          Text(
+                            yLabel(v),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      interval: _bottomInterval(n),
+                      getTitlesWidget: (v, m) {
+                        final i = v.round().clamp(0, n - 1);
+                        final label =
+                            i < labels.length ? labels[i] : pts[i].label;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            label,
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  handleBuiltInTouches: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touched) {
+                      return touched.map((t) {
+                        final i = t.x.round().clamp(0, n - 1);
+                        final p = pts[i];
+                        final lbl =
+                            i < labels.length ? labels[i] : p.label;
+                        final text = switch (metric) {
+                          _Metric.temperature =>
+                            p.temperature == null
+                                ? '-'
+                                : '${p.temperature!.toStringAsFixed(1)} ℃',
+                          _Metric.heartRate =>
+                            p.heartRate == null ? '-' : '${p.heartRate} bpm',
+                          _Metric.bloodPressure =>
+                            (p.systolic == null || p.diastolic == null)
+                                ? '-'
+                                : '${p.systolic}/${p.diastolic} mmHg',
+                          _Metric.bloodOxygen =>
+                            p.bloodOxygen == null
+                                ? '-'
+                                : '${p.bloodOxygen}%',
+                        };
+                        return LineTooltipItem(
+                          '$lbl\n$text',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+                lineBarsData: bars,
               ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: _bottomInterval(n),
-                getTitlesWidget: (v, m) {
-                  final i = v.round().clamp(0, n - 1);
-                  final label = pts[i].label;
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(label, style: const TextStyle(fontSize: 10)),
-                  );
-                },
-              ),
+              duration: Duration.zero,
             ),
           ),
-          lineTouchData: LineTouchData(
-            enabled: true,
-            handleBuiltInTouches: true,
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipItems: (touched) {
-                return touched.map((t) {
-                  final i = t.x.round().clamp(0, n - 1);
-                  final p = pts[i];
-                  final text = switch (metric) {
-                    _Metric.temperature =>
-                      p.temperature == null
-                          ? '-'
-                          : '${p.temperature!.toStringAsFixed(1)} ℃',
-                    _Metric.heartRate =>
-                      p.heartRate == null ? '-' : '${p.heartRate} bpm',
-                    _Metric.bloodPressure =>
-                      (p.systolic == null || p.diastolic == null)
-                          ? '-'
-                          : '${p.systolic}/${p.diastolic} mmHg',
-                  };
-                  return LineTooltipItem(
-                    '${p.label}\n$text',
-                    const TextStyle(color: Colors.white, fontSize: 12),
-                  );
-                }).toList();
-              },
-            ),
-          ),
-          lineBarsData: bars,
-        ),
-        duration: Duration.zero,
-      ),
+        );
+      },
     );
   }
 
+  double _leftInterval(double minY, double maxY) {
+    final range = maxY - minY;
+    if (range <= 4) return 0.5;
+    if (range <= 20) return 5;
+    if (range <= 50) return 10;
+    return 20;
+  }
+
   double _bottomInterval(int n) {
-    if (n <= 8) {
-      return 1;
-    }
-    if (n <= 16) {
-      return 2;
-    }
+    if (n <= 8) return 1;
+    if (n <= 16) return 2;
     return 4;
   }
 }

@@ -4,6 +4,7 @@ class LatestVitals {
     required this.heartRate,
     required this.systolic,
     required this.diastolic,
+    required this.bloodOxygen,
     required this.measuredAt,
   });
 
@@ -11,6 +12,7 @@ class LatestVitals {
   final int heartRate;
   final int systolic;
   final int diastolic;
+  final int? bloodOxygen;
   final DateTime measuredAt;
 
   factory LatestVitals.fromJson(Map<String, dynamic> json) {
@@ -19,6 +21,7 @@ class LatestVitals {
       heartRate: (json['heartRate'] as num).toInt(),
       systolic: (json['systolic'] as num).toInt(),
       diastolic: (json['diastolic'] as num).toInt(),
+      bloodOxygen: (json['bloodOxygen'] as num?)?.toInt(),
       measuredAt: DateTime.parse(json['measuredAt'] as String).toLocal(),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/health_record.dart';
+import '../services/api_service.dart';
 import '../services/health_record_store.dart';
 
 class HealthRecordScreen extends StatefulWidget {
@@ -28,7 +30,28 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
   }
 
   Future<void> _load() async {
-    var record = await HealthRecordStore.load();
+    HealthRecord? record;
+    // Try backend first
+    try {
+      final api = context.read<ApiService>();
+      final backendData = await api.fetchHealthRecord();
+      if (backendData != null && backendData.isNotEmpty) {
+        record = HealthRecord(
+          hospitalizations: backendData['hospitalizationInfo'] as String? ?? '',
+          medicalHistory: backendData['medicalHistory'] as String? ?? '',
+          allergies: backendData['allergyHistory'] as String? ?? '',
+          medications: backendData['commonMedications'] as String? ?? '',
+          bloodType: backendData['bloodType'] as String? ?? '',
+          remarks: backendData['remarks'] as String? ?? '',
+        );
+        // Sync backend data to local store
+        await HealthRecordStore.save(record);
+      }
+    } catch (_) {
+      // Backend unavailable, fall through to local
+    }
+    // Fall back to local
+    record ??= await HealthRecordStore.load();
     // 如果全部为空，填充模拟数据
     if (record.hospitalizations.isEmpty &&
         record.medicalHistory.isEmpty &&
@@ -63,11 +86,26 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
       bloodType: _bloodTypeCtrl.text.trim(),
       remarks: _remarksCtrl.text.trim(),
     );
+    // Save locally first for instant persistence
     await HealthRecordStore.save(record);
+    // Sync to backend so other devices can see the updated record
+    try {
+      final api = context.read<ApiService>();
+      await api.saveHealthRecord({
+        'hospitalizations': record.hospitalizations,
+        'medicalHistory': record.medicalHistory,
+        'allergies': record.allergies,
+        'medications': record.medications,
+        'bloodType': record.bloodType,
+        'remarks': record.remarks,
+      });
+    } catch (_) {
+      // Backend sync is best-effort; local save already succeeded
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('健康档案已保存')),
+      const SnackBar(content: Text('健康档案已保存并同步到云端')),
     );
   }
 

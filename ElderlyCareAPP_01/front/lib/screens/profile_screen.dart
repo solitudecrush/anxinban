@@ -35,6 +35,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _version = '';
   bool _notifyEnabled = true;
   int _defaultSimSlot = 1;
+  bool _dirty = false; // prevent poll from overwriting local edits
+  int _saveGeneration = 0; // incremented on each save, poll respects latest
 
   @override
   void initState() {
@@ -52,7 +54,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _startPolling() {
     final api = context.read<ApiService>();
     _syncSub = api.syncStream.listen((_) {
-      _loadProfile();
+      if (!_dirty) {
+        _loadProfile();
+      }
     });
   }
 
@@ -66,11 +70,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final api = context.read<ApiService>();
     final profile = await api.fetchProfile();
     final prefs = await SharedPreferences.getInstance();
-    final avatarPath = prefs.getString('profile_avatar');
+    final localAvatar = prefs.getString('profile_avatar');
     if (mounted) {
       setState(() {
         _p = profile;
-        if (avatarPath != null) _avatarPath = avatarPath;
+        // Priority: local SharedPreferences > backend elder record > null
+        if (localAvatar != null && localAvatar.isNotEmpty) {
+          _avatarPath = localAvatar;
+        } else if (profile.avatar != null && profile.avatar!.isNotEmpty) {
+          _avatarPath = profile.avatar;
+          // Persist backend avatar to local for future use
+          prefs.setString('profile_avatar', profile.avatar!);
+        }
       });
     }
   }
@@ -85,17 +96,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_avatarPath != null) {
       await prefs.setString('profile_avatar', _avatarPath!);
     }
-    // 同步到 Web 端（localStorage）
+    // 同步到后端
     final api = context.read<ApiService>();
-    await api.patchProfileField('name', _p.name);
-    await api.patchProfileField('familyPhone', _p.familyPhone);
-    await api.patchProfileField('address', _p.address);
-    // age 和 gender 也通过 localStorage 同步
-    final elder = <String, dynamic>{};
-    elder['age'] = _p.age;
-    elder['gender'] = _p.gender;
-    await api.patchProfileField('_raw_age', '${_p.age}');
-    await api.patchProfileField('_raw_gender', _p.gender);
+    try {
+      final fields = <String, dynamic>{
+        'name': _p.name,
+        'age': _p.age,
+        'gender': _p.gender,
+        'familyPhone': _p.familyPhone,
+        'address': _p.address,
+      };
+      // Include avatar only if explicitly set
+      if (_avatarPath != null && _avatarPath!.isNotEmpty) {
+        fields['avatar'] = _avatarPath;
+      }
+      await api.patchProfileFields(fields);
+    } catch (e) {
+      // Log but don't block — profile is already saved locally
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -117,11 +135,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       role: role,
     );
     if (url != null && mounted) {
-      setState(() => _avatarPath = url);
+      setState(() {
+        _avatarPath = url;
+        _dirty = true;
+      });
       await prefs.setString('profile_avatar', url);
+      // Sync avatar URL to backend elder record
+      final api = context.read<ApiService>();
+      bool synced = false;
+      try {
+        await api.patchProfileField('avatar', url);
+        synced = true;
+      } catch (_) {
+        // avatar sync failure is non-critical
+      }
+      final gen = ++_saveGeneration;
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      if (_saveGeneration == gen) {
+        setState(() => _dirty = false);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('头像已更新')),
+          SnackBar(content: Text(synced ? '头像已更新并同步到云端' : '头像已更新（云端同步失败，请检查网络）')),
         );
       }
     }
@@ -203,20 +239,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (ok != true || !mounted) return;
     final value = controller.text.trim();
     final api = context.read<ApiService>();
-    await api.patchProfileField(field, value);
+
+    // Save to backend first
+    try {
+      await api.patchProfileField(field, value);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
+        );
+      }
+      return;
+    }
+
     setState(() {
+      _dirty = true;
       _p = Profile(
         name: field == 'name' ? value : _p.name,
         age: _p.age,
         gender: _p.gender,
         familyPhone: field == 'familyPhone' ? value : _p.familyPhone,
         address: field == 'address' ? value : _p.address,
+        avatar: _p.avatar,
       );
     });
     await _saveProfile();
+    final gen = ++_saveGeneration;
+    // Delay clearing dirty flag to prevent poll from overwriting
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    // Only clear dirty if no newer save happened
+    if (_saveGeneration == gen) {
+      setState(() => _dirty = false);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('更新成功并已同步到社区端')),
+        const SnackBar(content: Text('更新成功并已同步到云端')),
       );
     }
   }
@@ -247,19 +305,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (ok != true || !mounted) return;
     final value = int.tryParse(controller.text.trim()) ?? _p.age;
+
+    // Save to backend first
+    final api = context.read<ApiService>();
+    try {
+      await api.patchProfileField('age', '$value');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
+        );
+      }
+      return;
+    }
+
     setState(() {
+      _dirty = true;
       _p = Profile(
         name: _p.name,
         age: value,
         gender: _p.gender,
         familyPhone: _p.familyPhone,
         address: _p.address,
+        avatar: _p.avatar,
       );
     });
     await _saveProfile();
+    final gen = ++_saveGeneration;
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    if (_saveGeneration == gen) {
+      setState(() => _dirty = false);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('更新成功')),
+        const SnackBar(content: Text('更新成功并已同步到云端')),
       );
     }
   }
@@ -284,19 +364,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (selected == null || !mounted) return;
+
+    // Save to backend first
+    final api = context.read<ApiService>();
+    try {
+      await api.patchProfileField('gender', selected);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
+        );
+      }
+      return;
+    }
+
     setState(() {
+      _dirty = true;
       _p = Profile(
         name: _p.name,
         age: _p.age,
         gender: selected,
         familyPhone: _p.familyPhone,
         address: _p.address,
+        avatar: _p.avatar,
       );
     });
     await _saveProfile();
+    final gen = ++_saveGeneration;
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    if (_saveGeneration == gen) {
+      setState(() => _dirty = false);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('更新成功')),
+        const SnackBar(content: Text('更新成功并已同步到云端')),
       );
     }
   }

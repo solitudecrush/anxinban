@@ -5,6 +5,7 @@ class VitalsHistoryPoint {
     this.heartRate,
     this.systolic,
     this.diastolic,
+    this.bloodOxygen,
   });
 
   final String label;
@@ -12,6 +13,7 @@ class VitalsHistoryPoint {
   final int? heartRate;
   final int? systolic;
   final int? diastolic;
+  final int? bloodOxygen;
 
   factory VitalsHistoryPoint.fromJson(Map<String, dynamic> json) {
     return VitalsHistoryPoint(
@@ -20,6 +22,7 @@ class VitalsHistoryPoint {
       heartRate: (json['heartRate'] as num?)?.toInt(),
       systolic: (json['systolic'] as num?)?.toInt(),
       diastolic: (json['diastolic'] as num?)?.toInt(),
+      bloodOxygen: (json['bloodOxygen'] as num?)?.toInt(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_item.dart';
 import '../services/api_service.dart';
@@ -21,6 +22,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   String _filter = 'all';
   StreamSubscription<String>? _sub;
   Timer? _timer;
+  bool _isAggregated = false;
 
   @override
   void initState() {
@@ -28,7 +30,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
     _load();
     final api = context.read<ApiService>();
     _sub = api.syncStream.listen((_) => _load());
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) => _load());
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) => _load());
   }
 
   @override
@@ -41,12 +43,96 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Future<void> _load() async {
     try {
       final api = context.read<ApiService>();
+      // Ensure userId is available; fall back to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      if (api.userId == null || api.userId!.isEmpty) {
+        final uid = prefs.getString('app_user_id');
+        if (uid != null && uid.isNotEmpty) {
+          api.setUserId(uid);
+        }
+      }
       final list = await api.fetchNotifications();
       if (!mounted) return;
-      setState(() => _items = list.toList()..sort((a, b) => b.time.compareTo(a.time)));
+
+      // If notification API returns empty, aggregate from other sources
+      if (list.isEmpty) {
+        // Only re-aggregate if we don't already have aggregated data
+        if (!_isAggregated || _items == null || _items!.isEmpty) {
+          final aggregated = await _aggregateMessages(api, prefs);
+          setState(() {
+            _items = aggregated;
+            _isAggregated = true;
+          });
+        }
+      } else {
+        setState(() {
+          _items = list.toList()..sort((a, b) => b.time.compareTo(a.time));
+          _isAggregated = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _items = []);
+      // On error, try to aggregate from individual sources
+      try {
+        final api = context.read<ApiService>();
+        final prefs = await SharedPreferences.getInstance();
+        final aggregated = await _aggregateMessages(api, prefs);
+        if (mounted) setState(() => _items = aggregated);
+      } catch (_) {
+        if (mounted) setState(() => _items = []);
+      }
     }
+  }
+
+  /// Aggregate messages from alarms, service requests, and camera requests
+  /// into NotificationItems when the notification API returns empty.
+  Future<List<NotificationItem>> _aggregateMessages(ApiService api, SharedPreferences prefs) async {
+    final items = <NotificationItem>[];
+    try {
+      // Fetch alarms
+      final alarms = await api.fetchAlerts();
+      for (final alarm in alarms) {
+        items.add(NotificationItem(
+          id: 'alarm-${alarm.id}',
+          type: NotificationType.alert,
+          title: '告警通知',
+          content: alarm.detail,
+          time: alarm.occurredAt,
+          read: false,
+        ));
+      }
+    } catch (_) {}
+    try {
+      // Fetch camera requests
+      final cameraReqs = await api.fetchCameraRequests();
+      for (final req in cameraReqs) {
+        final statusText = req.status == 'approved' ? '已批准' : (req.status == 'rejected' ? '已拒绝' : '待处理');
+        items.add(NotificationItem(
+          id: 'camera-${req.id}',
+          type: NotificationType.camera,
+          title: '监控申请',
+          content: '${req.staffName} 申请查看${req.elderName}的监控 - $statusText',
+          time: req.requestTime,
+          read: req.status != 'pending',
+        ));
+      }
+    } catch (_) {}
+    try {
+      // Fetch service requests (mapped to ORDER type for "工单" filter)
+      final srvReqs = await api.fetchServiceRequests();
+      for (final req in srvReqs) {
+        final statusText = req.status == 'converted' ? '已转为工单' : (req.status == 'rejected' ? '已拒绝' : '处理中');
+        items.add(NotificationItem(
+          id: 'service-${req.id}',
+          type: NotificationType.order,
+          title: '服务申请 - ${req.type}',
+          content: '${req.content}\n状态: $statusText',
+          time: req.requestTime,
+          read: req.status != 'pending',
+        ));
+      }
+    } catch (_) {}
+    items.sort((a, b) => b.time.compareTo(a.time));
+    return items;
   }
 
   (IconData icon, Color color) _style(NotificationType t) {

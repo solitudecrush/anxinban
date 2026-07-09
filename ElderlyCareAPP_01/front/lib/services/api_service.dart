@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../models/ai_analysis.dart';
@@ -327,6 +328,7 @@ class ApiService {
           gender: elder['gender'] as String? ?? '未知',
           familyPhone: elder['familyPhone'] as String? ?? elder['guardianPhone'] as String? ?? '',
           address: fullAddress.isNotEmpty ? fullAddress : '暂无地址',
+          avatar: elder['avatar'] as String?,
         );
       }
     } catch (_) {
@@ -342,7 +344,27 @@ class ApiService {
   }
 
   Future<Profile> patchProfileField(String field, String value) async {
+    // 调用后端 PUT /api/elder/{elderId} 更新老人信息
+    final eid = _elderId;
+    if (eid == null || eid.isEmpty) {
+      throw ApiException('未绑定老人信息，请重新登录后再试');
+    }
+    final body = <String, dynamic>{field: value};
+    // 特殊处理 age 字段（需要 int 类型）
+    if (field == 'age') {
+      body['age'] = int.tryParse(value) ?? 0;
+    }
+    await _put('/api/elder/$eid', body: body);
     return fetchProfile();
+  }
+
+  /// 批量更新老人信息字段
+  Future<void> patchProfileFields(Map<String, dynamic> fields) async {
+    final eid = _elderId;
+    if (eid == null || eid.isEmpty) {
+      throw ApiException('未绑定老人信息，无法保存');
+    }
+    await _put('/api/elder/$eid', body: fields);
   }
 
   // ---------- 体征数据 ----------
@@ -357,6 +379,7 @@ class ApiService {
         heartRate: 0,
         systolic: 0,
         diastolic: 0,
+        bloodOxygen: null,
         measuredAt: DateTime.now(),
       );
     }
@@ -368,6 +391,7 @@ class ApiService {
         heartRate: 0,
         systolic: 0,
         diastolic: 0,
+        bloodOxygen: null,
         measuredAt: DateTime.now(),
       );
     }
@@ -376,6 +400,7 @@ class ApiService {
       heartRate: (data['heartRate'] as num?)?.toInt() ?? 0,
       systolic: (data['systolic'] as num?)?.toInt() ?? 0,
       diastolic: (data['diastolic'] as num?)?.toInt() ?? 0,
+      bloodOxygen: (data['bloodOxygen'] as num?)?.toInt(),
       measuredAt: _parseDateTime(data['updateTime']),
     );
   }
@@ -390,34 +415,41 @@ class ApiService {
       return _mockHistory[period] ?? _mockHistory['week']!;
     }
     try {
-      // 并行获取三种体征趋势
+      // 并行获取四种体征趋势
       final results = await Future.wait([
         _get('/api/elder/$eid/health/history', queryParams: {'type': 'temperature', 'range': period}),
         _get('/api/elder/$eid/health/history', queryParams: {'type': 'heart_rate', 'range': period}),
         _get('/api/elder/$eid/health/history', queryParams: {'type': 'blood_pressure', 'range': period}),
+        _get('/api/elder/$eid/health/history', queryParams: {'type': 'blood_oxygen', 'range': period}),
       ]);
 
       final tempData = _extractTrendItems(results[0]);
       final hrData = _extractTrendItems(results[1]);
       final bpData = _extractTrendItems(results[2]);
+      final boData = _extractTrendItems(results[3]);
 
-      // 合并：按时间对齐
+      // 合并：按时间对齐，使用 period 感知的标签
       final merged = <String, VitalsHistoryPoint>{};
-      for (final t in tempData) {
-        final label = _formatTimeShort(t['time']);
+      for (var i = 0; i < tempData.length; i++) {
+        final t = tempData[i];
+        final label = _formatLabel(t['time'], period, fallbackIndex: i);
         merged[label] = VitalsHistoryPoint(
           label: label,
           temperature: (t['value'] as num?)?.toDouble(),
         );
       }
-      for (final h in hrData) {
-        final label = _formatTimeShort(h['time']);
+      for (var i = 0; i < hrData.length; i++) {
+        final h = hrData[i];
+        final label = _formatLabel(h['time'], period, fallbackIndex: i);
         final existing = merged[label];
         if (existing != null) {
           merged[label] = VitalsHistoryPoint(
             label: label,
             temperature: existing.temperature,
             heartRate: (h['value'] as num?)?.toInt(),
+            systolic: existing.systolic,
+            diastolic: existing.diastolic,
+            bloodOxygen: existing.bloodOxygen,
           );
         } else {
           merged[label] = VitalsHistoryPoint(
@@ -426,8 +458,9 @@ class ApiService {
           );
         }
       }
-      for (final b in bpData) {
-        final label = _formatTimeShort(b['time']);
+      for (var i = 0; i < bpData.length; i++) {
+        final b = bpData[i];
+        final label = _formatLabel(b['time'], period, fallbackIndex: i);
         final existing = merged[label];
         if (existing != null) {
           merged[label] = VitalsHistoryPoint(
@@ -436,12 +469,33 @@ class ApiService {
             heartRate: existing.heartRate,
             systolic: (b['systolic'] as num?)?.toInt(),
             diastolic: (b['diastolic'] as num?)?.toInt(),
+            bloodOxygen: existing.bloodOxygen,
           );
         } else {
           merged[label] = VitalsHistoryPoint(
             label: label,
             systolic: (b['systolic'] as num?)?.toInt(),
             diastolic: (b['diastolic'] as num?)?.toInt(),
+          );
+        }
+      }
+      for (var i = 0; i < boData.length; i++) {
+        final o = boData[i];
+        final label = _formatLabel(o['time'], period, fallbackIndex: i);
+        final existing = merged[label];
+        if (existing != null) {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            temperature: existing.temperature,
+            heartRate: existing.heartRate,
+            systolic: existing.systolic,
+            diastolic: existing.diastolic,
+            bloodOxygen: (o['value'] as num?)?.toInt(),
+          );
+        } else {
+          merged[label] = VitalsHistoryPoint(
+            label: label,
+            bloodOxygen: (o['value'] as num?)?.toInt(),
           );
         }
       }
@@ -484,15 +538,18 @@ class ApiService {
     final data = _extractData(resp) as Map<String, dynamic>?;
     final points = <VitalsHistoryPoint>[];
     if (data != null && data['data'] is List) {
-      for (final p in data['data'] as List) {
-        final m = p as Map<String, dynamic>;
+      final items = data['data'] as List;
+      for (var i = 0; i < items.length; i++) {
+        final m = items[i] as Map<String, dynamic>;
         final isBP = vitalType == 'blood_pressure';
+        final isBO = vitalType == 'blood_oxygen';
         points.add(VitalsHistoryPoint(
-          label: m['time'] as String? ?? '',
-          temperature: isBP ? null : (vitalType == 'temperature' ? (m['value'] as num?)?.toDouble() : null),
-          heartRate: isBP ? null : (vitalType == 'heart_rate' ? (m['value'] as num?)?.toInt() : null),
+          label: _formatLabel(m['time'], period, fallbackIndex: i),
+          temperature: (isBP || isBO) ? null : (vitalType == 'temperature' ? (m['value'] as num?)?.toDouble() : null),
+          heartRate: (isBP || isBO) ? null : (vitalType == 'heart_rate' ? (m['value'] as num?)?.toInt() : null),
           systolic: (m['systolic'] as num?)?.toInt(),
           diastolic: (m['diastolic'] as num?)?.toInt(),
+          bloodOxygen: isBO ? (m['value'] as num?)?.toInt() : null,
         ));
       }
     }
@@ -622,7 +679,14 @@ class ApiService {
     int page = 1,
     int pageSize = 20,
   }) async {
-    final uid = userId ?? _userId;
+    String? uid = userId ?? _userId;
+    // Fallback: try SharedPreferences if _userId not yet set
+    if (uid == null || uid.isEmpty) {
+      try {
+        final prefs = await _getPrefs();
+        uid = prefs.getString('app_user_id');
+      } catch (_) {}
+    }
     if (uid == null || uid.isEmpty) return [];
     final resp = await _get('/api/notification/list', queryParams: {
       'userId': uid,
@@ -811,6 +875,42 @@ class ApiService {
     await _delete('/api/emergency-contact/$contactId');
   }
 
+  // ---------- 健康档案 ----------
+
+  /// 获取老人健康档案。
+  /// 后端 GET /api/health-record/by-elder/{elderId}
+  Future<Map<String, dynamic>?> fetchHealthRecord({String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) return null;
+    try {
+      final resp = await _get('/api/health-record/by-elder/$eid');
+      final data = _extractData(resp) as Map<String, dynamic>?;
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 保存老人健康档案。
+  /// 后端 POST /api/health-record
+  Future<void> saveHealthRecord(Map<String, dynamic> record, {String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) return;
+    try {
+      await _post('/api/health-record', body: {
+        'elderId': eid,
+        'hospitalizationInfo': record['hospitalizations'] ?? '',
+        'medicalHistory': record['medicalHistory'] ?? '',
+        'allergyHistory': record['allergies'] ?? '',
+        'commonMedications': record['medications'] ?? '',
+        'bloodType': record['bloodType'] ?? '',
+        'remarks': record['remarks'] ?? '',
+      });
+    } catch (_) {
+      // 静默处理
+    }
+  }
+
   // ---------- 轮询与通知 ----------
 
   Timer? _pollTimer;
@@ -843,14 +943,47 @@ class ApiService {
 
   // ---------- 工具方法 ----------
 
+  /// 懒加载 SharedPreferences 实例（避免在构造函数中初始化）
+  SharedPreferences? _prefsCache;
+  Future<SharedPreferences> _getPrefs() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return _prefsCache!;
+  }
+
   DateTime _parseDateTime(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is DateTime) return value;
     if (value is String) {
+      // Try ISO 8601 / "yyyy-MM-dd HH:mm:ss" / "yyyy-MM-ddTHH:mm:ss"
       try {
         return DateTime.parse(value.replaceFirst(' ', 'T'));
-      } catch (_) {
-        return DateTime.now();
+      } catch (_) {}
+      // Try "yyyy-MM-dd" only
+      try {
+        return DateTime.parse(value.trim());
+      } catch (_) {}
+      // Try "HH:mm:ss" or "HH:mm" — use today's date
+      try {
+        final parts = value.trim().split(':');
+        if (parts.length >= 2) {
+          final now = DateTime.now();
+          final h = int.parse(parts[0]);
+          final m = int.parse(parts[1]);
+          final s = parts.length >= 3 ? int.parse(parts[2]) : 0;
+          return DateTime(now.year, now.month, now.day, h, m, s);
+        }
+      } catch (_) {}
+      // Try epoch milliseconds
+      final ms = int.tryParse(value.trim());
+      if (ms != null && ms > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+      return DateTime.now();
+    }
+    if (value is num) {
+      final ms = value.toInt();
+      if (ms > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(ms);
       }
     }
     return DateTime.now();
@@ -879,34 +1012,105 @@ class ApiService {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  /// 根据 period 生成合适的标签：
+  /// - day: HH:mm（如 "08:00"）
+  /// - week: 周X（如 "周一"）
+  /// - month: d日（如 "15日"）
+  ///
+  /// [fallbackIndex] 用于当时间解析失败时生成基于索引的标签（0-based）。
+  String _formatLabel(dynamic value, String period, {int fallbackIndex = 0}) {
+    // If the value already looks like a valid label for this period, use it directly
+    if (value is String) {
+      switch (period) {
+        case 'day':
+          if (value.contains(':')) return value;
+          break;
+        case 'week':
+          if (value.contains('周')) return value;
+          break;
+        case 'month':
+          if (value.contains('日')) return value;
+          break;
+      }
+    }
+
+    // Try to parse as datetime
+    final dt = _parseDateTime(value);
+    final now = DateTime.now();
+
+    // Detect parse failure: _parseDateTime returns DateTime.now() on failure.
+    // A value that looks like a time string (contains ':') could legitimately
+    // be from today — only treat as failure if it doesn't look time-like.
+    final looksLikeNow = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final isTimeStr = value is String && value.contains(':');
+    final parseFailed = looksLikeNow && !isTimeStr;
+
+    if (parseFailed) {
+      // Use index-based fallback labels
+      switch (period) {
+        case 'day':
+          final hour = (8 + fallbackIndex * 2) % 24;
+          return '${_pad(hour)}:00';
+        case 'month':
+          return '${fallbackIndex + 1}日';
+        case 'week':
+        default:
+          return _weekdayName((fallbackIndex % 7) + 1);
+      }
+    }
+    switch (period) {
+      case 'day':
+        return '${_pad(dt.hour)}:${_pad(dt.minute)}';
+      case 'month':
+        return '${dt.day}日';
+      case 'week':
+      default:
+        return _weekdayName(dt.weekday);
+    }
+  }
+
+  String _weekdayName(int weekday) {
+    return switch (weekday) {
+      1 => '周一',
+      2 => '周二',
+      3 => '周三',
+      4 => '周四',
+      5 => '周五',
+      6 => '周六',
+      7 => '周日',
+      _ => '?',
+    };
+  }
+
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
 
   static final Map<String, VitalsHistory> _mockHistory = {
     'day': VitalsHistory(period: 'day', points: [
-      VitalsHistoryPoint(label: '08:00', temperature: 36.4, heartRate: 72, systolic: 125, diastolic: 82),
-      VitalsHistoryPoint(label: '10:00', temperature: 36.5, heartRate: 75, systolic: 128, diastolic: 83),
-      VitalsHistoryPoint(label: '12:00', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85),
-      VitalsHistoryPoint(label: '14:00', temperature: 36.5, heartRate: 76, systolic: 129, diastolic: 84),
-      VitalsHistoryPoint(label: '16:00', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85),
-      VitalsHistoryPoint(label: '18:00', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 83),
-      VitalsHistoryPoint(label: '20:00', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82),
+      VitalsHistoryPoint(label: '08:00', temperature: 36.4, heartRate: 72, systolic: 125, diastolic: 82, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '10:00', temperature: 36.5, heartRate: 75, systolic: 128, diastolic: 83, bloodOxygen: 98),
+      VitalsHistoryPoint(label: '12:00', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 96),
+      VitalsHistoryPoint(label: '14:00', temperature: 36.5, heartRate: 76, systolic: 129, diastolic: 84, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '16:00', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85, bloodOxygen: 98),
+      VitalsHistoryPoint(label: '18:00', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 83, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '20:00', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82, bloodOxygen: 96),
     ]),
     'week': VitalsHistory(period: 'week', points: [
-      VitalsHistoryPoint(label: '周一', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 82),
-      VitalsHistoryPoint(label: '周二', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84),
-      VitalsHistoryPoint(label: '周三', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85),
-      VitalsHistoryPoint(label: '周四', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84),
-      VitalsHistoryPoint(label: '周五', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85),
-      VitalsHistoryPoint(label: '周六', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83),
-      VitalsHistoryPoint(label: '周日', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82),
+      VitalsHistoryPoint(label: '周一', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 82, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '周二', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84, bloodOxygen: 98),
+      VitalsHistoryPoint(label: '周三', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 96),
+      VitalsHistoryPoint(label: '周四', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '周五', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85, bloodOxygen: 98),
+      VitalsHistoryPoint(label: '周六', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83, bloodOxygen: 96),
+      VitalsHistoryPoint(label: '周日', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82, bloodOxygen: 97),
     ]),
     'month': VitalsHistory(period: 'month', points: [
-      VitalsHistoryPoint(label: '第1周', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83),
-      VitalsHistoryPoint(label: '第2周', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84),
-      VitalsHistoryPoint(label: '第3周', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85),
-      VitalsHistoryPoint(label: '第4周', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84),
+      VitalsHistoryPoint(label: '1日', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '7日', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84, bloodOxygen: 96),
+      VitalsHistoryPoint(label: '14日', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 98),
+      VitalsHistoryPoint(label: '21日', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84, bloodOxygen: 97),
+      VitalsHistoryPoint(label: '28日', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 85, bloodOxygen: 96),
     ]),
   };
 

@@ -5,6 +5,7 @@ class Profile {
     required this.gender,
     required this.familyPhone,
     required this.address,
+    this.avatar,
   });
 
   final String name;
@@ -12,6 +13,7 @@ class Profile {
   final String gender;
   final String familyPhone;
   final String address;
+  final String? avatar;
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
@@ -20,6 +22,7 @@ class Profile {
       gender: json['gender'] as String,
       familyPhone: json['familyPhone'] as String,
       address: json['address'] as String,
+      avatar: json['avatar'] as String?,
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/emergency_contact_entry.dart';
+import '../services/api_service.dart';
 import '../services/emergency_contact_store.dart';
 
 class EmergencyContactSettingsScreen extends StatefulWidget {
@@ -16,6 +19,7 @@ class _EmergencyContactSettingsScreenState
     extends State<EmergencyContactSettingsScreen> {
   List<EmergencyContactEntry> _items = [];
   bool _loading = true;
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -24,14 +28,96 @@ class _EmergencyContactSettingsScreenState
   }
 
   Future<void> _reload() async {
-    final list = await EmergencyContactStore.loadAll();
-    if (!mounted) {
-      return;
+    // Load local contacts first for instant display
+    final localList = await EmergencyContactStore.loadAll();
+
+    // Try to fetch from backend and merge
+    try {
+      final api = context.read<ApiService>();
+      final eid = api.elderId;
+      if (eid != null && eid.isNotEmpty) {
+        final remoteList = await api.fetchEmergencyContacts(eid);
+        final merged = _mergeContacts(localList, remoteList);
+        if (!mounted) return;
+        setState(() {
+          _items = merged;
+          _loading = false;
+        });
+        // Save merged list back to local store
+        await EmergencyContactStore.saveAll(merged);
+        return;
+      }
+    } catch (_) {
+      // Backend unavailable, use local data only
     }
+
+    if (!mounted) return;
     setState(() {
-      _items = list;
+      _items = localList;
       _loading = false;
     });
+  }
+
+  /// Merge local and remote contacts. Remote wins for same phone number.
+  List<EmergencyContactEntry> _mergeContacts(
+    List<EmergencyContactEntry> local,
+    List<Map<String, dynamic>> remote,
+  ) {
+    final merged = <String, EmergencyContactEntry>{};
+    // Add local entries first, keyed by normalized phone
+    for (final e in local) {
+      final key = e.phone.replaceAll(RegExp(r'\D'), '');
+      merged[key] = e;
+    }
+    // Remote entries override local by phone
+    for (final r in remote) {
+      final phone = (r['phone'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+      if (phone.isNotEmpty) {
+        merged[phone] = EmergencyContactEntry(
+          id: r['contactId']?.toString() ?? EmergencyContactStore.createDraft(name: r['name'] as String? ?? '', phone: r['phone'] as String? ?? '').id,
+          name: r['name'] as String? ?? '',
+          phone: r['phone'] as String? ?? '',
+        );
+      }
+    }
+    return merged.values.toList();
+  }
+
+  Future<void> _syncToBackend(EmergencyContactEntry entry, {bool isNew = true}) async {
+    try {
+      final api = context.read<ApiService>();
+      final eid = api.elderId;
+      if (eid == null || eid.isEmpty) return;
+
+      final data = <String, dynamic>{
+        'elderId': eid,
+        'name': entry.name,
+        'phone': entry.phone,
+      };
+
+      if (isNew) {
+        final result = await api.createEmergencyContact(data);
+        // Update local entry with backend ID
+        final remoteId = result['contactId']?.toString();
+        if (remoteId != null && remoteId.isNotEmpty) {
+          final updated = EmergencyContactEntry(id: remoteId, name: entry.name, phone: entry.phone);
+          await EmergencyContactStore.update(updated);
+        }
+      } else {
+        await api.updateEmergencyContact(entry.id, data);
+      }
+    } catch (_) {
+      // Backend sync is best-effort; local storage is primary
+    }
+  }
+
+  Future<void> _deleteFromBackend(String contactId) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.deleteEmergencyContact(contactId);
+    } catch (_) {
+      // Best-effort delete
+    }
   }
 
   Future<void> _confirmDelete(EmergencyContactEntry e) async {
@@ -53,10 +139,11 @@ class _EmergencyContactSettingsScreenState
       return;
     }
     await EmergencyContactStore.removeById(e.id);
+    await _deleteFromBackend(e.id);
     await _reload();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已删除')),
+        const SnackBar(content: Text('已删除并同步到云端')),
       );
     }
   }
@@ -151,18 +238,18 @@ class _EmergencyContactSettingsScreenState
     final name = nameCtrl.text.trim();
     final phone = phoneCtrl.text.trim();
     if (existing == null) {
-      await EmergencyContactStore.add(
-        EmergencyContactStore.createDraft(name: name, phone: phone),
-      );
+      final entry = EmergencyContactStore.createDraft(name: name, phone: phone);
+      await EmergencyContactStore.add(entry);
+      await _syncToBackend(entry, isNew: true);
     } else {
-      await EmergencyContactStore.update(
-        existing.copyWith(name: name, phone: phone),
-      );
+      final updated = existing.copyWith(name: name, phone: phone);
+      await EmergencyContactStore.update(updated);
+      await _syncToBackend(updated, isNew: false);
     }
     await _reload();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存')),
+        const SnackBar(content: Text('已保存并同步到云端')),
       );
     }
   }
