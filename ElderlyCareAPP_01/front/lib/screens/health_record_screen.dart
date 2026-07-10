@@ -89,23 +89,27 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
     // Save locally first for instant persistence
     await HealthRecordStore.save(record);
     // Sync to backend so other devices can see the updated record
+    bool synced = false;
     try {
       final api = context.read<ApiService>();
-      await api.saveHealthRecord({
-        'hospitalizations': record.hospitalizations,
-        'medicalHistory': record.medicalHistory,
-        'allergies': record.allergies,
-        'medications': record.medications,
-        'bloodType': record.bloodType,
-        'remarks': record.remarks,
-      });
+      if (api.elderId != null && api.elderId!.isNotEmpty) {
+        await api.saveHealthRecord({
+          'hospitalizations': record.hospitalizations,
+          'medicalHistory': record.medicalHistory,
+          'allergies': record.allergies,
+          'medications': record.medications,
+          'bloodType': record.bloodType,
+          'remarks': record.remarks,
+        });
+        synced = true;
+      }
     } catch (_) {
       // Backend sync is best-effort; local save already succeeded
     }
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('健康档案已保存并同步到云端')),
+      SnackBar(content: Text(synced ? '健康档案已保存并同步到云端' : '健康档案已保存到本地（云端同步失败，请检查网络）')),
     );
   }
 

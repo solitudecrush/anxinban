@@ -87,7 +87,7 @@ class _CameraRequestScreenState extends State<CameraRequestScreen> {
     _load();
   }
 
-  Future<void> _revoke() async {
+  Future<void> _revoke(String requestId) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -103,11 +103,7 @@ class _CameraRequestScreenState extends State<CameraRequestScreen> {
     final api = context.read<ApiService>();
     setState(() => _loading = true);
     try {
-      final list = await api.fetchCameraRequests();
-      final approved = list.where((r) => r.status == 'approved').toList();
-      if (approved.isNotEmpty) {
-        await api.revokeCameraAuth(approved.first.id.toString());
-      }
+      await api.revokeCameraAuth(requestId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已撤销监控权限')),
@@ -231,7 +227,7 @@ class _CameraRequestScreenState extends State<CameraRequestScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: () => _revoke(),
+                                    onPressed: () => _revoke(r.id.toString()),
                                     icon: const Icon(Icons.stop_circle_outlined, size: 18),
                                     label: const Text('停止查看 / 撤销权限'),
                                     style: FilledButton.styleFrom(backgroundColor: Colors.red),

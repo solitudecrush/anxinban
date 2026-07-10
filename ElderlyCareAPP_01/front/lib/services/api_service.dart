@@ -412,7 +412,7 @@ class ApiService {
   Future<VitalsHistory> fetchHistory(String period, {String? elderId}) async {
     final eid = elderId ?? _elderId;
     if (eid == null || eid.isEmpty) {
-      return _mockHistory[period] ?? _mockHistory['week']!;
+      return _generateMockHistory(period);
     }
     try {
       // 并行获取四种体征趋势
@@ -509,7 +509,7 @@ class ApiService {
     } catch (_) {
       // 后端无数据或接口不可用时回退 mock
     }
-    return _mockHistory[period] ?? _mockHistory['week']!;
+    return _generateMockHistory(period);
   }
 
   /// 从 health/history 响应中提取 data 列表
@@ -528,7 +528,7 @@ class ApiService {
   Future<VitalsHistory> fetchTrend({String? elderId, String? type, String period = 'week'}) async {
     final eid = elderId ?? _elderId;
     if (eid == null || eid.isEmpty) {
-      return _mockHistory[period] ?? _mockHistory['week']!;
+      return _generateMockHistory(period);
     }
     final vitalType = type ?? 'heart_rate';
     final resp = await _get('/api/elder/$eid/health/history', queryParams: {
@@ -554,7 +554,7 @@ class ApiService {
       }
     }
     if (points.isEmpty) {
-      return _mockHistory[period] ?? _mockHistory['week']!;
+      return _generateMockHistory(period);
     }
     return VitalsHistory(period: period, points: points);
   }
@@ -631,7 +631,10 @@ class ApiService {
   Future<AlertItem?> fetchLatestAlert({String? elderId}) async {
     final eid = elderId ?? _elderId;
     final list = await fetchAlerts(elderId: eid);
-    return list.isNotEmpty ? list.first : null;
+    if (list.isEmpty) return null;
+    // Sort by occurredAt descending to get the latest alert
+    list.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return list.first;
   }
 
   Future<void> markAlarmRead(String alarmId) async {
@@ -715,6 +718,16 @@ class ApiService {
 
   Future<void> markNotificationRead(String notificationId) async {
     await _post('/api/notification/$notificationId/read');
+  }
+
+  /// 一键已读所有通知
+  Future<void> markAllNotificationsRead({String? userId, String userType = 'family'}) async {
+    final uid = userId ?? _userId;
+    if (uid == null || uid.isEmpty) return;
+    await _post('/api/notification/read-all', queryParams: {
+      'userId': uid,
+      'userType': userType,
+    });
   }
 
   /// 将 NotificationDto (camelCase) 转为 NotificationItem。
@@ -1086,32 +1099,88 @@ class ApiService {
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
 
+  static VitalsHistory _generateMockHistory(String period) {
+    final now = DateTime.now();
+    final rng = _mockRandom(now.millisecond);
+    switch (period) {
+      case 'day':
+        final points = <VitalsHistoryPoint>[];
+        for (int h = 0; h < 24; h++) {
+          // Generate data points for hours that have "measurements"
+          if (h == 6 || h == 8 || h == 10 || h == 12 || h == 14 || h == 16 || h == 18 || h == 20 || h == 22) {
+            points.add(VitalsHistoryPoint(
+              label: '${h.toString().padLeft(2, '0')}:00',
+              temperature: 36.3 + (rng % 5) / 10.0,
+              heartRate: 70 + (rng + h) % 15,
+              systolic: 122 + (rng + h) % 12,
+              diastolic: 80 + (rng + h) % 8,
+              bloodOxygen: 95 + (rng + h) % 4,
+            ));
+          }
+        }
+        return VitalsHistory(period: 'day', points: points);
+
+      case 'week':
+        final points = <VitalsHistoryPoint>[];
+        // Only show up to current weekday (e.g., if today is Friday, show Mon-Fri)
+        final todayWeekday = now.weekday; // 1=Mon, 7=Sun
+        for (int d = 1; d <= todayWeekday; d++) {
+          final wdayName = _staticWeekdayName(d);
+          points.add(VitalsHistoryPoint(
+            label: wdayName,
+            temperature: 36.3 + (rng + d) % 5 / 10.0,
+            heartRate: 72 + (rng + d) % 10,
+            systolic: 124 + (rng + d) % 8,
+            diastolic: 81 + (rng + d) % 6,
+            bloodOxygen: 96 + (rng + d) % 3,
+          ));
+        }
+        return VitalsHistory(period: 'week', points: points);
+
+      case 'month':
+        final points = <VitalsHistoryPoint>[];
+        // Show days 1 to current day of month, or up to days in month
+        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        final maxDay = now.day; // only show up to today
+        for (int d = 1; d <= maxDay; d++) {
+          // Generate data for select days to simulate sparse measurements
+          if (d == 1 || d % 3 == 0 || d == maxDay) {
+            points.add(VitalsHistoryPoint(
+              label: '${d}日',
+              temperature: 36.3 + (rng + d) % 5 / 10.0,
+              heartRate: 72 + (rng + d) % 10,
+              systolic: 124 + (rng + d) % 10,
+              diastolic: 81 + (rng + d) % 6,
+              bloodOxygen: 96 + (rng + d) % 3,
+            ));
+          }
+        }
+        return VitalsHistory(period: 'month', points: points);
+
+      default:
+        return _generateMockHistory('week');
+    }
+  }
+
+  static int _mockRandom(int seed) => (seed * 1103515245 + 12345) & 0x7fffffff;
+
+  static String _staticWeekdayName(int weekday) {
+    return switch (weekday) {
+      1 => '周一',
+      2 => '周二',
+      3 => '周三',
+      4 => '周四',
+      5 => '周五',
+      6 => '周六',
+      7 => '周日',
+      _ => '?',
+    };
+  }
+
   static final Map<String, VitalsHistory> _mockHistory = {
-    'day': VitalsHistory(period: 'day', points: [
-      VitalsHistoryPoint(label: '08:00', temperature: 36.4, heartRate: 72, systolic: 125, diastolic: 82, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '10:00', temperature: 36.5, heartRate: 75, systolic: 128, diastolic: 83, bloodOxygen: 98),
-      VitalsHistoryPoint(label: '12:00', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 96),
-      VitalsHistoryPoint(label: '14:00', temperature: 36.5, heartRate: 76, systolic: 129, diastolic: 84, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '16:00', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85, bloodOxygen: 98),
-      VitalsHistoryPoint(label: '18:00', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 83, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '20:00', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82, bloodOxygen: 96),
-    ]),
-    'week': VitalsHistory(period: 'week', points: [
-      VitalsHistoryPoint(label: '周一', temperature: 36.4, heartRate: 74, systolic: 126, diastolic: 82, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '周二', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84, bloodOxygen: 98),
-      VitalsHistoryPoint(label: '周三', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 96),
-      VitalsHistoryPoint(label: '周四', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '周五', temperature: 36.5, heartRate: 78, systolic: 128, diastolic: 85, bloodOxygen: 98),
-      VitalsHistoryPoint(label: '周六', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83, bloodOxygen: 96),
-      VitalsHistoryPoint(label: '周日', temperature: 36.4, heartRate: 73, systolic: 125, diastolic: 82, bloodOxygen: 97),
-    ]),
-    'month': VitalsHistory(period: 'month', points: [
-      VitalsHistoryPoint(label: '1日', temperature: 36.4, heartRate: 75, systolic: 127, diastolic: 83, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '7日', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 84, bloodOxygen: 96),
-      VitalsHistoryPoint(label: '14日', temperature: 36.6, heartRate: 78, systolic: 130, diastolic: 85, bloodOxygen: 98),
-      VitalsHistoryPoint(label: '21日', temperature: 36.5, heartRate: 77, systolic: 129, diastolic: 84, bloodOxygen: 97),
-      VitalsHistoryPoint(label: '28日', temperature: 36.5, heartRate: 76, systolic: 128, diastolic: 85, bloodOxygen: 96),
-    ]),
+    'day': _generateMockHistory('day'),
+    'week': _generateMockHistory('week'),
+    'month': _generateMockHistory('month'),
   };
 
   static final Map<String, AiAnalysis> _mockAi = {

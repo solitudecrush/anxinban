@@ -83,11 +83,11 @@ class _EmergencyContactSettingsScreenState
     return merged.values.toList();
   }
 
-  Future<void> _syncToBackend(EmergencyContactEntry entry, {bool isNew = true}) async {
+  Future<bool> _syncToBackend(EmergencyContactEntry entry, {bool isNew = true}) async {
     try {
       final api = context.read<ApiService>();
       final eid = api.elderId;
-      if (eid == null || eid.isEmpty) return;
+      if (eid == null || eid.isEmpty) return false;
 
       final data = <String, dynamic>{
         'elderId': eid,
@@ -106,17 +106,21 @@ class _EmergencyContactSettingsScreenState
       } else {
         await api.updateEmergencyContact(entry.id, data);
       }
+      return true;
     } catch (_) {
       // Backend sync is best-effort; local storage is primary
+      return false;
     }
   }
 
-  Future<void> _deleteFromBackend(String contactId) async {
+  Future<bool> _deleteFromBackend(String contactId) async {
     try {
       final api = context.read<ApiService>();
       await api.deleteEmergencyContact(contactId);
+      return true;
     } catch (_) {
       // Best-effort delete
+      return false;
     }
   }
 
@@ -139,11 +143,11 @@ class _EmergencyContactSettingsScreenState
       return;
     }
     await EmergencyContactStore.removeById(e.id);
-    await _deleteFromBackend(e.id);
+    final synced = await _deleteFromBackend(e.id);
     await _reload();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已删除并同步到云端')),
+        SnackBar(content: Text(synced ? '已删除并同步到云端' : '已从本地删除（云端同步失败）')),
       );
     }
   }
@@ -240,17 +244,23 @@ class _EmergencyContactSettingsScreenState
     if (existing == null) {
       final entry = EmergencyContactStore.createDraft(name: name, phone: phone);
       await EmergencyContactStore.add(entry);
-      await _syncToBackend(entry, isNew: true);
+      final synced = await _syncToBackend(entry, isNew: true);
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(synced ? '已保存并同步到云端' : '已保存到本地（云端同步失败，请检查网络）')),
+        );
+      }
     } else {
       final updated = existing.copyWith(name: name, phone: phone);
       await EmergencyContactStore.update(updated);
-      await _syncToBackend(updated, isNew: false);
-    }
-    await _reload();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存并同步到云端')),
-      );
+      final synced = await _syncToBackend(updated, isNew: false);
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(synced ? '已保存并同步到云端' : '已保存到本地（云端同步失败，请检查网络）')),
+        );
+      }
     }
   }
 

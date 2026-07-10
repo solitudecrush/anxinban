@@ -67,6 +67,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   }
 
   Future<void> _revoke() async {
+    // Use the active viewer request ID directly
+    final active = _activeViewer;
+    if (active == null) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -81,11 +84,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     if (ok != true || !mounted) return;
     final api = context.read<ApiService>();
     try {
-      final list = await api.fetchCameraRequests();
-      final approved = list.where((r) => r.status == 'approved').toList();
-      if (approved.isNotEmpty) {
-        await api.revokeCameraAuth(approved.first.id.toString());
-      }
+      await api.revokeCameraAuth(active.id.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已撤销监控权限')),

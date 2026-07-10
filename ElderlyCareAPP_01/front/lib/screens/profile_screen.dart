@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,19 +163,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadContacts() async {
-    final contacts = await EmergencyContactStore.loadAll();
+    // Load local contacts first for instant display
+    final localList = await EmergencyContactStore.loadAll();
+
+    // Try to fetch from backend and merge
+    try {
+      final api = context.read<ApiService>();
+      final eid = api.elderId;
+      if (eid != null && eid.isNotEmpty) {
+        final remoteList = await api.fetchEmergencyContacts(eid);
+        final merged = _mergeContacts(localList, remoteList);
+        if (!mounted) return;
+        setState(() => _contacts = merged);
+        // Save merged list back to local store
+        await EmergencyContactStore.saveAll(merged);
+        return;
+      }
+    } catch (_) {
+      // Backend unavailable, use local data only
+    }
+
     if (!mounted) return;
-    setState(() => _contacts = contacts);
+    setState(() => _contacts = localList);
+  }
+
+  /// Merge local and remote contacts. Remote wins for same phone number.
+  List<EmergencyContactEntry> _mergeContacts(
+    List<EmergencyContactEntry> local,
+    List<Map<String, dynamic>> remote,
+  ) {
+    final merged = <String, EmergencyContactEntry>{};
+    for (final e in local) {
+      final key = e.phone.replaceAll(RegExp(r'\D'), '');
+      merged[key] = e;
+    }
+    for (final r in remote) {
+      final phone = (r['phone'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+      if (phone.isNotEmpty) {
+        merged[phone] = EmergencyContactEntry(
+          id: r['contactId']?.toString() ?? '',
+          name: r['name'] as String? ?? '',
+          phone: r['phone'] as String? ?? '',
+        );
+      }
+    }
+    return merged.values.toList();
   }
 
   Future<void> _loadVersion() async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      if (!mounted) return;
-      setState(() => _version = '${info.version}+${info.buildNumber}');
-    } catch (_) {
-      setState(() => _version = '1.0.0+1');
-    }
+    // 版本号暂时固定为 1.0.0
+    setState(() => _version = '1.0.0');
   }
 
   Future<void> _loadSettings() async {
@@ -470,14 +506,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 flex: 3,
                 child: Align(
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.centerLeft,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Flexible(
                         child: Text(
                           value,
-                          textAlign: TextAlign.end,
+                          textAlign: TextAlign.start,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -735,9 +773,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               _row(
                 label: '家庭住址',
-                value: _p.address.length > 18
-                    ? '${_p.address.substring(0, 18)}…'
-                    : _p.address,
+                value: _p.address,
                 editable: true,
                 onTap: () => _editField(
                   title: '家庭住址（或养老院地址）',
@@ -947,7 +983,7 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
     return '${minutes}分钟';
   }
 
-  Future<void> _revoke() async {
+  Future<void> _revoke(String requestId) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -961,11 +997,7 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
     );
     if (ok != true || !mounted) return;
     try {
-      final list = await widget.api.fetchCameraRequests();
-      final approved = list.where((r) => r.status == 'approved').toList();
-      if (approved.isNotEmpty) {
-        await widget.api.revokeCameraAuth(approved.first.id.toString());
-      }
+      await widget.api.revokeCameraAuth(requestId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已撤销监控权限')),
@@ -1054,7 +1086,7 @@ class _CameraStatusLiveState extends State<_CameraStatusLive> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _revoke,
+                  onPressed: () => _revoke(activeReq.id),
                   icon: const Icon(Icons.stop_circle),
                   label: const Text('停止监控 / 撤销权限'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.red),

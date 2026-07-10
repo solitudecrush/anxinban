@@ -140,7 +140,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
                 child: SizedBox(
-                  height: 280,
+                  height: 360,
                   child: _history == null || _chartEmpty()
                       ? const Center(
                           child: Text(
@@ -274,7 +274,7 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _HealthLineChart extends StatelessWidget {
+class _HealthLineChart extends StatefulWidget {
   const _HealthLineChart({
     required this.history,
     required this.metric,
@@ -285,14 +285,30 @@ class _HealthLineChart extends StatelessWidget {
   final _Metric metric;
   final String period;
 
-  /// Regenerate labels based on period to ensure correct x-axis display,
-  /// independent of backend time format.
-  /// Uses index-based fallback when raw labels don't match expected period format.
+  @override
+  State<_HealthLineChart> createState() => _HealthLineChartState();
+}
+
+class _HealthLineChartState extends State<_HealthLineChart> {
+  /// Shared horizontal scroll controller so the chart and bottom axis stay synced.
+  final ScrollController _hController = ScrollController();
+
+  @override
+  void dispose() {
+    _hController.dispose();
+    super.dispose();
+  }
+
+  // ──── helpers (delegated from widget) ────
+
+  VitalsHistory get history => widget.history;
+  _Metric get metric => widget.metric;
+  String get period => widget.period;
+
   List<String> _buildLabels(List<VitalsHistoryPoint> pts, String period) {
     final labels = <String>[];
     for (var i = 0; i < pts.length; i++) {
       final raw = pts[i].label;
-      // Check if label already matches expected period format
       bool matchesExpected;
       switch (period) {
         case 'day':
@@ -310,7 +326,6 @@ class _HealthLineChart extends StatelessWidget {
       if (matchesExpected) {
         labels.add(raw);
       } else {
-        // Try to parse and reformat from the raw label
         final parsed = _tryParseLabel(raw, period, i, pts.length);
         labels.add(parsed);
       }
@@ -319,7 +334,6 @@ class _HealthLineChart extends StatelessWidget {
   }
 
   String _tryParseLabel(String raw, String period, int index, int total) {
-    // Try parsing as datetime first
     try {
       final dt = DateTime.parse(raw.replaceFirst(' ', 'T'));
       switch (period) {
@@ -332,11 +346,9 @@ class _HealthLineChart extends StatelessWidget {
           return _weekdayName(dt.weekday);
       }
     } catch (_) {
-      // Try parsing as "HH:mm" for day period
       if (period == 'day' && raw.contains(':')) {
         return raw;
       }
-      // Try extracting digits from raw for week/month
       final digits = RegExp(r'(\d+)').firstMatch(raw);
       if (digits != null) {
         final num = int.tryParse(digits.group(1) ?? '');
@@ -349,16 +361,13 @@ class _HealthLineChart extends StatelessWidget {
           }
         }
       }
-      // Last resort: index-based labels
       if (period == 'week') {
         return _weekdayName((index % 7) + 1);
       }
       if (period == 'month') {
-        // Distribute points across days 1..(28-31)
         final dayNum = total > 1 ? 1 + (index * (28 ~/ total)).clamp(0, 30) : 1;
         return '${dayNum}日';
       }
-      // Day period: generate hourly labels
       final hour = (8 + index * 2) % 24;
       return '${_pad(hour)}:00';
     }
@@ -378,6 +387,8 @@ class _HealthLineChart extends StatelessWidget {
   }
 
   String _pad(int n) => n.toString().padLeft(2, '0');
+
+  // ──── build ────
 
   @override
   Widget build(BuildContext context) {
@@ -467,8 +478,8 @@ class _HealthLineChart extends StatelessWidget {
         ];
         break;
       case _Metric.bloodOxygen:
-        minY = 80;
-        maxY = 100;
+        minY = 85;
+        maxY = 105;
         final spots = <FlSpot>[];
         for (var i = 0; i < n; i++) {
           final bo = pts[i].bloodOxygen;
@@ -495,115 +506,221 @@ class _HealthLineChart extends StatelessWidget {
       return v.round().toString();
     }
 
-    // Dynamic chart width: wider when many data points, at least full width.
-    // Use larger min width for week/month so labels are readable
+    // Build Y-axis label list (top = maxY → bottom = minY)
+    final yInterval = _leftInterval(minY, maxY);
+    final yTicks = <double>[];
+    for (double v = maxY; v >= minY - 0.001; v -= yInterval) {
+      yTicks.add(v);
+    }
+
     final minBarWidth = period == 'day' ? 56.0 : 52.0;
     final chartWidth = n * minBarWidth;
+    const yAxisWidth = 44.0;
+    const xAxisHeight = 30.0;
+    // Match fl_chart internal border padding so grid lines align
+    const chartVPadding = 5.0;
+
+    // Taller chart for day view (many time points) to make vertical scrolling useful
+    final chartHeight = period == 'day' ? 500.0 : 340.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useWidth = chartWidth > constraints.maxWidth
-            ? chartWidth
-            : constraints.maxWidth;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: SizedBox(
-            width: useWidth,
-            height: 260,
-            child: LineChart(
-              LineChartData(
-                minX: 0,
-                maxX: (n - 1).toDouble(),
-                minY: minY,
-                maxY: maxY,
-                clipData: const FlClipData.all(),
-                gridData: FlGridData(show: true, drawVerticalLine: false),
-                borderData: FlBorderData(show: true),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 48,
-                      interval: _leftInterval(minY, maxY),
-                      getTitlesWidget: (v, m) =>
-                          Text(
-                            yLabel(v),
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: _bottomInterval(n),
-                      getTitlesWidget: (v, m) {
-                        final i = v.round().clamp(0, n - 1);
-                        final label =
-                            i < labels.length ? labels[i] : pts[i].label;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            label,
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  handleBuiltInTouches: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (touched) {
-                      return touched.map((t) {
-                        final i = t.x.round().clamp(0, n - 1);
-                        final p = pts[i];
-                        final lbl =
-                            i < labels.length ? labels[i] : p.label;
-                        final text = switch (metric) {
-                          _Metric.temperature =>
-                            p.temperature == null
-                                ? '-'
-                                : '${p.temperature!.toStringAsFixed(1)} ℃',
-                          _Metric.heartRate =>
-                            p.heartRate == null ? '-' : '${p.heartRate} bpm',
-                          _Metric.bloodPressure =>
-                            (p.systolic == null || p.diastolic == null)
-                                ? '-'
-                                : '${p.systolic}/${p.diastolic} mmHg',
-                          _Metric.bloodOxygen =>
-                            p.bloodOxygen == null
-                                ? '-'
-                                : '${p.bloodOxygen}%',
-                        };
-                        return LineTooltipItem(
-                          '$lbl\n$text',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-                lineBarsData: bars,
+        final useWidth =
+            chartWidth > constraints.maxWidth ? chartWidth : constraints.maxWidth;
+
+        // Build shared chart data widget to avoid duplication
+        Widget buildChart() {
+          return LineChart(
+            LineChartData(
+              minX: 0,
+              maxX: (n - 1).toDouble(),
+              minY: minY,
+              maxY: maxY,
+              clipData: const FlClipData.all(),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
               ),
-              duration: Duration.zero,
+              borderData: FlBorderData(show: true),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                // Hide built-in left titles — we render our own fixed Y-axis
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                // Hide built-in bottom titles — we render our own fixed X-axis
+                bottomTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              lineTouchData: LineTouchData(
+                enabled: true,
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipItems: (touched) {
+                    return touched.map((t) {
+                      final i = t.x.round().clamp(0, n - 1);
+                      final p = pts[i];
+                      final lbl =
+                          i < labels.length ? labels[i] : p.label;
+                      final text = switch (metric) {
+                        _Metric.temperature =>
+                          p.temperature == null
+                              ? '-'
+                              : '${p.temperature!.toStringAsFixed(1)} ℃',
+                        _Metric.heartRate =>
+                          p.heartRate == null
+                              ? '-'
+                              : '${p.heartRate} bpm',
+                        _Metric.bloodPressure =>
+                          (p.systolic == null || p.diastolic == null)
+                              ? '-'
+                              : '${p.systolic}/${p.diastolic} mmHg',
+                        _Metric.bloodOxygen =>
+                          p.bloodOxygen == null
+                              ? '-'
+                              : '${p.bloodOxygen}%',
+                      };
+                      return LineTooltipItem(
+                        '$lbl\n$text',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+              lineBarsData: bars,
             ),
-          ),
+            duration: Duration.zero,
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Main content: vertically scrollable area ──
+            // Y-axis labels scroll vertically with the chart (so they stay aligned
+            // with grid lines), but are fixed horizontally.
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Y-axis: scrolls vertically, FIXED horizontally ──
+                    SizedBox(
+                      width: yAxisWidth,
+                      height: chartHeight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          top: chartVPadding,
+                          bottom: chartVPadding,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: yTicks
+                              .map((v) => Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Text(
+                                      yLabel(v),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                    // Vertical divider (scrolls vertically with content)
+                    Container(
+                      width: 1,
+                      height: chartHeight,
+                      color: Colors.grey.shade300,
+                    ),
+                    // ── Chart: scrolls BOTH horizontally and vertically ──
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        controller: _hController,
+                        physics: const BouncingScrollPhysics(),
+                        child: SizedBox(
+                          width: useWidth,
+                          height: chartHeight,
+                          child: buildChart(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ── X-axis row: FIXED vertically, scrolls horizontally (synced) ──
+            SizedBox(
+              height: xAxisHeight,
+              child: Row(
+                children: [
+                  // Spacer matching Y-axis width + divider
+                  const SizedBox(width: yAxisWidth + 1),
+                  // Horizontally scrollable X-axis (passively follows chart)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: _hController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: useWidth,
+                        height: xAxisHeight,
+                        child: Row(
+                          children: List.generate(n, (i) {
+                            final label =
+                                i < labels.length ? labels[i] : pts[i].label;
+                            final showLabel = _shouldShowXLabel(i, n);
+                            return SizedBox(
+                              width: minBarWidth,
+                              child: showLabel
+                                  ? Center(
+                                      child: Text(
+                                        label,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.black54,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  /// Whether to show the X-axis label at index [i] out of [total].
+  bool _shouldShowXLabel(int i, int total) {
+    final interval = _bottomInterval(total).round();
+    if (interval <= 1) return true;
+    return i % interval == 0;
   }
 
   double _leftInterval(double minY, double maxY) {

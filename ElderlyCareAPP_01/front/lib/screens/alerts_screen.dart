@@ -162,6 +162,13 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   void _onTapItem(NotificationItem n) {
     setState(() => n.read = true);
+    // Sync read status to backend
+    final api = context.read<ApiService>();
+    try {
+      api.markNotificationRead(n.id);
+    } catch (_) {
+      // Best-effort read sync
+    }
     if (n.type == NotificationType.camera) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const CameraRequestScreen()),
@@ -208,6 +215,45 @@ class _AlertsScreenState extends State<AlertsScreen> {
     }
   }
 
+  Future<void> _markAllRead() async {
+    if (_items == null || _items!.isEmpty) return;
+    final unreadCount = _items!.where((n) => !n.read).length;
+    if (unreadCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有未读消息')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('一键已读'),
+        content: Text('确定要将全部 $unreadCount 条未读消息标记为已读吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      for (final n in _items!) {
+        n.read = true;
+      }
+    });
+    try {
+      final api = context.read<ApiService>();
+      await api.markAllNotificationsRead();
+    } catch (_) {
+      // Best-effort sync
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已全部标记为已读')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = _items?.where((n) => !n.read).length ?? 0;
@@ -220,6 +266,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
         flexibleSpace: _appBarGradient(),
         foregroundColor: Colors.white,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Center(
+              child: IconButton(
+                tooltip: '全部标记为已读',
+                onPressed: _markAllRead,
+                icon: const Icon(Icons.done_all),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(

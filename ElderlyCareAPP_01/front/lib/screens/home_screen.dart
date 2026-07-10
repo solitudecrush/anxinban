@@ -174,25 +174,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: '体温',
                       value: vitals.temperature.toStringAsFixed(1),
                       unit: '℃',
-                      subtitle: timeFmt.format(vitals.measuredAt),
+                      subtitle: '检测时间 ${timeFmt.format(vitals.measuredAt)}',
                     ),
                     _VitalCard(
                       title: '心率',
                       value: '${vitals.heartRate}',
                       unit: 'bpm',
-                      subtitle: timeFmt.format(vitals.measuredAt),
+                      subtitle: '检测时间 ${timeFmt.format(vitals.measuredAt)}',
                     ),
                     _VitalCard(
-                      title: '收缩压/舒张压',
+                      title: '血压',
                       value: '${vitals.systolic}/${vitals.diastolic}',
                       unit: 'mmHg',
-                      subtitle: '',
+                      subtitle: '检测时间 ${timeFmt.format(vitals.measuredAt)}',
                     ),
                     _VitalCard(
-                      title: '更新时间',
-                      value: _relativeRefresh(vitals.measuredAt),
-                      unit: '',
-                      subtitle: '',
+                      title: '血氧',
+                      value: vitals.bloodOxygen != null ? '${vitals.bloodOxygen}' : '--',
+                      unit: '%',
+                      subtitle: '检测时间 ${timeFmt.format(vitals.measuredAt)}',
                     ),
                   ],
                 ),
@@ -415,9 +415,10 @@ class _VitalCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 12,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const Spacer(),
