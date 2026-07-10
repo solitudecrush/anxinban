@@ -309,31 +309,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
     final labels = <String>[];
     for (var i = 0; i < pts.length; i++) {
       final raw = pts[i].label;
-      bool matchesExpected;
-      switch (period) {
-        case 'day':
-          matchesExpected = raw.contains(':');
-          break;
-        case 'week':
-          matchesExpected = raw.contains('周');
-          break;
-        case 'month':
-          matchesExpected = raw.contains('日');
-          break;
-        default:
-          matchesExpected = false;
-      }
-      if (matchesExpected) {
-        labels.add(raw);
-      } else {
-        final parsed = _tryParseLabel(raw, period, i, pts.length);
-        labels.add(parsed);
-      }
+      final parsed = _tryParseLabel(raw, period, i, pts.length);
+      labels.add(parsed);
     }
     return labels;
   }
 
   String _tryParseLabel(String raw, String period, int index, int total) {
+    // First, try to parse as datetime (handles "2026-07-10 08:00", "2026-07-10T08:00", etc.)
     try {
       final dt = DateTime.parse(raw.replaceFirst(' ', 'T'));
       switch (period) {
@@ -346,31 +329,69 @@ class _HealthLineChartState extends State<_HealthLineChart> {
           return _weekdayName(dt.weekday);
       }
     } catch (_) {
-      if (period == 'day' && raw.contains(':')) {
-        return raw;
+      // Datetime parse failed, try pattern matching below
+    }
+
+    // For day view: extract HH:mm from any format (e.g. "08:00", "2026-07-10 08:00", "08:00:00")
+    if (period == 'day') {
+      final timeMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(raw);
+      if (timeMatch != null) {
+        final hour = int.tryParse(timeMatch.group(1)!) ?? 0;
+        final minute = timeMatch.group(2) ?? '00';
+        return '${_pad(hour)}:$minute';
       }
+    }
+
+    // For month view: extract day number from formats like "10日", "7月10日", "2026-07-10"
+    if (period == 'month') {
+      // Try "X日" pattern first
+      final dayMatch = RegExp(r'(\d{1,2})\s*日').firstMatch(raw);
+      if (dayMatch != null) {
+        final num = int.tryParse(dayMatch.group(1) ?? '');
+        if (num != null && num >= 1 && num <= 31) {
+          return '${num}日';
+        }
+      }
+      // Try extracting from date string like "2026-07-10" or "07-10"
+      final dateMatch = RegExp(r'(\d{4}-)?(\d{1,2})-(\d{1,2})').firstMatch(raw);
+      if (dateMatch != null) {
+        final num = int.tryParse(dateMatch.group(3) ?? '');
+        if (num != null && num >= 1 && num <= 31) {
+          return '${num}日';
+        }
+      }
+      // Generic digit extraction (must be reasonable day number)
       final digits = RegExp(r'(\d+)').firstMatch(raw);
       if (digits != null) {
         final num = int.tryParse(digits.group(1) ?? '');
-        if (num != null) {
-          if (period == 'month') {
-            return '${num}日';
-          }
-          if (period == 'week' && num >= 1 && num <= 7) {
-            return _weekdayName(num);
-          }
+        if (num != null && num >= 1 && num <= 31) {
+          return '${num}日';
         }
       }
-      if (period == 'week') {
-        return _weekdayName((index % 7) + 1);
-      }
-      if (period == 'month') {
-        final dayNum = total > 1 ? 1 + (index * (28 ~/ total)).clamp(0, 30) : 1;
-        return '${dayNum}日';
-      }
-      final hour = (8 + index * 2) % 24;
-      return '${_pad(hour)}:00';
     }
+
+    // For week view: check for weekday names
+    if (period == 'week') {
+      if (raw.contains('周')) return raw;
+      final digits = RegExp(r'(\d+)').firstMatch(raw);
+      if (digits != null) {
+        final num = int.tryParse(digits.group(1) ?? '');
+        if (num != null && num >= 1 && num <= 7) {
+          return _weekdayName(num);
+        }
+      }
+    }
+
+    // Ultimate fallback: generate based on index
+    if (period == 'week') {
+      return _weekdayName((index % 7) + 1);
+    }
+    if (period == 'month') {
+      // Generate sequential day numbers starting from 1
+      return '${index + 1}日';
+    }
+    final hour = (8 + index * 2) % 24;
+    return '${_pad(hour)}:00';
   }
 
   String _weekdayName(int weekday) {
@@ -399,10 +420,31 @@ class _HealthLineChartState extends State<_HealthLineChart> {
     }
 
     final labels = _buildLabels(pts, period);
+    final positions = List.generate(n, (i) => _extractPosition(labels[i], i));
+    final fullLabels = _generateFullLabels();
+    final fullN = fullLabels.length;
 
     double minY;
     double maxY;
     List<LineChartBarData> bars;
+    double minX;
+    double maxX;
+
+    switch (period) {
+      case 'month':
+        minX = 0;
+        maxX = (fullN - 1).toDouble();
+        break;
+      case 'day':
+        minX = 0;
+        maxX = (fullN - 1).toDouble();
+        break;
+      case 'week':
+      default:
+        minX = 0;
+        maxX = (n - 1).toDouble();
+        break;
+    }
 
     switch (metric) {
       case _Metric.temperature:
@@ -412,7 +454,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         for (var i = 0; i < n; i++) {
           final t = pts[i].temperature;
           if (t != null) {
-            spots.add(FlSpot(i.toDouble(), t));
+            spots.add(FlSpot(positions[i], t));
           }
         }
         bars = [
@@ -432,7 +474,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         for (var i = 0; i < n; i++) {
           final hr = pts[i].heartRate;
           if (hr != null) {
-            spots.add(FlSpot(i.toDouble(), hr.toDouble()));
+            spots.add(FlSpot(positions[i], hr.toDouble()));
           }
         }
         bars = [
@@ -454,10 +496,10 @@ class _HealthLineChartState extends State<_HealthLineChart> {
           final s = pts[i].systolic;
           final d = pts[i].diastolic;
           if (s != null) {
-            sys.add(FlSpot(i.toDouble(), s.toDouble()));
+            sys.add(FlSpot(positions[i], s.toDouble()));
           }
           if (d != null) {
-            dia.add(FlSpot(i.toDouble(), d.toDouble()));
+            dia.add(FlSpot(positions[i], d.toDouble()));
           }
         }
         bars = [
@@ -484,7 +526,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         for (var i = 0; i < n; i++) {
           final bo = pts[i].bloodOxygen;
           if (bo != null) {
-            spots.add(FlSpot(i.toDouble(), bo.toDouble()));
+            spots.add(FlSpot(positions[i], bo.toDouble()));
           }
         }
         bars = [
@@ -513,15 +555,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       yTicks.add(v);
     }
 
-    final minBarWidth = period == 'day' ? 56.0 : 52.0;
-    final chartWidth = n * minBarWidth;
+    // Use appropriate bar width based on period
+    final minBarWidth = period == 'day' ? 36.0 : (period == 'month' ? 24.0 : 52.0);
+    final chartWidth = fullN * minBarWidth;
     const yAxisWidth = 44.0;
-    const xAxisHeight = 30.0;
     // Match fl_chart internal border padding so grid lines align
     const chartVPadding = 5.0;
 
-    // Taller chart for day view (many time points) to make vertical scrolling useful
-    final chartHeight = period == 'day' ? 500.0 : 340.0;
+    final chartHeight = 340.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -529,14 +570,17 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             chartWidth > constraints.maxWidth ? chartWidth : constraints.maxWidth;
 
         // Build shared chart data widget to avoid duplication
+        // build bottom titles interval
+        final bottomInterval = _bottomInterval(fullN).round();
+
         Widget buildChart() {
           return LineChart(
             LineChartData(
-              minX: 0,
-              maxX: (n - 1).toDouble(),
+              minX: minX,
+              maxX: maxX,
               minY: minY,
               maxY: maxY,
-              clipData: const FlClipData.all(),
+              clipData: const FlClipData.none(),
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
@@ -553,9 +597,33 @@ class _HealthLineChartState extends State<_HealthLineChart> {
                 leftTitles: const AxisTitles(
                   sideTitles: SideTitles(showTitles: false),
                 ),
-                // Hide built-in bottom titles — we render our own fixed X-axis
-                bottomTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
+                // Built-in bottom titles with full range labels
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 32,
+                    interval: bottomInterval <= 0 ? 1 : bottomInterval.toDouble(),
+                    getTitlesWidget: (value, meta) {
+                      final idx = value.round();
+                      if (idx >= 0 && idx < fullLabels.length) {
+                        final show = period == 'week'
+                            ? _shouldShowXLabel(idx, fullN)
+                            : (bottomInterval <= 1 || idx % bottomInterval == 0);
+                        if (!show) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            fullLabels[idx],
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
               ),
               lineTouchData: LineTouchData(
@@ -564,10 +632,19 @@ class _HealthLineChartState extends State<_HealthLineChart> {
                 touchTooltipData: LineTouchTooltipData(
                   getTooltipItems: (touched) {
                     return touched.map((t) {
-                      final i = t.x.round().clamp(0, n - 1);
-                      final p = pts[i];
+                      // Find nearest data point by x position
+                      var bestIdx = 0;
+                      var bestDist = double.infinity;
+                      for (var j = 0; j < n; j++) {
+                        final dist = (positions[j] - t.x).abs();
+                        if (dist < bestDist) {
+                          bestDist = dist;
+                          bestIdx = j;
+                        }
+                      }
+                      final p = pts[bestIdx];
                       final lbl =
-                          i < labels.length ? labels[i] : p.label;
+                          bestIdx < labels.length ? labels[bestIdx] : p.label;
                       final text = switch (metric) {
                         _Metric.temperature =>
                           p.temperature == null
@@ -603,111 +680,53 @@ class _HealthLineChartState extends State<_HealthLineChart> {
           );
         }
 
-        return Column(
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Main content: vertically scrollable area ──
-            // Y-axis labels scroll vertically with the chart (so they stay aligned
-            // with grid lines), but are fixed horizontally.
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Y-axis: scrolls vertically, FIXED horizontally ──
-                    SizedBox(
-                      width: yAxisWidth,
-                      height: chartHeight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          top: chartVPadding,
-                          bottom: chartVPadding,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: yTicks
-                              .map((v) => Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: Text(
-                                      yLabel(v),
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                      ),
-                    ),
-                    // Vertical divider (scrolls vertically with content)
-                    Container(
-                      width: 1,
-                      height: chartHeight,
-                      color: Colors.grey.shade300,
-                    ),
-                    // ── Chart: scrolls BOTH horizontally and vertically ──
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        controller: _hController,
-                        physics: const BouncingScrollPhysics(),
-                        child: SizedBox(
-                          width: useWidth,
-                          height: chartHeight,
-                          child: buildChart(),
-                        ),
-                      ),
-                    ),
-                  ],
+            // ── Y-axis: fixed horizontally ──
+            SizedBox(
+              width: yAxisWidth,
+              height: chartHeight + 32, // +32 for bottom titles reserved space
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: chartVPadding,
+                  bottom: chartVPadding + 32,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: yTicks
+                      .map((v) => Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Text(
+                              yLabel(v),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ))
+                      .toList(),
                 ),
               ),
             ),
-            // ── X-axis row: FIXED vertically, scrolls horizontally (synced) ──
-            SizedBox(
-              height: xAxisHeight,
-              child: Row(
-                children: [
-                  // Spacer matching Y-axis width + divider
-                  const SizedBox(width: yAxisWidth + 1),
-                  // Horizontally scrollable X-axis (passively follows chart)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      controller: _hController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: useWidth,
-                        height: xAxisHeight,
-                        child: Row(
-                          children: List.generate(n, (i) {
-                            final label =
-                                i < labels.length ? labels[i] : pts[i].label;
-                            final showLabel = _shouldShowXLabel(i, n);
-                            return SizedBox(
-                              width: minBarWidth,
-                              child: showLabel
-                                  ? Center(
-                                      child: Text(
-                                        label,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.black54,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                            );
-                          }),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            // Vertical divider
+            Container(
+              width: 1,
+              height: chartHeight + 32,
+              color: Colors.grey.shade300,
+            ),
+            // ── Chart: scrolls horizontally (x-axis labels inside chart via bottomTitles) ──
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                controller: _hController,
+                physics: const BouncingScrollPhysics(),
+                child: SizedBox(
+                  width: useWidth,
+                  height: chartHeight + 32,
+                  child: buildChart(),
+                ),
               ),
             ),
           ],
@@ -721,6 +740,51 @@ class _HealthLineChartState extends State<_HealthLineChart> {
     final interval = _bottomInterval(total).round();
     if (interval <= 1) return true;
     return i % interval == 0;
+  }
+
+  /// Extract the numeric x-position from a label based on period.
+  /// Month: "15日" → 14.0 (0-indexed). Day: "08:30" → 8.5.
+  double _extractPosition(String label, int index) {
+    switch (period) {
+      case 'month':
+        final match = RegExp(r'(\d+)').firstMatch(label);
+        if (match != null) {
+          final day = int.tryParse(match.group(1)!) ?? (index + 1);
+          // Ensure day is in valid range (1-31), not a year like 2026
+          if (day >= 1 && day <= 31) {
+            return (day - 1).toDouble();
+          }
+        }
+        return index.toDouble();
+      case 'day':
+        final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(label);
+        if (match != null) {
+          final hour = int.tryParse(match.group(1)!) ?? 0;
+          final minute = int.tryParse(match.group(2)!) ?? 0;
+          return hour + minute / 60.0;
+        }
+        return index.toDouble();
+      case 'week':
+      default:
+        return index.toDouble();
+    }
+  }
+
+  /// Generate all x-axis labels for the full time range (not just data points).
+  List<String> _generateFullLabels() {
+    switch (period) {
+      case 'month':
+        final now = DateTime.now();
+        // 从1号到今天的日期，确保横坐标从1号开始显示
+        final maxDay = now.day;
+        return List.generate(maxDay, (i) => '${i + 1}日');
+      case 'day':
+        // 只显示小时点数，不写年月日
+        return List.generate(24, (i) => '${_pad(i)}:00');
+      case 'week':
+      default:
+        return _buildLabels(history.points, period);
+    }
   }
 
   double _leftInterval(double minY, double maxY) {

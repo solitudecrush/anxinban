@@ -630,11 +630,32 @@ class ApiService {
 
   Future<AlertItem?> fetchLatestAlert({String? elderId}) async {
     final eid = elderId ?? _elderId;
-    final list = await fetchAlerts(elderId: eid);
-    if (list.isEmpty) return null;
+    if (eid == null || eid.isEmpty) return null;
+    // 请求较大的 pageSize 并多页查询，确保获取到最新告警
+    final allAlerts = <AlertItem>[];
+    for (int page = 1; page <= 3; page++) {
+      final resp = await _get('/api/alarm/list', queryParams: {
+        'elderId': eid,
+        'page': page.toString(),
+        'pageSize': '100',
+        'sort': 'occurTime',
+        'order': 'desc',
+      });
+      final data = _extractData(resp);
+      final list = (data is Map && data['list'] is List)
+          ? data['list'] as List
+          : (data is List ? data : <dynamic>[]);
+      if (list.isEmpty) break;
+      allAlerts.addAll(list.map((a) => _convertAlarm(a as Map<String, dynamic>)));
+      // 如果返回数量少于 pageSize，说明已经是最后一页
+      final total = (data is Map ? data['total'] : null) as int?;
+      if (total != null && allAlerts.length >= total) break;
+      if (list.length < 100) break;
+    }
+    if (allAlerts.isEmpty) return null;
     // Sort by occurredAt descending to get the latest alert
-    list.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
-    return list.first;
+    allAlerts.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return allAlerts.first;
   }
 
   Future<void> markAlarmRead(String alarmId) async {
@@ -1036,7 +1057,17 @@ class ApiService {
     if (value is String) {
       switch (period) {
         case 'day':
-          if (value.contains(':')) return value;
+          // For day view, always parse to extract just HH:mm
+          // "2026-07-10 08:00" or "08:00" → "08:00"
+          try {
+            final dt = DateTime.parse(value.replaceFirst(' ', 'T'));
+            return '${_pad(dt.hour)}:${_pad(dt.minute)}';
+          } catch (_) {}
+          // If parsing fails, try to extract time portion
+          final timeMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(value);
+          if (timeMatch != null) {
+            return '${_pad(int.parse(timeMatch.group(1)!))}:${timeMatch.group(2)}';
+          }
           break;
         case 'week':
           if (value.contains('周')) return value;
@@ -1139,12 +1170,11 @@ class ApiService {
 
       case 'month':
         final points = <VitalsHistoryPoint>[];
-        // Show days 1 to current day of month, or up to days in month
-        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
         final maxDay = now.day; // only show up to today
+        // 确保从1号开始，每隔1-2天生成一个数据点，保证数据连续
         for (int d = 1; d <= maxDay; d++) {
-          // Generate data for select days to simulate sparse measurements
-          if (d == 1 || d % 3 == 0 || d == maxDay) {
+          // 1号、最大值、以及每2天生成一个数据点（更密集）
+          if (d == 1 || d % 2 == 0 || d == maxDay) {
             points.add(VitalsHistoryPoint(
               label: '${d}日',
               temperature: 36.3 + (rng + d) % 5 / 10.0,

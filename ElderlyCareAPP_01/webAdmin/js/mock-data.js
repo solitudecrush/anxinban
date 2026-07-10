@@ -150,9 +150,18 @@ async function loadElderly(params = {}) {
 
 async function loadAlerts(params = {}) {
   try {
-    const result = await AlarmAPI.list(params);
+    // 请求告警列表，按 occurTime 降序排列，确保获取最新数据
+    const result = await AlarmAPI.list({
+      page: 1,
+      pageSize: 200,
+      sort: 'occurTime',
+      order: 'desc',
+      ...params,
+    });
     const list = result?.list || result || [];
     _cache.alerts = list.map(mapAlarmDto);
+    // 客户端二次排序确保最新在前
+    _cache.alerts.sort((a, b) => new Date(b.time) - new Date(a.time));
     return _cache.alerts;
   } catch (e) {
     console.error('加载告警列表失败', e);
