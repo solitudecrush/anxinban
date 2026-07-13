@@ -22,4 +22,5 @@ public interface MonitorRequestRepository extends JpaRepository<MonitorRequest, 
     List<MonitorRequest> findByStaffId(String staffId);
     List<MonitorRequest> findByElderIdAndStatus(String elderId, String status);
     List<MonitorRequest> findByElderIdAndStatusAndExpiredAtAfter(String elderId, String status, LocalDateTime now);
+    List<MonitorRequest> findByElderIdAndCanViewAndExpiredAtAfter(String elderId, Integer canView, LocalDateTime now);
 }

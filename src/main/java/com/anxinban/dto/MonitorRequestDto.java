@@ -25,6 +25,8 @@ public class MonitorRequestDto {
     private String reason;
     /** 状态标识 */
     private String status;
+    /** 是否允许查看监控：1=允许，0=不允许 */
+    private Integer canView;
     /** 字段含义待补充 */
     private String approvedAt;
     /** 字段含义待补充 */
@@ -176,6 +178,24 @@ public class MonitorRequestDto {
      */
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    /**
+     * 获取是否允许查看监控。
+     *
+     * @return 1=允许，0=不允许
+     */
+    public Integer getCanView() {
+        return canView;
+    }
+
+    /**
+     * 设置是否允许查看监控。
+     *
+     * @param canView 1=允许，0=不允许
+     */
+    public void setCanView(Integer canView) {
+        this.canView = canView;
     }
 
     /**

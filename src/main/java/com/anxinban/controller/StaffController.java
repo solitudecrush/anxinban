@@ -58,11 +58,13 @@ public class StaffController {
     public ApiResponse<StaffDto> createStaff(@RequestBody StaffDto dto) {
         StaffUser entity = new StaffUser();
         entity.setStaffId("STF-" + UUID.randomUUID().toString().substring(0, 8));
+        entity.setUsername(dto.getUsername() != null ? dto.getUsername() : dto.getPhone());
         entity.setName(dto.getName());
         entity.setPhone(dto.getPhone());
         entity.setPassword("123456");
         entity.setRole(dto.getRole());
         entity.setCommunityId(dto.getCommunityId());
+        entity.setAvatar(dto.getAvatar());
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         StaffUser saved = staffUserRepository.save(entity);
@@ -86,6 +88,7 @@ public class StaffController {
         if (dto.getPhone() != null) existing.setPhone(dto.getPhone());
         if (dto.getRole() != null) existing.setRole(dto.getRole());
         if (dto.getCommunityId() != null) existing.setCommunityId(dto.getCommunityId());
+        if (dto.getAvatar() != null) existing.setAvatar(dto.getAvatar());
         existing.setUpdatedAt(LocalDateTime.now());
         StaffUser saved = staffUserRepository.save(existing);
         return ApiResponse.success(convertToDto(saved));

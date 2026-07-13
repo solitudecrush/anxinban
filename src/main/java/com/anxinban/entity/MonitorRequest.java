@@ -50,6 +50,10 @@ public class MonitorRequest {
     /** 状态标识 */
     private String status;
 
+    @Column(name = "can_view")
+    /** 是否允许查看监控：1=允许，0=不允许 */
+    private Integer canView = 0;
+
     @Column(name = "approved_at")
     /** 审批通过时间（epoch 毫秒） */
     private Long approvedAt;
@@ -180,6 +184,19 @@ public class MonitorRequest {
      * @param status 状态标识
      */
     public void setStatus(String status) { this.status = status; }
+
+    /**
+     * 获取是否允许查看监控。
+     *
+     * @return 1=允许，0=不允许
+     */
+    public Integer getCanView() { return canView; }
+    /**
+     * 设置是否允许查看监控。
+     *
+     * @param canView 1=允许，0=不允许
+     */
+    public void setCanView(Integer canView) { this.canView = canView; }
 
     /**
      * 获取审批通过时间。

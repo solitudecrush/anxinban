@@ -37,6 +37,7 @@ public class MonitorRequestService {
     public MonitorRequestDto createRequest(MonitorRequestDto dto) {
         MonitorRequest entity = convertToEntity(dto);
         entity.setStatus("pending");
+        entity.setCanView(0);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(entity);
@@ -84,6 +85,7 @@ public class MonitorRequestService {
         MonitorRequest existing = monitorRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
         existing.setStatus("approved");
+        existing.setCanView(1);
         existing.setApprovedAt(System.currentTimeMillis());
         existing.setExpiredAt(LocalDateTime.now().plusHours(24));
         existing.setUpdatedAt(LocalDateTime.now());
@@ -100,6 +102,7 @@ public class MonitorRequestService {
         MonitorRequest existing = monitorRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
         existing.setStatus("rejected");
+        existing.setCanView(0);
         existing.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(existing);
         return convertToDto(saved);
@@ -114,6 +117,7 @@ public class MonitorRequestService {
         MonitorRequest existing = monitorRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
         existing.setStatus("none");
+        existing.setCanView(0);
         existing.setExpiredAt(LocalDateTime.now());
         existing.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(existing);
@@ -126,7 +130,7 @@ public class MonitorRequestService {
          * @param staffId 关联工作人员 ID
          */
     public boolean checkMonitorPermission(String elderId, String staffId) {
-        List<MonitorRequest> list = monitorRequestRepository.findByElderIdAndStatusAndExpiredAtAfter(elderId, "approved", LocalDateTime.now());
+        List<MonitorRequest> list = monitorRequestRepository.findByElderIdAndCanViewAndExpiredAtAfter(elderId, 1, LocalDateTime.now());
         if (staffId != null) {
             list = list.stream().filter(r -> staffId.equals(r.getStaffId())).collect(Collectors.toList());
         }
@@ -153,6 +157,7 @@ public class MonitorRequestService {
         dto.setStaffPhone(entity.getStaffPhone());
         dto.setReason(entity.getReason());
         dto.setStatus(entity.getStatus());
+        dto.setCanView(entity.getCanView());
         dto.setApprovedAt(entity.getApprovedAt() != null ? String.valueOf(entity.getApprovedAt()) : null);
         dto.setExpiredAt(entity.getExpiredAt() != null ? entity.getExpiredAt().toString() : null);
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
@@ -174,6 +179,7 @@ public class MonitorRequestService {
         entity.setStaffPhone(dto.getStaffPhone());
         entity.setReason(dto.getReason());
         entity.setStatus(dto.getStatus());
+        entity.setCanView(dto.getCanView() != null ? dto.getCanView() : 0);
         return entity;
     }
 }
