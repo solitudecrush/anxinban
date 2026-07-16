@@ -48,6 +48,22 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
     List<AlarmEvent> findByElderId(String elderId);
 
     /**
+     * 根据老年人编号查询其关联的所有告警事件，按创建时间降序排列（最新在前）。
+     *
+     * @param elderId 老年人编号
+     * @return 该老年人的告警事件列表（按时间降序）；无记录时返回空列表
+     */
+    List<AlarmEvent> findByElderIdOrderByCreatedAtDesc(String elderId);
+
+    /**
+     * 根据老年人编号查询其关联的所有告警事件，按告警发生时间降序排列（最新在前）。
+     *
+     * @param elderId 老年人编号
+     * @return 该老年人的告警事件列表（按 occurTime 降序）；无记录时返回空列表
+     */
+    List<AlarmEvent> findByElderIdOrderByOccurTimeDesc(String elderId);
+
+    /**
      * 根据设备编号查询该设备产生的所有告警事件。
      *
      * @param deviceId 设备编号

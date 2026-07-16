@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -53,6 +54,8 @@ public class HomeControlLogService {
          * @param elderId 关联老人用户 ID
          */
     public List<HomeControlLog> listByElder(String elderId) {
-        return homeControlLogRepository.findByElderId(elderId);
+        List<HomeControlLog> list = homeControlLogRepository.findByElderId(elderId);
+        list.sort(Comparator.comparing(HomeControlLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

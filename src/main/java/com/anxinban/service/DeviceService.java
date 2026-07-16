@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,6 +84,7 @@ public class DeviceService {
             entities = deviceRepository.findAll();
         }
         List<DeviceDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
+        dtos.sort(Comparator.comparing(DeviceDto::getDeviceId));
         long total = dtos.size();
         List<DeviceDto> paginated = paginate(dtos, page, size);
         return new PageResult<>(paginated, total, page, size);
@@ -94,9 +96,11 @@ public class DeviceService {
          * @param elderId 关联老人用户 ID
          */
     public List<DeviceDto> listDevicesByElder(String elderId) {
-        return deviceRepository.findByElderId(elderId).stream()
+        List<DeviceDto> dtos = deviceRepository.findByElderId(elderId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        dtos.sort(Comparator.comparing(DeviceDto::getDeviceId));
+        return dtos;
     }
 
         /**
@@ -175,6 +179,12 @@ public class DeviceService {
             entities = sensorDataRepository.findByDeviceId(deviceId);
         }
         List<DeviceDto.SensorData> dtos = entities.stream().map(this::convertSensorDataToDto).collect(Collectors.toList());
+        // 按时间戳排序，最新的在前
+        dtos.sort((a, b) -> {
+            if (a.getTimestamp() == null) return 1;
+            if (b.getTimestamp() == null) return -1;
+            return b.getTimestamp().compareTo(a.getTimestamp());
+        });
         return paginate(dtos, page, size);
     }
 

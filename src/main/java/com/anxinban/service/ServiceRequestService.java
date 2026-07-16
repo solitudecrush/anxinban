@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -72,9 +73,15 @@ public class ServiceRequestService {
          * @param familyId 关联家属用户 ID
          */
     public List<ServiceRequestDto> listRequestsByFamily(String familyId) {
-        return serviceRequestRepository.findByFamilyId(familyId).stream()
+        List<ServiceRequestDto> dtos = serviceRequestRepository.findByFamilyId(familyId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        dtos.sort((a, b) -> {
+            if (a.getCreateTime() == null) return 1;
+            if (b.getCreateTime() == null) return -1;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        });
+        return dtos;
     }
 
         /**
@@ -96,6 +103,12 @@ public class ServiceRequestService {
             entities = serviceRequestRepository.findAll();
         }
         List<ServiceRequestDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
+        // 按创建时间降序排列（最新在前）
+        dtos.sort((a, b) -> {
+            if (a.getCreateTime() == null) return 1;
+            if (b.getCreateTime() == null) return -1;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        });
         long total = dtos.size();
         List<ServiceRequestDto> paginated = paginate(dtos, page, size);
         return new PageResult<>(paginated, total, page, size);

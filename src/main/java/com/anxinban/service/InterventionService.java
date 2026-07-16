@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -64,6 +65,12 @@ public class InterventionService {
             entities = musicInterventionRepository.findAll();
         }
         List<InterventionDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
+        // 按创建时间降序排列（最新在前）
+        dtos.sort((a, b) -> {
+            if (a.getCreateTime() == null) return 1;
+            if (b.getCreateTime() == null) return -1;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        });
         return paginate(dtos, page, size);
     }
 

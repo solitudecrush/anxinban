@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -74,7 +75,9 @@ public class AiAdviceService {
      * @return AI 建议列表，不会为 {@code null}
      */
     public List<AiAdvice> listByElder(String elderId) {
-        return aiAdviceRepository.findByElderId(elderId);
+        List<AiAdvice> list = aiAdviceRepository.findByElderId(elderId);
+        list.sort(Comparator.comparing(AiAdvice::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 
     /**
@@ -85,6 +88,8 @@ public class AiAdviceService {
      * @return 符合条件的 AI 建议列表，不会为 {@code null}
      */
     public List<AiAdvice> listByElderAndType(String elderId, String adviceType) {
-        return aiAdviceRepository.findByElderIdAndAdviceType(elderId, adviceType);
+        List<AiAdvice> list = aiAdviceRepository.findByElderIdAndAdviceType(elderId, adviceType);
+        list.sort(Comparator.comparing(AiAdvice::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

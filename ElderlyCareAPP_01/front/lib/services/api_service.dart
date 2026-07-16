@@ -431,79 +431,65 @@ class ApiService {
       final boData = _extractTrendItems(results[3]);
 
       // 合并：按时间对齐，使用 period 感知的标签
-      final merged = <String, VitalsHistoryPoint>{};
+      // 对于 week/month，使用日期级标签自动聚合同一天的多条数据
+      // 使用累加器结构支持同标签数据的平均值计算
+      final merged = <String, _VitalsAccumulator>{};
+
+      void _addTemp(String label, num? value, String rawTime) {
+        final acc = merged.putIfAbsent(label, () => _VitalsAccumulator(label: label, rawTime: rawTime));
+        if (value != null) { acc.tempSum += value.toDouble(); acc.tempCount++; }
+      }
+      void _addHr(String label, num? value, String rawTime) {
+        final acc = merged.putIfAbsent(label, () => _VitalsAccumulator(label: label, rawTime: rawTime));
+        if (value != null) { acc.hrSum += value.toDouble(); acc.hrCount++; }
+      }
+      void _addBp(String label, num? systolic, num? diastolic, String rawTime) {
+        final acc = merged.putIfAbsent(label, () => _VitalsAccumulator(label: label, rawTime: rawTime));
+        if (systolic != null) { acc.sysSum += systolic.toDouble(); acc.sysCount++; }
+        if (diastolic != null) { acc.diaSum += diastolic.toDouble(); acc.diaCount++; }
+      }
+      void _addBo(String label, num? value, String rawTime) {
+        final acc = merged.putIfAbsent(label, () => _VitalsAccumulator(label: label, rawTime: rawTime));
+        if (value != null) { acc.boSum += value.toDouble(); acc.boCount++; }
+      }
+
       for (var i = 0; i < tempData.length; i++) {
         final t = tempData[i];
-        final label = _formatLabel(t['time'], period, fallbackIndex: i);
-        merged[label] = VitalsHistoryPoint(
-          label: label,
-          temperature: (t['value'] as num?)?.toDouble(),
-        );
+        final rawTime = t['time'] as String? ?? '';
+        final label = _formatLabel(rawTime, period, fallbackIndex: i);
+        _addTemp(label, t['value'] as num?, rawTime);
       }
       for (var i = 0; i < hrData.length; i++) {
         final h = hrData[i];
-        final label = _formatLabel(h['time'], period, fallbackIndex: i);
-        final existing = merged[label];
-        if (existing != null) {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            temperature: existing.temperature,
-            heartRate: (h['value'] as num?)?.toInt(),
-            systolic: existing.systolic,
-            diastolic: existing.diastolic,
-            bloodOxygen: existing.bloodOxygen,
-          );
-        } else {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            heartRate: (h['value'] as num?)?.toInt(),
-          );
-        }
+        final rawTime = h['time'] as String? ?? '';
+        final label = _formatLabel(rawTime, period, fallbackIndex: i);
+        _addHr(label, h['value'] as num?, rawTime);
       }
       for (var i = 0; i < bpData.length; i++) {
         final b = bpData[i];
-        final label = _formatLabel(b['time'], period, fallbackIndex: i);
-        final existing = merged[label];
-        if (existing != null) {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            temperature: existing.temperature,
-            heartRate: existing.heartRate,
-            systolic: (b['systolic'] as num?)?.toInt(),
-            diastolic: (b['diastolic'] as num?)?.toInt(),
-            bloodOxygen: existing.bloodOxygen,
-          );
-        } else {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            systolic: (b['systolic'] as num?)?.toInt(),
-            diastolic: (b['diastolic'] as num?)?.toInt(),
-          );
-        }
+        final rawTime = b['time'] as String? ?? '';
+        final label = _formatLabel(rawTime, period, fallbackIndex: i);
+        _addBp(label, b['systolic'] as num?, b['diastolic'] as num?, rawTime);
       }
       for (var i = 0; i < boData.length; i++) {
         final o = boData[i];
-        final label = _formatLabel(o['time'], period, fallbackIndex: i);
-        final existing = merged[label];
-        if (existing != null) {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            temperature: existing.temperature,
-            heartRate: existing.heartRate,
-            systolic: existing.systolic,
-            diastolic: existing.diastolic,
-            bloodOxygen: (o['value'] as num?)?.toInt(),
-          );
-        } else {
-          merged[label] = VitalsHistoryPoint(
-            label: label,
-            bloodOxygen: (o['value'] as num?)?.toInt(),
-          );
-        }
+        final rawTime = o['time'] as String? ?? '';
+        final label = _formatLabel(rawTime, period, fallbackIndex: i);
+        _addBo(label, o['value'] as num?, rawTime);
       }
 
-      final points = merged.values.toList()
-        ..sort((a, b) => a.label.compareTo(b.label));
+      // 将累加器转换为最终数据点（求平均值）
+      final points = merged.values.map((acc) {
+        return VitalsHistoryPoint(
+          label: acc.label,
+          temperature: acc.tempCount > 0 ? acc.tempSum / acc.tempCount : null,
+          heartRate: acc.hrCount > 0 ? (acc.hrSum / acc.hrCount).round() : null,
+          systolic: acc.sysCount > 0 ? (acc.sysSum / acc.sysCount).round() : null,
+          diastolic: acc.diaCount > 0 ? (acc.diaSum / acc.diaCount).round() : null,
+          bloodOxygen: acc.boCount > 0 ? (acc.boSum / acc.boCount).round() : null,
+        );
+      }).toList()
+        ..sort((a, b) => _labelSortValue(a.label, period).compareTo(_labelSortValue(b.label, period)));
 
       if (points.isNotEmpty) {
         return VitalsHistory(period: period, points: points);
@@ -1134,7 +1120,7 @@ class ApiService {
 
   /// 根据 period 生成合适的标签：
   /// - day: HH:mm（如 "08:00"）
-  /// - week: 周X（如 "周一"）
+  /// - week: yyyy-MM-dd（如 "2026-07-10"），用于按天聚合和排序
   /// - month: d日（如 "15日"）
   ///
   /// [fallbackIndex] 用于当时间解析失败时生成基于索引的标签（0-based）。
@@ -1144,19 +1130,21 @@ class ApiService {
       switch (period) {
         case 'day':
           // For day view, always parse to extract just HH:mm
-          // "2026-07-10 08:00" or "08:00" → "08:00"
           try {
             final dt = DateTime.parse(value.replaceFirst(' ', 'T'));
             return '${_pad(dt.hour)}:${_pad(dt.minute)}';
           } catch (_) {}
-          // If parsing fails, try to extract time portion
           final timeMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(value);
           if (timeMatch != null) {
             return '${_pad(int.parse(timeMatch.group(1)!))}:${timeMatch.group(2)}';
           }
           break;
         case 'week':
-          if (value.contains('周')) return value;
+          // Week view: return yyyy-MM-dd for day-level aggregation
+          try {
+            final dt = DateTime.parse(value.replaceFirst(' ', 'T'));
+            return '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)}';
+          } catch (_) {}
           break;
         case 'month':
           if (value.contains('日')) return value;
@@ -1185,7 +1173,9 @@ class ApiService {
           return '${fallbackIndex + 1}日';
         case 'week':
         default:
-          return _weekdayName((fallbackIndex % 7) + 1);
+          // fallback: use dates counting back from today
+          final d = DateTime.now().subtract(Duration(days: 6 - fallbackIndex.clamp(0, 6)));
+          return '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
       }
     }
     switch (period) {
@@ -1195,7 +1185,7 @@ class ApiService {
         return '${dt.day}日';
       case 'week':
       default:
-        return _weekdayName(dt.weekday);
+        return '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)}';
     }
   }
 
@@ -1212,6 +1202,44 @@ class ApiService {
     };
   }
 
+  /// 将 period 感知的标签转换为可排序的数值。
+  /// - week: "周一" → 1, "周日" → 7
+  /// - month: "15日" → 15
+  /// - day: "08:30" → 8.5
+  double _labelSortValue(String label, String period) {
+    switch (period) {
+      case 'week':
+        // Label format: "yyyy-MM-dd", compute days from week start (7 days ago)
+        try {
+          final dt = DateTime.parse(label); // yyyy-MM-dd is valid ISO format
+          final weekStart = DateTime.now().subtract(const Duration(days: 6));
+          // Normalize to start of day for comparison
+          final weekStartDay = DateTime(weekStart.year, weekStart.month, weekStart.day);
+          final labelDay = DateTime(dt.year, dt.month, dt.day);
+          return labelDay.difference(weekStartDay).inDays.toDouble().clamp(0.0, 6.0);
+        } catch (_) {
+          return 0.0;
+        }
+      case 'month':
+        final m = RegExp(r'(\d+)').firstMatch(label);
+        if (m != null) {
+          final d = int.tryParse(m.group(1)!) ?? 1;
+          if (d >= 1 && d <= 31) return d.toDouble();
+        }
+        return 1.0;
+      case 'day':
+        final t = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(label);
+        if (t != null) {
+          final h = int.tryParse(t.group(1)!) ?? 0;
+          final m = int.tryParse(t.group(2)!) ?? 0;
+          return h + m / 60.0;
+        }
+        return 0.0;
+      default:
+        return 0.0;
+    }
+  }
+
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
@@ -1222,18 +1250,31 @@ class ApiService {
     switch (period) {
       case 'day':
         final points = <VitalsHistoryPoint>[];
-        for (int h = 0; h < 24; h++) {
-          // Generate data points for hours that have "measurements"
-          if (h == 6 || h == 8 || h == 10 || h == 12 || h == 14 || h == 16 || h == 18 || h == 20 || h == 22) {
-            points.add(VitalsHistoryPoint(
-              label: '${h.toString().padLeft(2, '0')}:00',
-              temperature: 36.3 + (rng % 5) / 10.0,
-              heartRate: 70 + (rng + h) % 15,
-              systolic: 122 + (rng + h) % 12,
-              diastolic: 80 + (rng + h) % 8,
-              bloodOxygen: 95 + (rng + h) % 4,
-            ));
+        // Generate more realistic data points throughout the day
+        // Morning: low temp, resting HR; Afternoon: higher temp, active HR; Evening: falling
+        for (int h = 6; h <= 22; h++) {
+          // Base temperature follows circadian rhythm
+          double baseTemp;
+          int baseHr;
+          if (h < 8) {
+            baseTemp = 36.3; baseHr = 66; // early morning: lowest
+          } else if (h < 11) {
+            baseTemp = 36.5; baseHr = 78; // morning: rising
+          } else if (h < 14) {
+            baseTemp = 36.8; baseHr = 85; // midday: peak
+          } else if (h < 17) {
+            baseTemp = 36.7; baseHr = 82; // afternoon: slightly lower
+          } else {
+            baseTemp = 36.5; baseHr = 73; // evening: falling
           }
+          points.add(VitalsHistoryPoint(
+            label: '${h.toString().padLeft(2, '0')}:${(rng * 7 + h * 13) % 60 < 30 ? '00' : '30'}',
+            temperature: baseTemp + (h + rng) % 5 / 10.0 - 0.1,
+            heartRate: baseHr + (rng + h) % 10,
+            systolic: 120 + (rng + h * 2) % 15,
+            diastolic: 78 + (rng + h) % 10,
+            bloodOxygen: 95 + (rng + h) % 4,
+          ));
         }
         return VitalsHistory(period: 'day', points: points);
 
@@ -1242,9 +1283,12 @@ class ApiService {
         // Only show up to current weekday (e.g., if today is Friday, show Mon-Fri)
         final todayWeekday = now.weekday; // 1=Mon, 7=Sun
         for (int d = 1; d <= todayWeekday; d++) {
-          final wdayName = _staticWeekdayName(d);
+          // Calculate actual date for this weekday
+          final daysBack = todayWeekday - d;
+          final date = now.subtract(Duration(days: daysBack));
+          final label = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
           points.add(VitalsHistoryPoint(
-            label: wdayName,
+            label: label,
             temperature: 36.3 + (rng + d) % 5 / 10.0,
             heartRate: 72 + (rng + d) % 10,
             systolic: 124 + (rng + d) % 8,
@@ -1299,4 +1343,22 @@ class ApiService {
     'month': _generateMockHistory('month'),
   };
 
+}
+
+/// 体征数据累加器，用于同标签多条数据的平均值计算。
+class _VitalsAccumulator {
+  _VitalsAccumulator({required this.label, required this.rawTime});
+
+  final String label;
+  final String rawTime;
+  double tempSum = 0;
+  int tempCount = 0;
+  double hrSum = 0;
+  int hrCount = 0;
+  double sysSum = 0;
+  int sysCount = 0;
+  double diaSum = 0;
+  int diaCount = 0;
+  double boSum = 0;
+  int boCount = 0;
 }

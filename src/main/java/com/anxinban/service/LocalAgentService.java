@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -122,6 +123,12 @@ public class LocalAgentService {
             entities = localAgentRepository.findAll();
         }
         List<AgentInfoDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
+        // 按最后心跳时间降序排列
+        dtos.sort((a, b) -> {
+            if (a.getLastHeartbeat() == null) return 1;
+            if (b.getLastHeartbeat() == null) return -1;
+            return b.getLastHeartbeat().compareTo(a.getLastHeartbeat());
+        });
         return paginate(dtos, page, size);
     }
 

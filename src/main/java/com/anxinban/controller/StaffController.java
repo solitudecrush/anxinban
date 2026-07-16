@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -45,6 +46,7 @@ public class StaffController {
             entities = staffUserRepository.findAll();
         }
         List<StaffDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
+        dtos.sort(Comparator.comparing(StaffDto::getStaffId));
         return ApiResponse.success(dtos);
     }
 

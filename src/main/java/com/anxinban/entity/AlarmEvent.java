@@ -32,15 +32,15 @@ public class AlarmEvent {
     /** 关联设备 ID */
     private String deviceId;
 
-    @Column(name = "type", nullable = false)
+    @Column(name = "alarm_type", nullable = false)
     /** 告警类型：跌倒检测 / 心率异常 / 血压异常 / 手表SOS / 烟雾告警 / 门锁抓拍 / 长时间无活动 / 睡眠困难 / 闯入告警 / 压力传感器异常 / VLM物品寻找记录 */
     private String type;
 
-    @Column(name = "risk_level")
+    @Column(name = "alarm_level")
     /** 风险等级：高风险 / 中风险 / 低风险 */
     private String riskLevel;
 
-    @Column(name = "status")
+    @Column(name = "alarm_status")
     /** 处理状态：pending（待处理）/ handled（已处理） */
     private String status;
 
@@ -67,7 +67,7 @@ public class AlarmEvent {
     /** 抓拍图片 URL / data URI */
     private String snapshotUrl;
 
-    @Column(name = "handler_id")
+    @Column(name = "handler")
     /** 处理人 ID（staff.id） */
     private String handlerId;
 
@@ -75,7 +75,7 @@ public class AlarmEvent {
     /** 处理人姓名（反规范化，便于展示） */
     private String handlerName;
 
-    @Column(name = "handle_note", columnDefinition = "TEXT")
+    @Column(name = "handle_remark", columnDefinition = "TEXT")
     /** 处理备注 */
     private String handleNote;
 
@@ -83,7 +83,7 @@ public class AlarmEvent {
     /** 告警发生时间 */
     private LocalDateTime occurTime;
 
-    @Column(name = "handle_time")
+    @Column(name = "resolved_at")
     /** 处理时间 */
     private LocalDateTime handleTime;
 
@@ -95,7 +95,7 @@ public class AlarmEvent {
     /** 创建时间 */
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "update_time")
     /** 更新时间 */
     private LocalDateTime updatedAt;
 

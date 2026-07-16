@@ -67,7 +67,7 @@ public class AlarmService {
     public PageResult<AlarmDto> listAlarms(String elderId, String deviceId, String type, String status, String startTime, String endTime, int page, int size) {
         List<AlarmEvent> entities;
         if (elderId != null && !elderId.isEmpty()) {
-            entities = alarmEventRepository.findByElderId(elderId);
+            entities = alarmEventRepository.findByElderIdOrderByOccurTimeDesc(elderId);
         } else if (deviceId != null && !deviceId.isEmpty()) {
             entities = alarmEventRepository.findByDeviceId(deviceId);
         } else if (type != null && !type.isEmpty()) {
@@ -81,6 +81,17 @@ public class AlarmService {
         } else {
             entities = alarmEventRepository.findAll();
         }
+        // 按告警发生时间降序排列（最新在前），非 elderId 查询时补排序
+        // 优先按 occurTime 排序，若为空则回退到 createdAt
+        if (elderId == null || elderId.isEmpty()) {
+            entities.sort((a, b) -> {
+                LocalDateTime ta = a.getOccurTime() != null ? a.getOccurTime() : a.getCreatedAt();
+                LocalDateTime tb = b.getOccurTime() != null ? b.getOccurTime() : b.getCreatedAt();
+                if (ta == null) return 1;
+                if (tb == null) return -1;
+                return tb.compareTo(ta);
+            });
+        }
         List<AlarmDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
         long total = dtos.size();
         List<AlarmDto> paginated = paginate(dtos, page, size);
@@ -93,7 +104,7 @@ public class AlarmService {
          * @param size 大小
          */
     public PageResult<AlarmDto> listHealthAbnormalAlarms(String elderId, String status, int page, int size) {
-        List<AlarmEvent> entities = alarmEventRepository.findByElderId(elderId);
+        List<AlarmEvent> entities = alarmEventRepository.findByElderIdOrderByOccurTimeDesc(elderId);
         List<AlarmDto> dtos = entities.stream()
                 .filter(a -> a.getType() != null && (
                         a.getType().contains("heart_rate") ||
@@ -126,6 +137,14 @@ public class AlarmService {
         } else {
             entities = alarmEventRepository.findByType("intrusion");
         }
+        // 按告警发生时间降序排列（最新在前）
+        entities.sort((a, b) -> {
+            LocalDateTime ta = a.getOccurTime() != null ? a.getOccurTime() : a.getCreatedAt();
+            LocalDateTime tb = b.getOccurTime() != null ? b.getOccurTime() : b.getCreatedAt();
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+        });
         List<AlarmDto> dtos = entities.stream().map(this::convertToDto).collect(Collectors.toList());
         long total = dtos.size();
         List<AlarmDto> paginated = paginate(dtos, page, size);
@@ -208,7 +227,9 @@ public class AlarmService {
         dto.setDescription(entity.getDescription());
         dto.setStatus(entity.getStatus());
         dto.setIsRead(entity.getIsRead());
-        dto.setOccurTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
+        // 优先使用告警发生时间 occurTime，若为空则回退到 createdAt
+        dto.setOccurTime(entity.getOccurTime() != null ? entity.getOccurTime().toString()
+                : (entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null));
         dto.setHandleTime(entity.getHandleTime() != null ? entity.getHandleTime().toString() : null);
         dto.setHandler(entity.getHandlerId());
         dto.setHandlerName(entity.getHandlerName());

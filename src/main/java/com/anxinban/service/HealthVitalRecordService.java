@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -46,7 +47,9 @@ public class HealthVitalRecordService {
     }
 
     public List<HealthVitalRecord> listByElderAndDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return repository.findByElderIdAndMeasuredAtBetween(elderId, start, end);
+        List<HealthVitalRecord> list = repository.findByElderIdAndMeasuredAtBetween(elderId, start, end);
+        list.sort(Comparator.comparing(HealthVitalRecord::getMeasuredAt));
+        return list;
     }
 
     public HealthVitalRecord getLatestByElder(String elderId) {

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -65,6 +66,7 @@ public class ElderService {
                 .filter(e -> roomNumber == null || roomNumber.isEmpty() || (e.getRoom() != null && e.getRoom().contains(roomNumber)))
                 .filter(e -> healthStatus == null || healthStatus.isEmpty() || healthStatus.equals(e.getHealthStatus()))
                 .map(this::convertToDto)
+                .sorted(Comparator.comparing(ElderDto::getElderId))
                 .collect(Collectors.toList());
         long total = filtered.size();
         List<ElderDto> paginated = paginate(filtered, page, size);

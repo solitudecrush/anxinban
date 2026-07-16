@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -75,6 +76,11 @@ public class WorkOrderService {
                 .filter(o -> status == null || status.isEmpty() || status.equals(o.getStatus()))
                 .filter(o -> keyword == null || keyword.isEmpty() || (o.getOrderId() != null && o.getOrderId().contains(keyword)))
                 .filter(o -> elderName == null || elderName.isEmpty() || (o.getElderName() != null && o.getElderName().contains(elderName)))
+                .sorted((a, b) -> {
+                    if (a.getCreateTime() == null) return 1;
+                    if (b.getCreateTime() == null) return -1;
+                    return b.getCreateTime().compareTo(a.getCreateTime());
+                })
                 .collect(Collectors.toList());
         long total = dtos.size();
         List<WorkOrderDto> paginated = paginate(dtos, page, size);

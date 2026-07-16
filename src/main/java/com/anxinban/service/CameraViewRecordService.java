@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -46,6 +47,8 @@ public class CameraViewRecordService {
     }
 
     public List<CameraViewRecord> listByStaff(String staffId) {
-        return repository.findByStaffId(staffId);
+        List<CameraViewRecord> list = repository.findByStaffId(staffId);
+        list.sort(Comparator.comparing(CameraViewRecord::getViewTime, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

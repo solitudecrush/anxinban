@@ -186,6 +186,7 @@ public class HealthService {
 
         if ("blood_pressure".equals(type)) {
             List<BloodPressure> bps = bloodPressureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+            bps.sort(Comparator.comparing(BloodPressure::getTimestamp));
             for (BloodPressure bp : bps) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(bp.getTimestamp().toString());
@@ -195,6 +196,7 @@ public class HealthService {
             }
         } else if ("heart_rate".equals(type)) {
             List<HeartRate> hrs = heartRateRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+            hrs.sort(Comparator.comparing(HeartRate::getTimestamp));
             for (HeartRate hr : hrs) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(hr.getTimestamp().toString());
@@ -203,6 +205,7 @@ public class HealthService {
             }
         } else if ("blood_oxygen".equals(type)) {
             List<BloodOxygen> bos = bloodOxygenRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+            bos.sort(Comparator.comparing(BloodOxygen::getTimestamp));
             for (BloodOxygen bo : bos) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(bo.getTimestamp().toString());
@@ -211,6 +214,7 @@ public class HealthService {
             }
         } else if ("temperature".equals(type)) {
             List<BodyTemperature> bts = bodyTemperatureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+            bts.sort(Comparator.comparing(BodyTemperature::getTimestamp));
             for (BodyTemperature bt : bts) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(bt.getTimestamp().toString());
@@ -219,6 +223,7 @@ public class HealthService {
             }
         } else {
             List<SensorData> sensors = sensorDataRepository.findByElderIdAndSensorTypeAndTimestampBetween(elderId, type, start, end);
+            sensors.sort(Comparator.comparing(SensorData::getTimestamp));
             for (SensorData s : sensors) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(s.getTimestamp().toString());

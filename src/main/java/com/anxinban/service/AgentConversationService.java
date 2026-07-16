@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -91,7 +92,9 @@ public class AgentConversationService {
      * @return 对话列表，不会为 {@code null}
      */
     public List<AgentConversation> listByElder(String elderId) {
-        return agentConversationRepository.findByElderId(elderId);
+        List<AgentConversation> list = agentConversationRepository.findByElderId(elderId);
+        list.sort(Comparator.comparing(AgentConversation::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 
     /**
@@ -100,7 +103,9 @@ public class AgentConversationService {
      * @return 全部对话列表，不会为 {@code null}
      */
     public List<AgentConversation> listAll() {
-        return agentConversationRepository.findAll();
+        List<AgentConversation> list = agentConversationRepository.findAll();
+        list.sort(Comparator.comparing(AgentConversation::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 
     /**
@@ -111,6 +116,8 @@ public class AgentConversationService {
      * @return 符合条件的对话列表，不会为 {@code null}
      */
     public List<AgentConversation> listByElderAndAgentType(String elderId, String agentType) {
-        return agentConversationRepository.findByElderIdAndAgentType(elderId, agentType);
+        List<AgentConversation> list = agentConversationRepository.findByElderIdAndAgentType(elderId, agentType);
+        list.sort(Comparator.comparing(AgentConversation::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

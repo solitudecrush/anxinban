@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -46,6 +47,8 @@ public class VlmRecordService {
     }
 
     public List<VlmRecord> listAll() {
-        return repository.findAll();
+        List<VlmRecord> list = repository.findAll();
+        list.sort(Comparator.comparing(VlmRecord::getQueryTime, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

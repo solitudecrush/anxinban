@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -50,7 +51,9 @@ public class VitalSignsService {
     }
 
     public List<HeartRate> listHeartRateByDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return heartRateRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        List<HeartRate> list = heartRateRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        list.sort(Comparator.comparing(HeartRate::getTimestamp));
+        return list;
     }
 
     public HeartRate getLatestHeartRate(String elderId) {
@@ -64,7 +67,9 @@ public class VitalSignsService {
     }
 
     public List<BloodPressure> listBloodPressureByDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return bloodPressureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        List<BloodPressure> list = bloodPressureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        list.sort(Comparator.comparing(BloodPressure::getTimestamp));
+        return list;
     }
 
     public BloodPressure getLatestBloodPressure(String elderId) {
@@ -78,7 +83,9 @@ public class VitalSignsService {
     }
 
     public List<BloodOxygen> listBloodOxygenByDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return bloodOxygenRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        List<BloodOxygen> list = bloodOxygenRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        list.sort(Comparator.comparing(BloodOxygen::getTimestamp));
+        return list;
     }
 
     public BloodOxygen getLatestBloodOxygen(String elderId) {
@@ -92,7 +99,9 @@ public class VitalSignsService {
     }
 
     public List<BodyTemperature> listBodyTemperatureByDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return bodyTemperatureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        List<BodyTemperature> list = bodyTemperatureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
+        list.sort(Comparator.comparing(BodyTemperature::getTimestamp));
+        return list;
     }
 
     public BodyTemperature getLatestBodyTemperature(String elderId) {

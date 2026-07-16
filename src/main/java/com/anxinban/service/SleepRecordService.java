@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -46,6 +47,8 @@ public class SleepRecordService {
     }
 
     public List<SleepRecord> listByElderAndDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
-        return repository.findByElderIdAndRecordedAtBetween(elderId, start, end);
+        List<SleepRecord> list = repository.findByElderIdAndRecordedAtBetween(elderId, start, end);
+        list.sort(Comparator.comparing(SleepRecord::getRecordedAt));
+        return list;
     }
 }

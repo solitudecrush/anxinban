@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -74,6 +75,8 @@ public class AgentIntentLogService {
      * @return 意图日志列表，不会为 {@code null}
      */
     public List<AgentIntentLog> listByElder(String elderId) {
-        return agentIntentLogRepository.findByElderId(elderId);
+        List<AgentIntentLog> list = agentIntentLogRepository.findByElderId(elderId);
+        list.sort(Comparator.comparing(AgentIntentLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
     }
 }

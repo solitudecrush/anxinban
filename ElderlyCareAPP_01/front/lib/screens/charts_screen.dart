@@ -291,7 +291,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
   }
 
   String _tryParseLabel(String raw, String period, int index, int total) {
-    // First, try to parse as datetime (handles "2026-07-10 08:00", "2026-07-10T08:00", etc.)
+    // First, try to parse as datetime (handles "2026-07-10 08:00", "2026-07-10T08:00", "2026-07-10", etc.)
     try {
       final dt = DateTime.parse(raw.replaceFirst(' ', 'T'));
       switch (period) {
@@ -301,7 +301,8 @@ class _HealthLineChartState extends State<_HealthLineChart> {
           return '${dt.day}日';
         case 'week':
         default:
-          return _weekdayName(dt.weekday);
+          // Show as MM/dd for display
+          return '${_pad(dt.month)}/${_pad(dt.day)}';
       }
     } catch (_) {
       // Datetime parse failed, try pattern matching below
@@ -345,21 +346,24 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       }
     }
 
-    // For week view: check for weekday names
+    // For week view: try to parse as date string
     if (period == 'week') {
-      if (raw.contains('周')) return raw;
-      final digits = RegExp(r'(\d+)').firstMatch(raw);
-      if (digits != null) {
-        final num = int.tryParse(digits.group(1) ?? '');
-        if (num != null && num >= 1 && num <= 7) {
-          return _weekdayName(num);
-        }
+      // Try MM/dd format (already display label, return as-is)
+      if (RegExp(r'^\d{1,2}/\d{1,2}$').hasMatch(raw)) return raw;
+      // Try yyyy-MM-dd format
+      final dateMatch = RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(raw);
+      if (dateMatch != null) {
+        return '${_pad(int.parse(dateMatch.group(2)!))}/${_pad(int.parse(dateMatch.group(3)!))}';
       }
+      // Try weekday names (old format compatibility)
+      if (raw.contains('周')) return raw;
     }
 
     // Ultimate fallback: generate based on index
     if (period == 'week') {
-      return _weekdayName((index % 7) + 1);
+      // Generate dates counting back from today
+      final d = DateTime.now().subtract(Duration(days: 6 - (index % 7)));
+      return '${_pad(d.month)}/${_pad(d.day)}';
     }
     if (period == 'month') {
       // Generate sequential day numbers starting from 1
@@ -836,19 +840,20 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         }
         return index.toDouble();
       case 'week':
-        // Parse Chinese weekday label: "周一"=1, ..., "周日"=7 → position 0-6
-        for (int w = 1; w <= 7; w++) {
-          if (label == _weekdayName(w)) {
-            return (w - 1).toDouble();
+        // Parse MM/dd display label to position 0-6 (days from week start)
+        final weekMatch = RegExp(r'(\d{1,2})/(\d{1,2})').firstMatch(label);
+        if (weekMatch != null) {
+          final month = int.parse(weekMatch.group(1)!);
+          final day = int.parse(weekMatch.group(2)!);
+          final now = DateTime.now();
+          var date = DateTime(now.year, month, day);
+          // Handle year boundary
+          if (date.isAfter(now)) {
+            date = DateTime(now.year - 1, month, day);
           }
-        }
-        // Fallback: try to extract numeric weekday (1-7) from label
-        final weekDigits = RegExp(r'(\d+)').firstMatch(label);
-        if (weekDigits != null) {
-          final num = int.tryParse(weekDigits.group(1)!);
-          if (num != null && num >= 1 && num <= 7) {
-            return (num - 1).toDouble();
-          }
+          final weekStart = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+          final diff = date.difference(weekStart).inDays;
+          return diff.toDouble().clamp(0.0, 6.0);
         }
         return index.toDouble();
       default:
@@ -870,8 +875,13 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         return List.generate(24, (i) => '${_pad(i)}:00');
       case 'week':
       default:
-        // 固定周一到周日
-        return ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        // 最近7天的实际日期
+        final now = DateTime.now();
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+        return List.generate(7, (i) {
+          final d = start.add(Duration(days: i));
+          return '${_pad(d.month)}/${_pad(d.day)}';
+        });
     }
   }
 

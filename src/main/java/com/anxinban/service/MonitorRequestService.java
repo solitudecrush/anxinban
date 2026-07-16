@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -60,9 +61,16 @@ public class MonitorRequestService {
          * @param elderId 关联老人用户 ID
          */
     public List<MonitorRequestDto> listRequestsByElder(String elderId) {
-        return monitorRequestRepository.findByElderId(elderId).stream()
+        List<MonitorRequestDto> dtos = monitorRequestRepository.findByElderId(elderId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        // 按创建时间降序排列（最新在前）
+        dtos.sort((a, b) -> {
+            if (a.getCreateTime() == null) return 1;
+            if (b.getCreateTime() == null) return -1;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        });
+        return dtos;
     }
 
         /**
@@ -71,9 +79,16 @@ public class MonitorRequestService {
          * @param staffId 关联工作人员 ID
          */
     public List<MonitorRequestDto> listRequestsByStaff(String staffId) {
-        return monitorRequestRepository.findByStaffId(staffId).stream()
+        List<MonitorRequestDto> dtos = monitorRequestRepository.findByStaffId(staffId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        // 按创建时间降序排列（最新在前）
+        dtos.sort((a, b) -> {
+            if (a.getCreateTime() == null) return 1;
+            if (b.getCreateTime() == null) return -1;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        });
+        return dtos;
     }
 
         /**
