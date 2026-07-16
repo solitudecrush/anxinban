@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/ai_analysis.dart';
 import '../models/vitals_history.dart';
 import '../services/api_service.dart';
+import '../widgets/ai_analysis_panel.dart';
 
 enum _Metric { temperature, heartRate, bloodPressure, bloodOxygen }
 
@@ -20,22 +21,49 @@ class _ChartsScreenState extends State<ChartsScreen> {
   _Metric _metric = _Metric.temperature;
   VitalsHistory? _history;
   AiAnalysis? _ai;
+  bool _aiLoading = false;
+  bool _chartLoading = true;
+  final ScrollController _listScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _reloadAll();
+    _loadChartData();
   }
 
-  Future<void> _reloadAll() async {
+  @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
+  }
+
+  /// 加载图表数据（不触发 AI 分析，快速无 API 消耗）
+  Future<void> _loadChartData() async {
     final api = context.read<ApiService>();
+    setState(() => _chartLoading = true);
     final h = await api.fetchHistory(_period);
-    final a = await api.analyzeAi(period: _period);
     if (!mounted) return;
     setState(() {
       _history = h;
-      _ai = a;
+      _chartLoading = false;
     });
+  }
+
+  /// 触发 AI 智能分析（调用 DeepSeek 大模型）
+  Future<void> _runAiAnalysis() async {
+    final api = context.read<ApiService>();
+    setState(() => _aiLoading = true);
+    final a = await api.analyzeAi(period: _period, useLlm: true);
+    if (!mounted) return;
+    setState(() {
+      _ai = a;
+      _aiLoading = false;
+    });
+  }
+
+  /// 下拉刷新：只刷新图表数据
+  Future<void> _onRefresh() async {
+    await _loadChartData();
   }
 
   String _metricLabel(_Metric m) {
@@ -70,11 +98,15 @@ class _ChartsScreenState extends State<ChartsScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _reloadAll,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      body: Scrollbar(
+        controller: _listScrollController,
+        thumbVisibility: true,
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          child: ListView(
+            controller: _listScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             SegmentedButton<String>(
               segments: const [
@@ -85,7 +117,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
               selected: {_period},
               onSelectionChanged: (s) {
                 setState(() => _period = s.first);
-                _reloadAll();
+                _loadChartData(); // 切换周期：只更新图表，AI 分析保留（等用户手动触发）
               },
             ),
             const SizedBox(height: 12),
@@ -157,79 +189,18 @@ class _ChartsScreenState extends State<ChartsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F4FD),
-                borderRadius: BorderRadius.circular(12),
-                border: const Border(
-                  left: BorderSide(
-                    color: Color(0xFF4A90E2),
-                    width: 4,
-                  ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.smart_toy_outlined,
-                          color: Color(0xFF2C7DA0),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'AI 智能分析',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_ai?.fromLlm == true)
-                          Text(
-                            '大模型',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_ai != null) ...[
-                      Text(
-                        '总结：${_ai!.summary}',
-                        style: const TextStyle(
-                          height: 1.35,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '建议：${_ai!.suggestion}',
-                        style: const TextStyle(
-                          height: 1.35,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.tonal(
-                        onPressed: _reloadAll,
-                        child: const Text('刷新分析'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            if (_aiLoading)
+              const AiAnalysisPanel.loading()
+            else if (_ai != null)
+              AiAnalysisPanel(
+                analysis: _ai,
+                onRefresh: _runAiAnalysis,
+              )
+            else
+              _AiPlaceholder(onTap: _runAiAnalysis),
           ],
         ),
+      ),
       ),
     );
   }
@@ -292,6 +263,10 @@ class _HealthLineChart extends StatefulWidget {
 class _HealthLineChartState extends State<_HealthLineChart> {
   /// Shared horizontal scroll controller so the chart and bottom axis stay synced.
   final ScrollController _hController = ScrollController();
+
+  /// Custom tooltip state
+  int? _selectedPointIndex;
+  String _tooltipText = '';
 
   @override
   void dispose() {
@@ -442,7 +417,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       case 'week':
       default:
         minX = 0;
-        maxX = (n - 1).toDouble();
+        maxX = 6.0; // Fixed 7-day range: 周一=0, 周日=6
         break;
     }
 
@@ -462,7 +437,26 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             isCurved: true,
             color: Colors.orange,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                if (_selectedPointIndex != null &&
+                    _selectedPointIndex! < positions.length &&
+                    (spot.x - positions[_selectedPointIndex!]).abs() < 0.001) {
+                  return FlDotCirclePainter(
+                    radius: 7,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: Colors.blue,
+                  );
+                }
+                return FlDotCirclePainter(
+                  radius: 3,
+                  color: barData.color ?? Colors.grey,
+                  strokeWidth: 0,
+                );
+              },
+            ),
             spots: spots,
           ),
         ];
@@ -482,7 +476,26 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             isCurved: true,
             color: Colors.redAccent,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                if (_selectedPointIndex != null &&
+                    _selectedPointIndex! < positions.length &&
+                    (spot.x - positions[_selectedPointIndex!]).abs() < 0.001) {
+                  return FlDotCirclePainter(
+                    radius: 7,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: Colors.blue,
+                  );
+                }
+                return FlDotCirclePainter(
+                  radius: 3,
+                  color: barData.color ?? Colors.grey,
+                  strokeWidth: 0,
+                );
+              },
+            ),
             spots: spots,
           ),
         ];
@@ -507,14 +520,52 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             isCurved: true,
             color: Colors.deepPurple,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                if (_selectedPointIndex != null &&
+                    _selectedPointIndex! < positions.length &&
+                    (spot.x - positions[_selectedPointIndex!]).abs() < 0.001) {
+                  return FlDotCirclePainter(
+                    radius: 7,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: Colors.blue,
+                  );
+                }
+                return FlDotCirclePainter(
+                  radius: 3,
+                  color: barData.color ?? Colors.grey,
+                  strokeWidth: 0,
+                );
+              },
+            ),
             spots: sys,
           ),
           LineChartBarData(
             isCurved: true,
             color: Colors.lightBlue,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                if (_selectedPointIndex != null &&
+                    _selectedPointIndex! < positions.length &&
+                    (spot.x - positions[_selectedPointIndex!]).abs() < 0.001) {
+                  return FlDotCirclePainter(
+                    radius: 7,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: Colors.blue,
+                  );
+                }
+                return FlDotCirclePainter(
+                  radius: 3,
+                  color: barData.color ?? Colors.grey,
+                  strokeWidth: 0,
+                );
+              },
+            ),
             spots: dia,
           ),
         ];
@@ -534,7 +585,26 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             isCurved: true,
             color: Colors.teal,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                if (_selectedPointIndex != null &&
+                    _selectedPointIndex! < positions.length &&
+                    (spot.x - positions[_selectedPointIndex!]).abs() < 0.001) {
+                  return FlDotCirclePainter(
+                    radius: 7,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: Colors.blue,
+                  );
+                }
+                return FlDotCirclePainter(
+                  radius: 3,
+                  color: barData.color ?? Colors.grey,
+                  strokeWidth: 0,
+                );
+              },
+            ),
             spots: spots,
           ),
         ];
@@ -626,53 +696,8 @@ class _HealthLineChartState extends State<_HealthLineChart> {
                   ),
                 ),
               ),
-              lineTouchData: LineTouchData(
-                enabled: true,
-                handleBuiltInTouches: true,
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipItems: (touched) {
-                    return touched.map((t) {
-                      // Find nearest data point by x position
-                      var bestIdx = 0;
-                      var bestDist = double.infinity;
-                      for (var j = 0; j < n; j++) {
-                        final dist = (positions[j] - t.x).abs();
-                        if (dist < bestDist) {
-                          bestDist = dist;
-                          bestIdx = j;
-                        }
-                      }
-                      final p = pts[bestIdx];
-                      final lbl =
-                          bestIdx < labels.length ? labels[bestIdx] : p.label;
-                      final text = switch (metric) {
-                        _Metric.temperature =>
-                          p.temperature == null
-                              ? '-'
-                              : '${p.temperature!.toStringAsFixed(1)} ℃',
-                        _Metric.heartRate =>
-                          p.heartRate == null
-                              ? '-'
-                              : '${p.heartRate} bpm',
-                        _Metric.bloodPressure =>
-                          (p.systolic == null || p.diastolic == null)
-                              ? '-'
-                              : '${p.systolic}/${p.diastolic} mmHg',
-                        _Metric.bloodOxygen =>
-                          p.bloodOxygen == null
-                              ? '-'
-                              : '${p.bloodOxygen}%',
-                      };
-                      return LineTooltipItem(
-                        '$lbl\n$text',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      );
-                    }).toList();
-                  },
-                ),
+              lineTouchData: const LineTouchData(
+                enabled: false,
               ),
               lineBarsData: bars,
             ),
@@ -716,18 +741,64 @@ class _HealthLineChartState extends State<_HealthLineChart> {
               height: chartHeight + 32,
               color: Colors.grey.shade300,
             ),
-            // ── Chart: scrolls horizontally (x-axis labels inside chart via bottomTitles) ──
+            // ── Chart: scrolls horizontally with custom tooltip overlay ──
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              child: Scrollbar(
                 controller: _hController,
-                physics: const BouncingScrollPhysics(),
-                child: SizedBox(
-                  width: useWidth,
-                  height: chartHeight + 32,
-                  child: buildChart(),
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _hController,
+                  physics: const BouncingScrollPhysics(),
+                  child: GestureDetector(
+                  onTapUp: (details) {
+                    _handleChartTap(
+                      details,
+                      useWidth: useWidth,
+                      maxX: maxX,
+                      minX: minX,
+                      positions: positions,
+                      labels: labels,
+                      pts: pts,
+                    );
+                  },
+                  child: SizedBox(
+                    width: useWidth,
+                    height: chartHeight + 32,
+                    child: Stack(
+                      children: [
+                        SizedBox(
+                          width: useWidth,
+                          height: chartHeight + 32,
+                          child: buildChart(),
+                        ),
+                        // Tooltip bar overlay at bottom of chart
+                        if (_selectedPointIndex != null &&
+                            _selectedPointIndex! < pts.length)
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: 32,
+                              color: Colors.black87,
+                              alignment: Alignment.center,
+                              child: Text(
+                                _tooltipText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            ),
             ),
           ],
         );
@@ -765,25 +836,42 @@ class _HealthLineChartState extends State<_HealthLineChart> {
         }
         return index.toDouble();
       case 'week':
+        // Parse Chinese weekday label: "周一"=1, ..., "周日"=7 → position 0-6
+        for (int w = 1; w <= 7; w++) {
+          if (label == _weekdayName(w)) {
+            return (w - 1).toDouble();
+          }
+        }
+        // Fallback: try to extract numeric weekday (1-7) from label
+        final weekDigits = RegExp(r'(\d+)').firstMatch(label);
+        if (weekDigits != null) {
+          final num = int.tryParse(weekDigits.group(1)!);
+          if (num != null && num >= 1 && num <= 7) {
+            return (num - 1).toDouble();
+          }
+        }
+        return index.toDouble();
       default:
         return index.toDouble();
     }
   }
 
   /// Generate all x-axis labels for the full time range (not just data points).
+  /// 每日: 0点到23点，每隔2小时显示标签
+  /// 每周: 周一到周日固定
+  /// 每月: 1日到31日固定
   List<String> _generateFullLabels() {
     switch (period) {
       case 'month':
-        final now = DateTime.now();
-        // 从1号到今天的日期，确保横坐标从1号开始显示
-        final maxDay = now.day;
-        return List.generate(maxDay, (i) => '${i + 1}日');
+        // 固定1日到31日
+        return List.generate(31, (i) => '${i + 1}日');
       case 'day':
-        // 只显示小时点数，不写年月日
+        // 0点到23点，共24个小时点
         return List.generate(24, (i) => '${_pad(i)}:00');
       case 'week':
       default:
-        return _buildLabels(history.points, period);
+        // 固定周一到周日
+        return ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     }
   }
 
@@ -799,5 +887,140 @@ class _HealthLineChartState extends State<_HealthLineChart> {
     if (n <= 8) return 1;
     if (n <= 16) return 2;
     return 4;
+  }
+
+  String _formatTapValue(VitalsHistoryPoint p, _Metric m) {
+    return switch (m) {
+      _Metric.temperature =>
+        p.temperature == null ? '-' : '${p.temperature!.toStringAsFixed(1)} ℃',
+      _Metric.heartRate =>
+        p.heartRate == null ? '-' : '${p.heartRate} bpm',
+      _Metric.bloodPressure =>
+        (p.systolic == null || p.diastolic == null)
+            ? '-'
+            : '${p.systolic}/${p.diastolic} mmHg',
+      _Metric.bloodOxygen =>
+        p.bloodOxygen == null ? '-' : '${p.bloodOxygen}%',
+    };
+  }
+
+  void _handleChartTap(
+    TapUpDetails details, {
+    required double useWidth,
+    required double maxX,
+    required double minX,
+    required List<double> positions,
+    required List<String> labels,
+    required List<VitalsHistoryPoint> pts,
+  }) {
+    final dataRange = maxX - minX;
+    if (dataRange <= 0 || positions.isEmpty) return;
+
+    final tapX = details.localPosition.dx;
+    final dataX = tapX / useWidth * dataRange + minX;
+
+    int? bestIdx;
+    double bestDist = double.infinity;
+    for (int i = 0; i < positions.length; i++) {
+      final dist = (positions[i] - dataX).abs();
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx != null && bestIdx < pts.length) {
+      // Accept tap if within 10% of x-range from nearest data point
+      final threshold = dataRange * 0.10;
+      if (bestDist <= threshold) {
+        final p = pts[bestIdx];
+        final lbl = bestIdx < labels.length ? labels[bestIdx] : p.label;
+        final value = _formatTapValue(p, metric);
+        setState(() {
+          _selectedPointIndex = bestIdx;
+          _tooltipText = '$lbl: $value';
+        });
+        return;
+      }
+    }
+
+    // Tap on empty area clears the selection
+    setState(() {
+      _selectedPointIndex = null;
+      _tooltipText = '';
+    });
+  }
+}
+
+/// AI 分析未触发时的占位卡片，提示用户点击按钮获取大模型分析。
+class _AiPlaceholder extends StatelessWidget {
+  const _AiPlaceholder({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF0F7FF), Color(0xFFE8F0FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF4A90E2).withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4A90E2), Color(0xFF2C7DA0)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.psychology_outlined, color: Colors.white, size: 34),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'AI 智能分析',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1D1D1F),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '基于 DeepSeek 大模型，综合分析体征趋势、\n告警记录和健康档案，生成专业分析报告',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF6B7280),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.auto_awesome, size: 18),
+            label: const Text('获取 AI 智能分析'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '每次分析消耗 API 额度，请按需使用',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+          ),
+        ],
+      ),
+    );
   }
 }

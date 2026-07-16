@@ -15,6 +15,8 @@ import '../models/notification_item.dart';
 import '../models/profile.dart';
 import '../models/service_request.dart';
 import '../models/vitals_history.dart';
+import 'analysis_engine.dart';
+import 'llm_service.dart';
 
 class ApiException implements Exception {
   ApiException(this.message);
@@ -561,51 +563,135 @@ class ApiService {
 
   /// AI 健康分析。
   ///
-  /// 从后端体征趋势数据计算平均值并生成分析摘要。
-  Future<AiAnalysis> analyzeAi({String? elderId, String period = 'week'}) async {
+  /// [useLlm] 为 true 时调用 DeepSeek 大模型生成专业分析文案（较慢，消耗 API 额度）；
+  /// 为 false 时仅使用本地引擎（快速，不消耗 API）。
+  /// 统计数据始终由本地引擎保证准确性。
+  Future<AiAnalysis> analyzeAi({
+    String? elderId,
+    String period = 'week',
+    bool useLlm = false,
+  }) async {
     try {
       final eid = elderId ?? _elderId;
       if (eid == null || eid.isEmpty) {
-        return _mockAi[period] ?? _mockAi['week']!;
+        return _fallbackAnalysis(period);
       }
-      // 获取三种体征趋势用于计算平均值
+
+      // Fetch all data sources in parallel
       final results = await Future.wait([
-        _get('/api/elder/$eid/health/history', queryParams: {'type': 'heart_rate', 'range': period}),
-        _get('/api/elder/$eid/health/history', queryParams: {'type': 'blood_pressure', 'range': period}),
-        _get('/api/elder/$eid/health/history', queryParams: {'type': 'temperature', 'range': period}),
+        fetchHistory(period, elderId: eid),
+        fetchLatestVitals(elderId: eid),
+        fetchAlerts(elderId: eid),
+        fetchHealthRecord(elderId: eid),
+        fetchProfile(),
+        fetchSosHistory(eid),
       ]);
 
-      final hrItems = _extractTrendItems(results[0]);
-      final bpItems = _extractTrendItems(results[1]);
-      final tempItems = _extractTrendItems(results[2]);
+      final history = results[0] as VitalsHistory;
+      final latest = results[1] as LatestVitals;
+      final alerts = results[2] as List<AlertItem>;
+      final healthRecord = results[3] as Map<String, dynamic>?;
+      final profile = results[4] as Profile?;
+      final sosHistory = results[5] as List<Map<String, dynamic>>;
 
-      final avgHr = hrItems.isNotEmpty
-          ? hrItems.map((e) => (e['value'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / hrItems.length
-          : 0.0;
-      final avgSys = bpItems.isNotEmpty
-          ? bpItems.map((e) => (e['systolic'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / bpItems.length
-          : 0.0;
-      final avgDia = bpItems.isNotEmpty
-          ? bpItems.map((e) => (e['diastolic'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / bpItems.length
-          : 0.0;
-      final avgTemp = tempItems.isNotEmpty
-          ? tempItems.map((e) => (e['value'] as num?)?.toDouble() ?? 0).reduce((a, b) => a + b) / tempItems.length
-          : 0.0;
-
-      if (avgHr > 0 || avgSys > 0 || avgTemp > 0) {
-        final periodName = period == 'day' ? '今日' : (period == 'month' ? '本月' : '本周');
-        final summary = avgTemp > 0 && avgHr > 0 && avgSys > 0
-            ? '$periodName老人平均心率 ${avgHr.round()}bpm，平均血压 ${avgSys.round()}/${avgDia.round()} mmHg，平均体温 ${avgTemp.toStringAsFixed(1)}℃。'
-            : '$periodName已获取健康趋势数据。';
-        final suggestion = avgSys > 140 || avgDia > 90
-            ? '血压偏高，建议咨询医生。'
-            : '建议继续监测，保持适度活动。';
-        return AiAnalysis(summary: summary, suggestion: suggestion, fromLlm: false);
+      if (useLlm) {
+        // 混合模式：本地引擎 + DeepSeek 大模型
+        final llm = LlmService();
+        final result = await llm.hybridAnalyze(
+          history: history,
+          latest: latest,
+          alerts: alerts,
+          period: period,
+          healthRecord: healthRecord,
+          profile: profile,
+          sosHistory: sosHistory,
+        );
+        return result.analysis;
+      } else {
+        // 纯本地引擎（快速，不消耗 API）
+        return AnalysisEngine().analyze(
+          history: history,
+          temperature: latest.temperature,
+          heartRate: latest.heartRate,
+          systolic: latest.systolic,
+          diastolic: latest.diastolic,
+          bloodOxygen: latest.bloodOxygen,
+          alerts: alerts,
+          healthRecord: healthRecord,
+          profile: profile != null
+              ? {'name': profile.name, 'age': profile.age}
+              : null,
+          sosHistory: sosHistory,
+          period: period,
+        );
       }
     } catch (_) {
-      // fall through to mock
+      return _fallbackAnalysis(period);
     }
-    return _mockAi[period] ?? _mockAi['week']!;
+  }
+
+  /// 数据不足或网络异常时的降级分析结果。
+  AiAnalysis _fallbackAnalysis(String period) {
+    final periodLabel = period == 'day' ? '今日' : (period == 'month' ? '本月' : '本周');
+    return AiAnalysis(
+      meta: AiAnalysisMeta(
+        analyzedAt: DateTime.now(),
+        period: period,
+        dataCompleteness: DataCompleteness.minimal,
+      ),
+      overall: OverallStatus(
+        level: HealthLevel.attention,
+        score: 50,
+        summary: '$periodLabel暂无足够体征数据，无法进行完整健康分析。',
+      ),
+      metrics: [
+        MetricAnalysis(
+          type: VitalSignType.temperature,
+          label: '体温',
+          unit: '°C',
+          status: MetricStatus.normal,
+          assessment: '暂无数据',
+          hasData: false,
+        ),
+        MetricAnalysis(
+          type: VitalSignType.heartRate,
+          label: '心率',
+          unit: 'bpm',
+          status: MetricStatus.normal,
+          assessment: '暂无数据',
+          hasData: false,
+        ),
+        MetricAnalysis(
+          type: VitalSignType.bloodPressure,
+          label: '血压',
+          unit: 'mmHg',
+          status: MetricStatus.normal,
+          assessment: '暂无数据',
+          hasData: false,
+        ),
+        MetricAnalysis(
+          type: VitalSignType.bloodOxygen,
+          label: '血氧',
+          unit: '%',
+          status: MetricStatus.normal,
+          assessment: '暂无数据',
+          hasData: false,
+        ),
+      ],
+      riskFactors: [],
+      suggestions: [
+        Suggestion(
+          category: SuggestionCategory.checkup,
+          content: '暂无足够数据进行分析，请确保设备正常运行并上传体征数据。',
+          priority: 1,
+        ),
+      ],
+      trendSummary: TrendSummary(
+        direction: TrendDirection.stable,
+        description: '暂无足够数据进行趋势分析',
+      ),
+      fromLlm: false,
+    );
   }
 
   // ---------- 告警 ----------
@@ -1213,21 +1299,4 @@ class ApiService {
     'month': _generateMockHistory('month'),
   };
 
-  static final Map<String, AiAnalysis> _mockAi = {
-    'day': AiAnalysis(
-      summary: '今日老人各项体征指标总体平稳，心率、血压、体温均在正常范围内波动。',
-      suggestion: '建议保持当前作息，适当增加午休时间。',
-      fromLlm: false,
-    ),
-    'week': AiAnalysis(
-      summary: '本周老人健康状况良好，平均心率 75bpm，平均血压 127/83 mmHg。',
-      suggestion: '建议继续监测，保持适度活动。',
-      fromLlm: false,
-    ),
-    'month': AiAnalysis(
-      summary: '本月老人健康趋势整体平稳，第三周血压略有升高，随后恢复。',
-      suggestion: '建议每月进行一次全面体检，关注血压变化趋势。',
-      fromLlm: false,
-    ),
-  };
 }
