@@ -23,8 +23,19 @@ class LlmService {
   /// Anthropic API 版本
   static const String apiVersion = '2023-06-01';
 
-  /// DeepSeek API Key（硬编码，不对外暴露）
-  static const String _apiKey = 'sk-562b3c54cdc94f28802447dde98e16fa';
+  /// DeepSeek API Key，通过编译参数注入，不硬编码在代码中。
+  ///
+  /// 构建时传入:
+  /// ```bash
+  /// flutter build apk --release --dart-define=DEEPSEEK_API_KEY=sk-xxx
+  /// ```
+  /// 或设置环境变量后运行:
+  /// ```bash
+  /// export DEEPSEEK_API_KEY=sk-xxx
+  /// flutter run --dart-define=DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY
+  /// ```
+  static String get _apiKey =>
+      const String.fromEnvironment('DEEPSEEK_API_KEY');
 
   // ──── 顶层：混合分析 ────
 
@@ -61,7 +72,8 @@ class LlmService {
       period: period,
     );
 
-    // 2. 尝试调用 LLM 生成自然语言文案
+    // 2. 尝试调用 LLM 生成自然语言文案（未配置 API Key 则跳过）
+    if (_apiKey.isEmpty) return (llmSuccess: false, analysis: localResult);
     try {
       final prompt = _buildHealthPrompt(
         history: history,

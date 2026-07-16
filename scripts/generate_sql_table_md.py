@@ -4,14 +4,15 @@ Generate sql_table.md with ALL data from anxinban MySQL database.
 Exports every row from every table (no sampling).
 """
 
+import os
 import pymysql
 import datetime
 
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '1234',
-    'database': 'anxinban',
+    'host': os.environ.get('DB_HOST', 'localhost'),
+    'user': os.environ.get('DB_USERNAME', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_NAME', 'anxinban'),
     'charset': 'utf8mb4',
 }
 

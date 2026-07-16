@@ -56,3 +56,8 @@ build/
 ### Android signing keys (do NOT commit) ###
 **/android/app/key.properties
 **/android/app/*.jks
+
+### Environment / secret files (do NOT commit) ###
+.env
+.env.*
+!.env.example
