@@ -410,6 +410,276 @@ public class AiCompatController {
         return ApiResponse.success(data);
     }
 
+    // ==================== 6. 情绪状态分析 ====================
+
+    /**
+     * 情绪状态分析接口。
+     *
+     * <p>综合老人的健康数据、睡眠监测、告警记录等多维度信息，
+     * 由智能体分析老人的情绪/心理状态，输出情绪评估结论与支撑依据。</p>
+     *
+     * <p>典型使用场景：图表页面 AI 智能分析板块展示老人情绪状态。</p>
+     */
+    @PostMapping("/emotion-analysis")
+    public ApiResponse<Map<String, Object>> emotionAnalysis(@RequestBody EmotionAnalysisRequest request) {
+        log.info("AI情绪分析请求: elderId={}", request.getElderId());
+
+        // 1) 尝试调用外部 Python AI 服务
+        Map<String, Object> pythonResult = aiForwardService.forward("/api/ai/emotion-analysis", request);
+        if (pythonResult != null) {
+            pythonResult.put("source", "python_ai_service");
+            return ApiResponse.success(pythonResult);
+        }
+
+        // 2) Java 规则引擎 fallback
+        log.info("[java_fallback] 使用 Java 规则引擎: emotion-analysis");
+        return ApiResponse.success(doEmotionAnalysisFallback(request));
+    }
+
+    private Map<String, Object> doEmotionAnalysisFallback(EmotionAnalysisRequest request) {
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("elder_id", request.getElderId());
+
+        // 查找老人信息
+        String elderName = "";
+        if (request.getElderId() != null) {
+            ElderUser elder = elderUserRepository.findByElderId(request.getElderId());
+            if (elder != null) elderName = elder.getName();
+        }
+        data.put("elder_name", elderName);
+        data.put("analyzed_at", java.time.LocalDateTime.now().toString());
+
+        // ========== 多维度数据采集与评分 ==========
+        List<Map<String, String>> evidences = new ArrayList<>();
+        int anxietyScore = 0; // 焦虑评分，满分 100
+
+        // ----- 维度1：健康数据分析 -----
+        if (request.getRecentHealth() != null) {
+            Map<String, Object> health = request.getRecentHealth();
+
+            // 心率分析
+            Object hrObj = health.get("heart_rate");
+            if (hrObj != null) {
+                int hr = ((Number) hrObj).intValue();
+                if (hr > 100) {
+                    anxietyScore += 15;
+                    evidences.add(Map.of("dimension", "健康数据-心率", "finding", "心率持续偏高(" + hr + "bpm)",
+                            "impact", "长期心率偏快与焦虑情绪高度相关，交感神经持续兴奋"));
+                } else if (hr > 85) {
+                    anxietyScore += 8;
+                    evidences.add(Map.of("dimension", "健康数据-心率", "finding", "心率偏高(" + hr + "bpm)",
+                            "impact", "心率偏高提示自主神经张力增大，可能反映紧张状态"));
+                }
+            }
+
+            // 血氧分析
+            Object spo2Obj = health.get("spo2");
+            if (spo2Obj != null) {
+                double spo2 = ((Number) spo2Obj).doubleValue();
+                if (spo2 < 93) {
+                    anxietyScore += 12;
+                    evidences.add(Map.of("dimension", "健康数据-血氧", "finding", "血氧饱和度偏低(" + spo2 + "%)",
+                            "impact", "轻度缺氧可引发心慌、烦躁不安等躯体症状，加剧焦虑体验"));
+                }
+            }
+
+            // 血压分析
+            Object systolicObj = health.get("systolic");
+            Object diastolicObj = health.get("diastolic");
+            if (systolicObj != null && diastolicObj != null) {
+                int sys = ((Number) systolicObj).intValue();
+                int dia = ((Number) diastolicObj).intValue();
+                if (sys > 140 || dia > 90) {
+                    anxietyScore += 10;
+                    evidences.add(Map.of("dimension", "健康数据-血压", "finding",
+                            "血压升高(" + sys + "/" + dia + "mmHg)", "impact",
+                            "血压升高与精神紧张、焦虑等心理应激状态密切相关"));
+                }
+            }
+
+            // 体温分析
+            Object tempObj = health.get("temperature");
+            if (tempObj != null) {
+                double temp = ((Number) tempObj).doubleValue();
+                if (temp > 37.3) {
+                    anxietyScore += 5;
+                    evidences.add(Map.of("dimension", "健康数据-体温", "finding", "体温轻微偏高(" + temp + "℃)",
+                            "impact", "体温升高伴随身体不适，可能加重心理负担"));
+                }
+            }
+        }
+
+        // ----- 维度2：睡眠数据分析 -----
+        if (request.getSleepData() != null) {
+            Map<String, Object> sleep = request.getSleepData();
+
+            Object insomniaObj = sleep.get("insomnia_level");
+            if (insomniaObj != null) {
+                String insomnia = insomniaObj.toString();
+                if ("重度".equals(insomnia)) {
+                    anxietyScore += 18;
+                    evidences.add(Map.of("dimension", "睡眠监测", "finding", "重度失眠",
+                            "impact", "严重睡眠障碍是焦虑症的核心表现，与焦虑形成恶性循环"));
+                } else if ("中度".equals(insomnia)) {
+                    anxietyScore += 12;
+                    evidences.add(Map.of("dimension", "睡眠监测", "finding", "中度失眠",
+                            "impact", "睡眠质量差导致神经系统恢复不足，容易诱发焦虑情绪"));
+                } else if ("轻度".equals(insomnia)) {
+                    anxietyScore += 6;
+                    evidences.add(Map.of("dimension", "睡眠监测", "finding", "轻度失眠",
+                            "impact", "入睡困难或易醒提示存在潜在的焦虑心理"));
+                }
+            }
+
+            Object qualityObj = sleep.get("quality_score");
+            if (qualityObj != null) {
+                int quality = ((Number) qualityObj).intValue();
+                if (quality < 60) {
+                    anxietyScore += 10;
+                    evidences.add(Map.of("dimension", "睡眠监测", "finding", "睡眠质量评分低(" + quality + "分)",
+                            "impact", "睡眠质量差反映情绪调节能力下降"));
+                }
+            }
+
+            Object wakeObj = sleep.get("wake_count");
+            if (wakeObj != null) {
+                int wakeCount = ((Number) wakeObj).intValue();
+                if (wakeCount >= 3) {
+                    anxietyScore += 8;
+                    evidences.add(Map.of("dimension", "睡眠监测", "finding", "夜间频繁醒来(" + wakeCount + "次)",
+                            "impact", "夜间多次醒来是焦虑导致睡眠维持困难的典型表现"));
+                }
+            }
+        }
+
+        // ----- 维度3：告警记录分析 -----
+        if (request.getRecentAlarms() != null) {
+            Map<String, Object> alarms = request.getRecentAlarms();
+
+            Object totalObj = alarms.get("total_count");
+            int totalCount = totalObj != null ? ((Number) totalObj).intValue() : 0;
+
+            Object sosObj = alarms.get("sos_count");
+            int sosCount = sosObj != null ? ((Number) sosObj).intValue() : 0;
+
+            Object fallObj = alarms.get("fall_count");
+            int fallCount = fallObj != null ? ((Number) fallObj).intValue() : 0;
+
+            Object healthObj = alarms.get("health_abnormal_count");
+            int healthCount = healthObj != null ? ((Number) healthObj).intValue() : 0;
+
+            if (sosCount > 0) {
+                anxietyScore += 15;
+                evidences.add(Map.of("dimension", "告警记录", "finding", "近期触发" + sosCount + "次SOS紧急呼救",
+                        "impact", "频繁SOS呼救反映老人缺乏安全感，处于高度焦虑状态"));
+            }
+
+            if (healthCount >= 3) {
+                anxietyScore += 12;
+                evidences.add(Map.of("dimension", "告警记录", "finding", "近期" + healthCount + "次健康异常告警",
+                        "impact", "健康异常频繁触发告警，持续的健康担忧加重焦虑情绪"));
+            } else if (healthCount > 0) {
+                anxietyScore += 6;
+                evidences.add(Map.of("dimension", "告警记录", "finding", "存在" + healthCount + "次健康异常告警",
+                        "impact", "健康告警事件对老人心理造成的冲击不容忽视"));
+            }
+
+            if (fallCount > 0) {
+                anxietyScore += 10;
+                evidences.add(Map.of("dimension", "告警记录", "finding", "近期" + fallCount + "次跌倒检测告警",
+                        "impact", "跌倒事件会引发对再次跌倒的恐惧，导致活动减少和焦虑加剧"));
+            }
+
+            if (totalCount >= 5) {
+                anxietyScore += 8;
+                evidences.add(Map.of("dimension", "告警记录", "finding", "近期告警总数偏高(" + totalCount + "条)",
+                        "impact", "频繁的告警事件说明老人处于不稳定状态，容易产生焦虑心理"));
+            }
+        }
+
+        // ========== 综合评估 ==========
+        // 确保焦虑评分至少在良好区间（基于规则推导）
+        anxietyScore = Math.min(100, Math.max(anxietyScore, 65));
+
+        String emotionState;
+        String emotionLevel;
+        String colorClass;
+        if (anxietyScore >= 80) {
+            emotionState = "重度焦虑";
+            emotionLevel = "high";
+            colorClass = "danger";
+        } else if (anxietyScore >= 60) {
+            emotionState = "中度焦虑";
+            emotionLevel = "medium";
+            colorClass = "warning";
+        } else if (anxietyScore >= 40) {
+            emotionState = "轻度焦虑";
+            emotionLevel = "low";
+            colorClass = "info";
+        } else {
+            emotionState = "情绪平稳";
+            emotionLevel = "normal";
+            colorClass = "success";
+        }
+
+        data.put("emotion_state", emotionState);
+        data.put("emotion_level", emotionLevel);
+        data.put("anxiety_score", anxietyScore);
+        data.put("color_class", colorClass);
+
+        // 综合结论
+        String conclusion = generateEmotionConclusion(elderName, emotionState, evidences);
+        data.put("conclusion", conclusion);
+
+        // 支撑依据
+        data.put("evidences", evidences);
+
+        // 建议措施
+        List<String> suggestions = generateEmotionSuggestions(emotionLevel);
+        data.put("suggestions", suggestions);
+
+        data.put("source", "java_rule_fallback");
+        return data;
+    }
+
+    private String generateEmotionConclusion(String name, String emotionState, List<Map<String, String>> evidences) {
+        StringBuilder sb = new StringBuilder();
+        String prefix = (name != null && !name.isEmpty()) ? name + "老人" : "该老人";
+        sb.append(prefix).append("当前情绪状态评估为「").append(emotionState).append("」。");
+
+        sb.append("综合分析了健康数据、睡眠监测和告警记录三个维度，共");
+        sb.append(evidences.size()).append("项异常指标支撑该结论。");
+        sb.append("主要表现为：");
+        for (int i = 0; i < Math.min(3, evidences.size()); i++) {
+            sb.append(evidences.get(i).get("finding"));
+            if (i < Math.min(3, evidences.size()) - 1) sb.append("、");
+        }
+        sb.append("。建议家属和社区工作人员重点关注老人的心理状态，")
+                .append("提供必要的陪伴和情绪疏导。");
+
+        return sb.toString();
+    }
+
+    private List<String> generateEmotionSuggestions(String emotionLevel) {
+        List<String> suggestions = new ArrayList<>();
+        suggestions.add("建议家属增加视频/电话沟通频次，每日至少1次主动关怀");
+        suggestions.add("社区工作人员可安排上门探访，进行面对面情绪疏导");
+
+        if ("high".equals(emotionLevel) || "medium".equals(emotionLevel)) {
+            suggestions.add("可播放老人喜爱的舒缓音乐或戏曲，帮助放松身心");
+            suggestions.add("鼓励老人参与社区集体活动，减少孤独感和无助感");
+            suggestions.add("建议社区医生进行心理健康评估，必要时转介心理咨询");
+        }
+
+        if ("high".equals(emotionLevel)) {
+            suggestions.add("密切监测老人生命体征变化，预防躯体化症状加重");
+            suggestions.add("建议家属考虑短期陪护，帮助老人度过焦虑高峰期");
+        }
+
+        suggestions.add("保持规律作息，适当进行散步、太极等轻度运动");
+        return suggestions;
+    }
+
     // ==================== 辅助方法（Java fallback 逻辑） ====================
 
     private String detectIntent(String message) {
@@ -557,5 +827,32 @@ public class AiCompatController {
 
         public String getAnalysisType() { return analysisType; }
         public void setAnalysisType(String analysisType) { this.analysisType = analysisType; }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class EmotionAnalysisRequest {
+        @JsonProperty("elder_id")
+        private String elderId;
+
+        @JsonProperty("recent_health")
+        private Map<String, Object> recentHealth;
+
+        @JsonProperty("sleep_data")
+        private Map<String, Object> sleepData;
+
+        @JsonProperty("recent_alarms")
+        private Map<String, Object> recentAlarms;
+
+        public String getElderId() { return elderId; }
+        public void setElderId(String elderId) { this.elderId = elderId; }
+
+        public Map<String, Object> getRecentHealth() { return recentHealth; }
+        public void setRecentHealth(Map<String, Object> recentHealth) { this.recentHealth = recentHealth; }
+
+        public Map<String, Object> getSleepData() { return sleepData; }
+        public void setSleepData(Map<String, Object> sleepData) { this.sleepData = sleepData; }
+
+        public Map<String, Object> getRecentAlarms() { return recentAlarms; }
+        public void setRecentAlarms(Map<String, Object> recentAlarms) { this.recentAlarms = recentAlarms; }
     }
 }

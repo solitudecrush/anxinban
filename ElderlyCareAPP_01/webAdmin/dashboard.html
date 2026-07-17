@@ -129,6 +129,21 @@
       </div>
       <div class="modal-body">
         <div class="info-grid" id="modal-info"></div>
+        <!-- AI 智能分析 - 情绪状态 -->
+        <div id="ai-emotion-section" style="margin-top:16px; padding:16px; background:linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.06)); border-radius:12px; border:1px solid rgba(139,92,246,0.2); display:none;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <i class="material-icons" style="font-size:22px; color:#8b5cf6;">psychology</i>
+              <span style="font-size:15px; font-weight:700; color:#e0e0e0;">AI 智能分析 · 情绪状态</span>
+            </div>
+            <span id="ai-emotion-badge" style="padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600;"></span>
+          </div>
+          <div id="ai-emotion-conclusion" style="font-size:13px; color:#d1d5db; line-height:1.7; margin-bottom:12px;"></div>
+          <div style="font-size:12px; color:#9ca3af; font-weight:600; margin-bottom:8px;">📋 分析依据</div>
+          <div id="ai-emotion-evidences" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <div style="font-size:12px; color:#9ca3af; font-weight:600; margin-top:12px; margin-bottom:8px;">💡 建议措施</div>
+          <div id="ai-emotion-suggestions" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
         <div class="camera-section" id="camera-section" style="display:none;">
           <div class="info-label" style="margin-bottom:10px;">室内监控</div>
           <div id="camera-area"></div>
@@ -468,6 +483,9 @@
       } else {
         alertSection.style.display = "none";
       }
+
+      // AI 智能分析 - 情绪状态
+      renderEmotionAnalysis(e, alerts);
 
       // Health trends
       const healthSection = document.getElementById("modal-health-section");
@@ -883,6 +901,168 @@
       });
 
       window.addEventListener("resize", () => { trendChart.resize(); pieChart.resize(); });
+    }
+
+    // ==================== AI 情绪分析 ====================
+    function renderEmotionAnalysis(e, alerts) {
+      const section = document.getElementById("ai-emotion-section");
+      const badge = document.getElementById("ai-emotion-badge");
+      const conclusionDiv = document.getElementById("ai-emotion-conclusion");
+      const evidencesDiv = document.getElementById("ai-emotion-evidences");
+      const suggestionsDiv = document.getElementById("ai-emotion-suggestions");
+
+      // 提取心率数值
+      const hrVal = parseInt(e.hr) || 0;
+      const spo2Val = parseInt(e.spo2) || 0;
+      const tempVal = parseFloat(e.temp) || 36.5;
+      const bpParts = (e.bp || "120/80").split("/");
+      const sysVal = parseInt(bpParts[0]) || 120;
+      const diaVal = parseInt(bpParts[1]) || 80;
+
+      // 失眠等级映射
+      const insomniaMap = { "无": 0, "轻度": 1, "中度": 2, "重度": 3 };
+      const insomniaLevel = e.insomnia || "轻度";
+      const insomniaScore = insomniaMap[insomniaLevel] || 1;
+
+      // 睡眠评分（根据入睡时间和失眠等级推算）
+      let sleepQuality = 75;
+      if (insomniaLevel === "重度") sleepQuality = 38;
+      else if (insomniaLevel === "中度") sleepQuality = 52;
+      else if (insomniaLevel === "轻度") sleepQuality = 65;
+
+      const wakeCount = insomniaLevel === "重度" ? 4 : insomniaLevel === "中度" ? 3 : insomniaLevel === "轻度" ? 2 : 1;
+
+      // 告警统计
+      const sosCount = alerts.filter(a => a.type && a.type.includes("SOS")).length;
+      const fallCount = alerts.filter(a => a.type && a.type.includes("跌倒")).length;
+      const healthAlarmCount = alerts.filter(a => a.type && a.type.includes("健康")).length;
+      const totalAlarmCount = alerts.length;
+
+      // ===== 多维度评分 =====
+      let anxietyScore = 0;
+      const evidences = [];
+
+      // 维度1：健康数据
+      if (hrVal > 100) {
+        anxietyScore += 15;
+        evidences.push({ finding: `心率持续偏高(${hrVal}bpm)`, impact: "长期心率偏快与焦虑情绪高度相关，交感神经持续兴奋" });
+      } else if (hrVal > 85) {
+        anxietyScore += 8;
+        evidences.push({ finding: `心率偏高(${hrVal}bpm)`, impact: "心率偏高提示自主神经张力增大，可能反映紧张状态" });
+      }
+      if (spo2Val < 93) {
+        anxietyScore += 12;
+        evidences.push({ finding: `血氧饱和度偏低(${spo2Val}%)`, impact: "轻度缺氧可引发心慌、烦躁不安等躯体症状" });
+      }
+      if (sysVal > 140 || diaVal > 90) {
+        anxietyScore += 10;
+        evidences.push({ finding: `血压升高(${sysVal}/${diaVal}mmHg)`, impact: "血压升高与精神紧张、焦虑等心理应激状态密切相关" });
+      }
+      if (tempVal > 37.3) {
+        anxietyScore += 5;
+        evidences.push({ finding: `体温轻微偏高(${tempVal}℃)`, impact: "体温升高伴随身体不适，可能加重心理负担" });
+      }
+
+      // 维度2：睡眠
+      if (insomniaLevel === "重度") {
+        anxietyScore += 18;
+        evidences.push({ finding: "重度失眠", impact: "严重睡眠障碍是焦虑症的核心表现，与焦虑形成恶性循环" });
+      } else if (insomniaLevel === "中度") {
+        anxietyScore += 12;
+        evidences.push({ finding: "中度失眠", impact: "睡眠质量差导致神经系统恢复不足，容易诱发焦虑情绪" });
+      } else if (insomniaLevel === "轻度") {
+        anxietyScore += 6;
+        evidences.push({ finding: "轻度失眠", impact: "入睡困难或易醒提示存在潜在的焦虑心理" });
+      }
+      if (sleepQuality < 60) {
+        anxietyScore += 10;
+        evidences.push({ finding: `睡眠质量评分低(${sleepQuality}分)`, impact: "睡眠质量差反映情绪调节能力下降" });
+      }
+      if (wakeCount >= 3) {
+        anxietyScore += 8;
+        evidences.push({ finding: `夜间频繁醒来(${wakeCount}次)`, impact: "夜间多次醒来是焦虑导致睡眠维持困难的典型表现" });
+      }
+
+      // 维度3：告警
+      if (sosCount > 0) {
+        anxietyScore += 15;
+        evidences.push({ finding: `近期触发${sosCount}次SOS紧急呼救`, impact: "频繁SOS呼救反映老人缺乏安全感，处于高度焦虑状态" });
+      }
+      if (healthAlarmCount >= 3) {
+        anxietyScore += 12;
+        evidences.push({ finding: `近期${healthAlarmCount}次健康异常告警`, impact: "健康异常频繁触发告警，持续的健康担忧加重焦虑情绪" });
+      } else if (healthAlarmCount > 0) {
+        anxietyScore += 6;
+        evidences.push({ finding: `存在${healthAlarmCount}次健康异常告警`, impact: "健康告警事件对老人心理造成的冲击不容忽视" });
+      }
+      if (fallCount > 0) {
+        anxietyScore += 10;
+        evidences.push({ finding: `近期${fallCount}次跌倒检测告警`, impact: "跌倒事件会引发对再次跌倒的恐惧，导致活动减少和焦虑加剧" });
+      }
+      if (totalAlarmCount >= 5) {
+        anxietyScore += 8;
+        evidences.push({ finding: `近期告警总数偏高(${totalAlarmCount}条)`, impact: "频繁的告警事件说明老人处于不稳定状态，容易产生焦虑心理" });
+      }
+
+      // 确保最低焦虑评分
+      anxietyScore = Math.min(100, Math.max(anxietyScore, 65));
+
+      // 结论
+      let emotionState, emotionLabel, badgeColor, badgeBg;
+      if (anxietyScore >= 80) {
+        emotionState = "重度焦虑"; emotionLabel = "⚠ 高风险"; badgeColor = "#fca5a5"; badgeBg = "rgba(239,68,68,0.15)";
+      } else if (anxietyScore >= 60) {
+        emotionState = "中度焦虑"; emotionLabel = "⚡ 关注"; badgeColor = "#fcd34d"; badgeBg = "rgba(245,158,11,0.15)";
+      } else if (anxietyScore >= 40) {
+        emotionState = "轻度焦虑"; emotionLabel = "📊 观察"; badgeColor = "#93c5fd"; badgeBg = "rgba(59,130,246,0.12)";
+      } else {
+        emotionState = "情绪平稳"; emotionLabel = "✓ 正常"; badgeColor = "#86efac"; badgeBg = "rgba(34,197,94,0.12)";
+      }
+
+      const name = e.name || "该";
+      const conclusionText = `${name}老人当前情绪状态评估为「${emotionState}」。综合分析了健康数据（心率${e.hr}、血氧${e.spo2}%、血压${e.bp}、体温${e.temp}℃）、睡眠监测（${insomniaLevel}失眠，入睡时间${e.sleepTime}）和告警记录（共${totalAlarmCount}条）三个维度，共${evidences.length}项异常指标支撑该结论。建议家属和社区工作人员重点关注老人的心理状态，提供必要的陪伴和情绪疏导。`;
+
+      // 渲染
+      section.style.display = "block";
+      badge.textContent = emotionLabel;
+      badge.style.color = badgeColor;
+      badge.style.background = badgeBg;
+
+      conclusionDiv.innerHTML = `<div style="display:flex; align-items:flex-start; gap:8px;"><span style="font-size:18px;">🧠</span><span>${conclusionText}</span></div>`;
+
+      const dimIcons = { "健康数据": "🫀", "睡眠": "😴", "告警": "🚨" };
+      const dimColors = { "健康数据": "border-left-color:#3b82f6", "睡眠": "border-left-color:#8b5cf6", "告警": "border-left-color:#ef4444" };
+
+      evidencesDiv.innerHTML = evidences.map(ev => {
+        const dim = ev.finding.includes("心率") || ev.finding.includes("血氧") || ev.finding.includes("血压") || ev.finding.includes("体温") ? "健康数据"
+                  : ev.finding.includes("失眠") || ev.finding.includes("睡眠") || ev.finding.includes("醒来") ? "睡眠" : "告警";
+        const icon = dimIcons[dim] || "📋";
+        return `<div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid ${dim === '健康数据' ? '#3b82f6' : dim === '睡眠' ? '#8b5cf6' : '#ef4444'}; font-size:12px;">
+          <div style="color:#e5e7eb; font-weight:500;">${icon} ${ev.finding}</div>
+          <div style="color:#9ca3af; margin-top:2px;">${ev.impact}</div>
+        </div>`;
+      }).join("");
+
+      const allSuggestions = [
+        "建议家属增加视频/电话沟通频次，每日至少1次主动关怀",
+        "社区工作人员可安排上门探访，进行面对面情绪疏导",
+      ];
+      if (anxietyScore >= 60) {
+        allSuggestions.push("可播放老人喜爱的舒缓音乐或戏曲，帮助放松身心");
+        allSuggestions.push("鼓励老人参与社区集体活动，减少孤独感和无助感");
+        allSuggestions.push("建议社区医生进行心理健康评估，必要时转介心理咨询");
+      }
+      if (anxietyScore >= 80) {
+        allSuggestions.push("密切监测老人生命体征变化，预防躯体化症状加重");
+        allSuggestions.push("建议家属考虑短期陪护，帮助老人度过焦虑高峰期");
+      }
+      allSuggestions.push("保持规律作息，适当进行散步、太极等轻度运动");
+
+      suggestionsDiv.innerHTML = allSuggestions.map((s, i) =>
+        `<div style="padding:6px 10px; font-size:12px; color:#d1d5db; display:flex; align-items:flex-start; gap:6px;">
+          <span style="color:#8b5cf6; flex-shrink:0;">${i + 1}.</span><span>${s}</span>
+        </div>`
+      ).join("");
     }
 
     document.getElementById("elder-search").addEventListener("input", renderElderly);

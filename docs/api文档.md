@@ -1866,6 +1866,12 @@ flowchart LR
 | GET | `/api/sos/{sosId}` | SOS 详情 | Web, App |
 | GET | `/api/sos/list` | SOS 历史 | Web, App |
 | PUT | `/api/sos/{sosId}/handle` | 处理 SOS | Web |
+| POST | `/api/ai/chat` | AI 异步对话 | Web, App, CA |
+| POST | `/api/ai/find-item` | AI 异步找物 | Web, App, CA |
+| POST | `/api/ai-service/record` | 创建 AI 服务记录 | Web, App, CA |
+| POST | `/api/ai-service/record/async` | 异步创建 AI 服务记录 | Web, App, CA |
+| GET | `/api/ai-service/record/list` | 查询 AI 服务记录列表 | Web, App, CA |
+| GET | `/api/ai-service/record/list/async` | 异步查询 AI 服务记录列表 | Web, App, CA |
 
 ### 24.2 硬件与本地智能体接口
 
@@ -1911,3 +1917,147 @@ flowchart LR
 | 设备远程控制 | `POST /api/device/{id}/command` → LA 轮询 `GET .../commands` |
 | Web 看板 | `GET /api/dashboard/stats` + `/api/alarm/list` |
 | App 家属端 | `/api/auth/*` + `/api/elder/bound` + `/api/service-request/*` |
+
+---
+
+## 31. AI服务模块 (/api/ai, /api/ai-service)
+
+> **调用方**：Web 前端、App 前端、云端智能体
+> **说明**：本章节涵盖 AI 异步对话、AI 异步找物、以及统一的 AI 服务记录查询接口。
+> AI 服务记录合并了原 `companion_record`（陪伴交互）和 `vlm_record`（VLM 找物品）两张表，
+> 并新增 `music_control`（音乐控制）类型，统一存储三类 AI 交互数据。
+
+### 31.1 AI 服务数据表 (ai_service_record)
+
+`ai_service_record` 是统一的 AI 交互记录表，通过 `service_type` 字段区分交互类型：
+
+| service_type | 说明 | 数据量 | 来源 |
+| --- | --- | --- | --- |
+| `companion_chat` | 陪伴对话 | 25 条 | 原 companion_record |
+| `find_item` | VLM 找物品 | 19 条 | 原 vlm_record |
+| `music_control` | 音乐控制 | 12 条 | 原 agent_conversation + 新增 |
+
+#### AiServiceRecord 字段说明
+
+| 字段 | 说明 | 类型 | 适用类型 |
+| --- | --- | --- | --- |
+| recordId | AI 服务记录业务 ID | String | 全部 |
+| elderId | 老人 ID | String | 全部 |
+| serviceType | 服务类型 | String | 全部（枚举见上表） |
+| userText | 用户输入 / 老人提问 | String | find_item, music_control |
+| aiReply | AI 回复 / 系统回答 | String | find_item, music_control |
+| emotion | 情绪标签 | String | companion_chat |
+| emotionColor | 情绪标签颜色 | String | companion_chat |
+| item | 寻找物品名称 | String | find_item |
+| location | 物品所在位置 | String | find_item |
+| result | 查找结果 | String | find_item（found / not_found） |
+| summary | 对话摘要 | String | companion_chat |
+| musicType | 音乐类型 | String | music_control |
+| interactionTime | 交互时间 | String | 全部 |
+| createdAt | 记录创建时间 | String | 全部 |
+
+### 31.2 AI 异步对话 (接口 72)
+
+- **接口**：`POST /api/ai/chat`
+- **说明**：向 AI 智能体发送对话消息，异步返回 CompletableFuture
+- **调用方**：Web, App, CA
+- **查询参数**：
+
+| 参数 | 说明 | 类型 | 是否必填 |
+| --- | --- | --- | --- |
+| userId | 用户 / 老人 ID | String | 是 |
+| content | 对话内容 | String | 是 |
+| houseId | 房间 ID | String | 否 |
+
+- **响应**：`CompletableFuture<ApiResponse<AiConversationResp>>`
+
+#### AiConversationResp 字段
+
+| 字段 | 说明 | 类型 |
+| --- | --- | --- |
+| reply | AI 回复文本 | String |
+| intent | 识别意图 | String |
+| riskLevel | 风险等级 | String |
+| conversationId | 对话记录 ID | String |
+
+### 31.3 AI 异步找物 (接口 73)
+
+- **接口**：`POST /api/ai/find-item`
+- **说明**：通过 AI 视觉大模型查找物品，异步返回 CompletableFuture
+- **调用方**：Web, App, CA
+- **查询参数**：
+
+| 参数 | 说明 | 类型 | 是否必填 |
+| --- | --- | --- | --- |
+| userId | 用户 / 老人 ID | String | 是 |
+| itemName | 物品名称 | String | 是 |
+| room | 查找房间 | String | 否（默认 living-room） |
+| houseId | 房间 ID | String | 否 |
+
+- **响应**：`CompletableFuture<ApiResponse<CameraFindItemResp>>`
+
+#### CameraFindItemResp 字段
+
+| 字段 | 说明 | 类型 |
+| --- | --- | --- |
+| found | 是否找到 | Boolean |
+| item | 物品名称 | String |
+| location | 物品位置 | String |
+| description | 查找结果描述 | String |
+
+### 31.4 创建 AI 服务记录
+
+- **接口**：`POST /api/ai-service/record`
+- **说明**：创建一条 AI 服务记录（同步）
+- **请求体**：AiServiceRecord
+- **响应**：`ApiResponse<AiServiceRecord>`（HTTP 业务码 201）
+
+### 31.5 异步创建 AI 服务记录
+
+- **接口**：`POST /api/ai-service/record/async`
+- **说明**：异步创建 AI 服务记录，返回 CompletableFuture
+- **请求体**：AiServiceRecord
+- **响应**：`CompletableFuture<ApiResponse<AiServiceRecord>>`
+
+### 31.6 查询 AI 服务记录列表
+
+- **接口**：`GET /api/ai-service/record/list`
+- **说明**：查询 AI 服务记录列表（同步），支持按老人 ID 和服务类型筛选
+- **查询参数**：
+
+| 参数 | 说明 | 是否必填 |
+| --- | --- | --- |
+| elderId | 老人 ID 筛选 | 否 |
+| serviceType | 服务类型筛选（companion_chat / find_item / music_control） | 否 |
+
+- **响应**：`ApiResponse<List<AiServiceRecord>>`
+
+### 31.7 异步查询 AI 服务记录列表
+
+- **接口**：`GET /api/ai-service/record/list/async`
+- **说明**：异步查询 AI 服务记录列表，返回 CompletableFuture
+- **查询参数**：同 31.6
+- **响应**：`CompletableFuture<ApiResponse<List<AiServiceRecord>>>`
+
+### 31.8 AI 服务接口速查
+
+| 编号 | 方法 | 路径 | 说明 | 调用方 |
+| --- | --- | --- | --- | --- |
+| 72 | POST | `/api/ai/chat` | AI 异步对话 | Web, App, CA |
+| 73 | POST | `/api/ai/find-item` | AI 异步找物 | Web, App, CA |
+| 74 | POST | `/api/ai-service/record` | 创建 AI 服务记录 | Web, App, CA |
+| 75 | POST | `/api/ai-service/record/async` | 异步创建 AI 服务记录 | Web, App, CA |
+| 76 | GET | `/api/ai-service/record/list` | 查询 AI 服务记录列表 | Web, App, CA |
+| 77 | GET | `/api/ai-service/record/list/async` | 异步查询 AI 服务记录列表 | Web, App, CA |
+
+### 31.9 告警分类汇总
+
+告警记录表（`alarm_event`）按 `alarm_type` 分为以下五类：
+
+| alarm_type | 说明 | 示例 |
+| --- | --- | --- |
+| `sos` | SOS 呼救 | 手表紧急呼叫触发 |
+| `fall` | 跌倒检测 | 摄像头/传感器检测到跌倒 |
+| `door_lock` | 门锁异常 | 指纹识别失败、陌生人闯入 |
+| `health_abnormal` | 健康异常 | 心率/血氧/体温异常 |
+| `smoke` | 烟雾异常 | 烟感检测到烟雾浓度超标 |
