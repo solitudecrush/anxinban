@@ -1,8 +1,8 @@
-# 安心伴（Anxinban）后端 RESTful API 接口参考手册 v3.0
+# 安心伴（Anxinban）后端 RESTful API 接口参考手册 v3.1
 
 > **公网地址**: `http://120.27.129.78:8080`
 > **本地地址**: `http://localhost:8080`
-> **生成日期**: 2026-07-04
+> **生成日期**: 2026-07-17（v3.1修订）
 > **统一响应格式**: `{"code": 200, "message": "success", "data": {...}}`
 > **Content-Type**: 所有 POST/PUT 请求需 `Content-Type: application/json`，文件上传用 `multipart/form-data`
 > **HTTP状态码映射**: `200`-成功, `201`-创建成功, `400`-请求参数错误, `401`-未认证, `403`-无权限, `404`-资源不存在, `500`-服务器内部错误
@@ -43,9 +43,10 @@
 30. [本地智能体](#30-本地智能体)
 31. [AI服务](#31-ai服务)
 32. [AI兼容版](#32-ai兼容版)
-33. [模拟器](#33-模拟器)
-34. [老人管理-兼容版](#34-老人管理-兼容版)
-35. [附录：通用数据结构](#附录通用数据结构)
+33. [生命体征独立查询](#33-生命体征独立查询)
+34. [模拟器](#34-模拟器)
+35. [老人管理-兼容版](#35-老人管理-兼容版)
+36. [附录：通用数据结构](#附录通用数据结构)
 
 ---
 
@@ -747,7 +748,7 @@ curl -s -X POST http://120.27.129.78:8080/api/device/dev_001/sensor-data \
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/device/dev_002/command \
   -H "Content-Type: application/json" \
-  -d '{"commandId": "cmd_001", "commandType": "startRecord", "parameters": "{\"duration\": 30}"}'
+  -d '{"commandId": "cmd_001", "commandType": "startRecord", "parameters": {"duration": 30}}'
 ```
 
 ### 10.7 查询传感器历史数据
@@ -826,13 +827,34 @@ curl -s -X POST "http://120.27.129.78:8080/api/device/simulator/trigger/curtain?
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/ai/chat?userId=elder_001&content=今天天气怎么样"
+
+# 可选参数 houseId
+curl -s -X POST "http://120.27.129.78:8080/api/ai/chat?userId=elder_001&content=今天天气怎么样&houseId=house_001"
 ```
+
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | String | 是 | 用户/老人ID |
+| content | String | 是 | 对话内容 |
+| houseId | String | 否 | 房屋ID(用于多房屋场景) |
 
 ### 11.6 AI异步找物
 
 ```bash
 curl -s -X POST "http://120.27.129.78:8080/api/ai/find-item?userId=elder_001&itemName=眼镜&room=living-room"
+
+# 可选参数 houseId
+curl -s -X POST "http://120.27.129.78:8080/api/ai/find-item?userId=elder_001&itemName=眼镜&room=living-room&houseId=house_001"
 ```
+
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | String | 是 | 用户/老人ID |
+| itemName | String | 是 | 物品名称 |
+| room | String | 否 | 房间名，默认living-room |
+| houseId | String | 否 | 房屋ID(用于多房屋场景) |
 
 ---
 
@@ -840,7 +862,7 @@ curl -s -X POST "http://120.27.129.78:8080/api/ai/find-item?userId=elder_001&ite
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 74 | 设备数据上传 | POST | `/api/device/upload` | 上传健康数据并自动AI分析+告警生成 |
+| 75 | 设备数据上传 | POST | `/api/device/upload` | 上传健康数据并自动AI分析+告警生成 |
 
 ### 12.1 设备数据上传（含AI分析）
 
@@ -850,38 +872,48 @@ curl -s -X POST "http://120.27.129.78:8080/api/ai/find-item?userId=elder_001&ite
 curl -s -X POST http://120.27.129.78:8080/api/device/upload \
   -H "Content-Type: application/json" \
   -d '{
-    "deviceId": "dev_001",
-    "heartRate": 112,
+    "elder_id": "elder_001",
+    "heart_rate": 112,
     "spo2": 91,
     "temperature": 37.4,
-    "systolic": 135,
-    "diastolic": 85,
-    "activityStatus": 3,
-    "fallStatus": 2,
-    "timestamp": "2025-05-17 10:30:00"
+    "activity_status": "长时间静止",
+    "fall_status": "正常",
+    "location": "1号楼1-201客厅"
   }'
 ```
+
+请求体字段（snake_case格式）：
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elder_id | String | 是 | 老人ID |
+| heart_rate | Integer | 否 | 心率(bpm) |
+| spo2 | Integer | 否 | 血氧饱和度(%) |
+| temperature | Double | 否 | 体温(℃) |
+| activity_status | String | 否 | 活动状态：行走/坐着/长时间静止等 |
+| fall_status | String | 否 | 跌倒状态：正常/疑似跌倒 |
+| location | String | 否 | 位置描述 |
 
 返回示例：
 ```json
 {
   "code": 200, "message": "success",
   "data": {
-    "recordId": "ar_xxx",
-    "riskLevel": "高风险",
-    "generatedAlarmId": "alarm_xxx",
-    "generatedWorkOrderId": "wo_xxx",
-    "needAlarm": true,
-    "needWorkOrder": true
+    "saved": true,
+    "sensor_count": 5,
+    "risk_level": "高风险",
+    "risk_reason": "检测到跌倒事件",
+    "need_alarm": true,
+    "alarm_id": "alarm_a1b2c3d4",
+    "source": "python_ai_service"
   }
 }
 ```
 
 > 设备数据上传是整个系统最核心的数据入口，所有健康监测数据通过此接口上报后，自动触发：
 > 1. 传感器数据存储
-> 2. Python AI服务风险分析
+> 2. Python AI服务风险分析（失败时回退到Java规则引擎）
 > 3. 风险告警生成（高风险/中风险）
-> 4. 工单自动创建（紧急巡检/健康关注/设备检查）
+> 4. AI分析记录持久化
 > 5. 家属通知生成
 > 6. 社区建议生成
 
@@ -1349,21 +1381,46 @@ curl -s "http://120.27.129.78:8080/api/emergency-contact/list?elderId=elder_001"
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
 | 122 | 上传头像 | POST | `/api/upload/avatar` | 上传头像图片(multipart) |
-| 123 | 上传快照 | POST | `/api/upload/snapshot` | 上传告警抓拍(multipart) |
+| 123 | 删除头像 | DELETE | `/api/upload/avatar` | 恢复默认头像 |
+| 124 | 上传快照 | POST | `/api/upload/snapshot` | 上传告警抓拍(multipart) |
 
 ### 27.1 上传头像
 
 ```bash
-curl -s -X POST http://120.27.129.78:8080/api/upload/avatar \
+curl -s -X POST "http://120.27.129.78:8080/api/upload/avatar?userId=staff_001&role=staff" \
   -F "file=@/path/to/avatar.jpg"
 ```
 
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| file | MultipartFile | 是 | 图片文件(表单字段名"file") |
+| userId | String | 是 | 用户ID(查询参数) |
+| role | String | 否 | 用户角色：staff/family，默认family(查询参数) |
+
 返回：
 ```json
-{"code": 200, "message": "success", "data": {"url": "/uploads/avatar/xxx.jpg"}}
+{"code": 200, "message": "success", "data": {"url": "/uploads/avatars/xxx.jpg"}}
 ```
 
-### 27.2 上传快照
+### 27.2 删除头像
+
+```bash
+curl -s -X DELETE "http://120.27.129.78:8080/api/upload/avatar?userId=staff_001&role=staff"
+```
+
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| userId | String | 是 | 用户ID(查询参数) |
+| role | String | 否 | 用户角色：staff/family，默认family(查询参数) |
+
+返回：
+```json
+{"code": 200, "message": "success", "data": {"url": "/uploads/avatars/default.png"}}
+```
+
+### 27.3 上传快照
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/upload/snapshot \
@@ -1392,14 +1449,16 @@ curl -s "http://120.27.129.78:8080/api/agent/context?elderId=elder_001"
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 125 | 注册云端智能体 | POST | `/api/cloud-agent/register` | 注册/上线云端智能体 |
-| 126 | 上报智能体状态 | POST | `/api/cloud-agent/report` | 上报状态心跳 |
-| 127 | 同步云端告警 | POST | `/api/cloud-agent/alarm` | 云端智能体同步告警 |
-| 128 | 获取智能体配置 | GET | `/api/cloud-agent/{agentId}/config` | 获取配置 |
-| 129 | 获取干预任务 | GET | `/api/cloud-agent/{agentId}/interventions` | 获取待执行干预 |
-| 130 | 上报干预结果 | POST | `/api/cloud-agent/{agentId}/intervention-result` | 回报干预结果 |
-| 131 | 云端对话 | POST | `/api/cloud-agent/chat` | 云端智能体对话记录 |
-| 132 | 创建AI建议 | POST | `/api/cloud-agent/advice` | 创建AI建议 |
+| 126 | 注册云端智能体 | POST | `/api/cloud-agent/register` | 注册/上线云端智能体 |
+| 127 | 上报智能体状态 | POST | `/api/cloud-agent/report` | 上报状态心跳 |
+| 128 | 同步云端告警 | POST | `/api/cloud-agent/alarm` | 云端智能体同步告警 |
+| 129 | 获取智能体配置 | GET | `/api/cloud-agent/{agentId}/config` | 获取配置 |
+| 130 | 获取干预任务 | GET | `/api/cloud-agent/{agentId}/interventions` | 获取待执行干预 |
+| 131 | 上报干预结果 | POST | `/api/cloud-agent/{agentId}/intervention-result` | 回报干预结果 |
+| 132 | 云端对话 | POST | `/api/cloud-agent/chat` | 云端智能体对话记录 |
+| 133 | 对话列表(分页) | GET | `/api/cloud-agent/conversations` | 查询对话记录列表 |
+| 134 | 对话详情 | GET | `/api/cloud-agent/conversations/{conversationId}` | 查询单条对话详情 |
+| 135 | 创建AI建议 | POST | `/api/cloud-agent/advice` | 创建AI建议 |
 
 ### 29.1 注册云端智能体
 
@@ -1433,7 +1492,26 @@ curl -s -X POST http://120.27.129.78:8080/api/cloud-agent/chat \
   }'
 ```
 
-### 29.3 创建AI建议
+### 29.3 对话记录列表（分页）
+
+```bash
+curl -s "http://120.27.129.78:8080/api/cloud-agent/conversations?elderId=elder_001&page=1&pageSize=20"
+```
+
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elderId | String | 否 | 老人ID筛选 |
+| page | int | 否 | 页码，默认1 |
+| pageSize | int | 否 | 每页条数，默认20 |
+
+### 29.4 对话记录详情
+
+```bash
+curl -s http://120.27.129.78:8080/api/cloud-agent/conversations/conv_007
+```
+
+### 29.5 创建AI建议
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/cloud-agent/advice \
@@ -1645,23 +1723,129 @@ curl -s -X POST http://120.27.129.78:8080/api/ai/vision-analysis \
 
 ---
 
-## 33. 模拟器
+## 33. 生命体征独立查询
+
+> 独立体征数据查询接口（`/api/vital-signs`），支持心率、血压、血氧、体温的分类查询和综合查询。
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 148 | 心率历史列表 | GET | `/api/vital-signs/heart-rate/list` | 按老人和时间范围查询心率 |
+| 149 | 最新心率 | GET | `/api/vital-signs/heart-rate/latest` | 最新一条心率记录 |
+| 150 | 血压历史列表 | GET | `/api/vital-signs/blood-pressure/list` | 按老人和时间范围查询血压 |
+| 151 | 最新血压 | GET | `/api/vital-signs/blood-pressure/latest` | 最新一条血压记录 |
+| 152 | 血氧历史列表 | GET | `/api/vital-signs/blood-oxygen/list` | 按老人和时间范围查询血氧 |
+| 153 | 最新血氧 | GET | `/api/vital-signs/blood-oxygen/latest` | 最新一条血氧记录 |
+| 154 | 体温历史列表 | GET | `/api/vital-signs/body-temperature/list` | 按老人和时间范围查询体温 |
+| 155 | 最新体温 | GET | `/api/vital-signs/body-temperature/latest` | 最新一条体温记录 |
+| 156 | 综合最新体征 | GET | `/api/vital-signs/latest/{elderId}` | 老人所有体征最新值汇总 |
+
+### 33.1 心率历史列表
+
+```bash
+# 查询所有心率记录
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/list?elderId=elder_001"
+
+# 按时间范围查询
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/list?elderId=elder_001&start=2025-05-01T00:00:00&end=2025-05-18T23:59:59"
+```
+
+请求参数：
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elderId | String | 是 | 老人ID |
+| start | DateTime(ISO) | 否 | 开始时间(ISO格式) |
+| end | DateTime(ISO) | 否 | 结束时间(ISO格式) |
+
+### 33.2 最新心率
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/heart-rate/latest?elderId=elder_001"
+```
+
+### 33.3 血压历史列表
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-pressure/list?elderId=elder_001"
+```
+
+### 33.4 最新血压
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-pressure/latest?elderId=elder_001"
+```
+
+### 33.5 血氧历史列表
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-oxygen/list?elderId=elder_001"
+```
+
+### 33.6 最新血氧
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/blood-oxygen/latest?elderId=elder_001"
+```
+
+### 33.7 体温历史列表
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/body-temperature/list?elderId=elder_001"
+```
+
+### 33.8 最新体温
+
+```bash
+curl -s "http://120.27.129.78:8080/api/vital-signs/body-temperature/latest?elderId=elder_001"
+```
+
+### 33.9 综合最新体征
+
+```bash
+curl -s http://120.27.129.78:8080/api/vital-signs/latest/elder_001
+```
+
+返回示例：
+```json
+{
+  "code": 200, "message": "success",
+  "data": {
+    "elderId": "elder_001",
+    "heartRate": 72,
+    "heartRateUnit": "次/分",
+    "heartRateTime": "2025-05-17T10:00:00",
+    "systolic": 130,
+    "diastolic": 82,
+    "bloodPressureUnit": "mmHg",
+    "bloodPressureTime": "2025-05-17T09:00:00",
+    "bloodOxygen": 98,
+    "bloodOxygenUnit": "%",
+    "bloodOxygenTime": "2025-05-17T10:00:00",
+    "bodyTemperature": 36.5,
+    "bodyTemperatureUnit": "℃",
+    "bodyTemperatureTime": "2025-05-17T08:00:00"
+  }
+}
+```
+
+---
+
+## 34. 模拟器
 
 > 独立模拟器控制器（`/api/simulator`），功能与 11 节的 DeviceDataController 模拟器基本一致。
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 148 | 启动模拟器 | POST | `/api/simulator/start` | 启动模拟器 |
-| 149 | 停止模拟器 | POST | `/api/simulator/stop` | 停止模拟器 |
-| 150 | 模拟器状态 | GET | `/api/simulator/status` | 运行状态 |
-| 151 | 指纹成功 | POST | `/api/simulator/fingerprint/success` | 模拟指纹验证成功 |
-| 152 | 指纹失败 | POST | `/api/simulator/fingerprint/fail` | 模拟指纹验证失败 |
-| 153 | 窗帘控制 | POST | `/api/simulator/curtain` | 模拟窗帘 |
-| 154 | 蜂鸣器 | POST | `/api/simulator/buzzer` | 模拟蜂鸣器 |
-| 155 | 灯光控制 | POST | `/api/simulator/light` | 模拟灯光 |
-| 156 | 手表紧急呼叫 | POST | `/api/simulator/watch/emergency` | 模拟手表SOS |
-| 157 | 跌倒检测 | POST | `/api/simulator/fall` | 模拟跌倒 |
-| 158 | 找物 | POST | `/api/simulator/find-item` | 模拟找物 |
+| 157 | 启动模拟器 | POST | `/api/simulator/start` | 启动模拟器 |
+| 158 | 停止模拟器 | POST | `/api/simulator/stop` | 停止模拟器 |
+| 159 | 模拟器状态 | GET | `/api/simulator/status` | 运行状态 |
+| 160 | 指纹成功 | POST | `/api/simulator/fingerprint/success` | 模拟指纹验证成功 |
+| 161 | 指纹失败 | POST | `/api/simulator/fingerprint/fail` | 模拟指纹验证失败 |
+| 162 | 窗帘控制 | POST | `/api/simulator/curtain` | 模拟窗帘 |
+| 163 | 蜂鸣器 | POST | `/api/simulator/buzzer` | 模拟蜂鸣器 |
+| 164 | 灯光控制 | POST | `/api/simulator/light` | 模拟灯光 |
+| 165 | 手表紧急呼叫 | POST | `/api/simulator/watch/emergency` | 模拟手表SOS |
+| 166 | 跌倒检测 | POST | `/api/simulator/fall` | 模拟跌倒 |
+| 167 | 找物 | POST | `/api/simulator/find-item` | 模拟找物 |
 
 ```bash
 # 启动模拟器
@@ -1679,11 +1863,11 @@ curl -s -X POST http://120.27.129.78:8080/api/simulator/fingerprint/fail
 
 ---
 
-## 34. 老人管理-兼容版
+## 35. 老人管理-兼容版
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 159 | 老人列表(兼容) | GET | `/api/elders?page=1&pageSize=20` | snake_case版分页 |
+| 168 | 老人列表(兼容) | GET | `/api/elders?page=1&pageSize=20` | snake_case版分页 |
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号楼"
@@ -1899,19 +2083,20 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 | 服务请求 | 6 |
 | 监控授权 | 8 |
 | 紧急联系人 | 5 |
-| 文件上传 | 2 |
+| 文件上传 | 3 |
 | 智能体管理 | 1 |
-| 云端智能体 | 8 |
+| 云端智能体 | 10 |
 | 本地智能体 | 7 |
 | AI兼容 | 8 |
+| 生命体征独立查询 | 9 |
 | 模拟器 | 11 |
 | 老人管理-兼容 | 1 |
-| **总计** | **159** |
+| **总计** | **171** |
 
 ---
 
-> **文档版本**: v3.0
-> **生成日期**: 2026-07-04
+> **文档版本**: v3.1
+> **生成日期**: 2026-07-17
 > **对应数据库**: `anxinban` (36张表, 430+条记录)
 > **SQL脚本**: `anxinban_database_full_20260704.sql`
 > **框架**: Spring Boot 2.7, Java 17, MySQL 8.0
