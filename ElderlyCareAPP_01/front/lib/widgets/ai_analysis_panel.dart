@@ -10,12 +10,16 @@ class AiAnalysisPanel extends StatelessWidget {
   const AiAnalysisPanel({
     super.key,
     required this.analysis,
+    this.emotionAnalysis,
     this.onRefresh,
     this.loading = false,
   });
 
   /// The analysis data to display. Null triggers empty/error state.
   final AiAnalysis? analysis;
+
+  /// Optional emotion analysis result from /api/ai/emotion-analysis.
+  final EmotionAnalysis? emotionAnalysis;
 
   /// Called when user taps the refresh button.
   final VoidCallback? onRefresh;
@@ -28,6 +32,7 @@ class AiAnalysisPanel extends StatelessWidget {
     super.key,
     this.onRefresh,
   })  : analysis = null,
+        emotionAnalysis = null,
         loading = true;
 
   /// Factory for empty/no-data state.
@@ -35,6 +40,7 @@ class AiAnalysisPanel extends StatelessWidget {
     super.key,
     this.onRefresh,
   })  : analysis = null,
+        emotionAnalysis = null,
         loading = false;
 
   // ──── Color palette ────
@@ -70,7 +76,32 @@ class AiAnalysisPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) return _LoadingPlaceholder();
-    if (analysis == null) return _EmptyPlaceholder(onRefresh: onRefresh);
+    if (analysis == null && emotionAnalysis == null) {
+      return _EmptyPlaceholder(onRefresh: onRefresh);
+    }
+
+    // Single data source mode: emotion analysis only (no health analysis)
+    if (analysis == null && emotionAnalysis != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(fromLlm: false),
+          const SizedBox(height: 12),
+          _EmotionCard(emotion: emotionAnalysis!),
+          if (onRefresh != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('刷新分析'),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
 
     final a = analysis!;
     final metricsWithData = a.metricsWithData;
@@ -92,6 +123,12 @@ class AiAnalysisPanel extends StatelessWidget {
           trendDescription: a.trendSummary.description,
         ),
         const SizedBox(height: 12),
+
+        // ── Emotion Analysis Card ──
+        if (emotionAnalysis != null) ...[
+          _EmotionCard(emotion: emotionAnalysis!),
+          const SizedBox(height: 12),
+        ],
 
         // ── Data deficiency warning ──
         if (a.meta.dataCompleteness == DataCompleteness.minimal)
@@ -848,6 +885,245 @@ class _NoDataHint extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ──── Emotion Analysis Card ────
+
+class _EmotionCard extends StatelessWidget {
+  const _EmotionCard({required this.emotion});
+  final EmotionAnalysis emotion;
+
+  Color get _levelColor {
+    return switch (emotion.emotionLevel) {
+      EmotionLevel.normal => const Color(0xFF34C759),
+      EmotionLevel.low => const Color(0xFF4A90E2),
+      EmotionLevel.medium => const Color(0xFFFF9500),
+      EmotionLevel.high => const Color(0xFFFF3B30),
+    };
+  }
+
+  IconData get _levelIcon {
+    return switch (emotion.emotionLevel) {
+      EmotionLevel.normal => Icons.sentiment_satisfied_alt,
+      EmotionLevel.low => Icons.sentiment_neutral,
+      EmotionLevel.medium => Icons.sentiment_dissatisfied,
+      EmotionLevel.high => Icons.sentiment_very_dissatisfied,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: _levelColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: _levelColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.psychology_outlined, size: 18, color: _levelColor),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'AI 情绪分析',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: Color(0xFF1D1D1F),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _levelColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_levelIcon, size: 16, color: _levelColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        emotion.emotionState,
+                        style: TextStyle(
+                          color: _levelColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Anxiety score bar
+            Row(
+              children: [
+                const Text(
+                  '焦虑评分',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: emotion.anxietyScore / 100.0,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation<Color>(_levelColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${emotion.anxietyScore}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _levelColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Conclusion
+            Text(
+              emotion.conclusion,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: Color(0xFF3A3A3C),
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            // Evidences (expandable)
+            if (emotion.evidences.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _EvidenceItem(
+                icon: Icons.analytics_outlined,
+                label: '分析依据',
+                children: emotion.evidences
+                    .map((e) => '【${e.dimension}】${e.finding}')
+                    .toList(),
+              ),
+            ],
+
+            // Suggestions
+            if (emotion.suggestions.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _EvidenceItem(
+                icon: Icons.lightbulb_outline,
+                label: '关怀建议',
+                children: emotion.suggestions,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EvidenceItem extends StatefulWidget {
+  const _EvidenceItem({
+    required this.icon,
+    required this.label,
+    required this.children,
+  });
+  final IconData icon;
+  final String label;
+  final List<String> children;
+
+  @override
+  State<_EvidenceItem> createState() => _EvidenceItemState();
+}
+
+class _EvidenceItemState extends State<_EvidenceItem> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayItems = _expanded ? widget.children : widget.children.take(2).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Icon(widget.icon, size: 13, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...displayItems.map((item) => Padding(
+              padding: const EdgeInsets.only(left: 17, top: 2, bottom: 1),
+              child: Text(
+                '• $item',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.35,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            )),
+        if (widget.children.length > 2 && !_expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 17, top: 1),
+            child: GestureDetector(
+              onTap: () => setState(() => _expanded = true),
+              child: Text(
+                '...共${widget.children.length}条，点击展开',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.blue.shade400,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

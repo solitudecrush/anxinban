@@ -324,3 +324,97 @@ class AiAnalysis {
 
   int get metricsWithDataCount => metrics.where((m) => m.hasData).length;
 }
+
+// ──── Emotion Analysis Model ────
+
+enum EmotionLevel { normal, low, medium, high }
+
+class EmotionEvidence {
+  EmotionEvidence({
+    required this.dimension,
+    required this.finding,
+    required this.impact,
+  });
+
+  final String dimension;
+  final String finding;
+  final String impact;
+
+  factory EmotionEvidence.fromJson(Map<String, dynamic> json) {
+    return EmotionEvidence(
+      dimension: json['dimension'] as String? ?? '',
+      finding: json['finding'] as String? ?? '',
+      impact: json['impact'] as String? ?? '',
+    );
+  }
+}
+
+class EmotionAnalysis {
+  EmotionAnalysis({
+    required this.emotionState,
+    required this.emotionLevel,
+    required this.anxietyScore,
+    required this.colorClass,
+    required this.conclusion,
+    required this.evidences,
+    required this.suggestions,
+    this.elderName,
+    this.analyzedAt,
+  });
+
+  final String emotionState; // "重度焦虑", "中度焦虑", "轻度焦虑", "情绪平稳"
+  final EmotionLevel emotionLevel;
+  final int anxietyScore; // 0-100
+  final String colorClass; // "danger", "warning", "info", "success"
+  final String conclusion;
+  final String? elderName;
+  final DateTime? analyzedAt;
+  final List<EmotionEvidence> evidences;
+  final List<String> suggestions;
+
+  factory EmotionAnalysis.fromJson(Map<String, dynamic> json) {
+    return EmotionAnalysis(
+      emotionState: json['emotion_state'] as String? ?? '情绪平稳',
+      emotionLevel: _parseEmotionLevel(json['emotion_level'] as String?),
+      anxietyScore: (json['anxiety_score'] as num?)?.toInt() ?? 0,
+      colorClass: json['color_class'] as String? ?? 'success',
+      conclusion: json['conclusion'] as String? ?? '',
+      elderName: json['elder_name'] as String?,
+      analyzedAt: json['analyzed_at'] != null
+          ? DateTime.tryParse(json['analyzed_at'] as String)
+          : null,
+      evidences: (json['evidences'] as List<dynamic>?)
+              ?.map((e) => EmotionEvidence.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      suggestions: (json['suggestions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+
+  static EmotionLevel _parseEmotionLevel(String? level) {
+    switch (level) {
+      case 'normal':
+        return EmotionLevel.normal;
+      case 'low':
+        return EmotionLevel.low;
+      case 'medium':
+        return EmotionLevel.medium;
+      case 'high':
+        return EmotionLevel.high;
+      default:
+        return EmotionLevel.normal;
+    }
+  }
+
+  String get emotionLevelLabel {
+    return switch (emotionLevel) {
+      EmotionLevel.normal => '平稳',
+      EmotionLevel.low => '轻度焦虑',
+      EmotionLevel.medium => '中度焦虑',
+      EmotionLevel.high => '重度焦虑',
+    };
+  }
+}

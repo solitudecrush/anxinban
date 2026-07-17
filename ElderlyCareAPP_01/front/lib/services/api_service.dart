@@ -616,6 +616,75 @@ class ApiService {
     }
   }
 
+  /// AI 情绪状态分析。
+  ///
+  /// 调用后端 /api/ai/emotion-analysis 接口，
+  /// 综合健康数据、睡眠监测、告警记录等多维度信息分析老人情绪/心理状态。
+  ///
+  /// 返回 [EmotionAnalysis] 包含焦虑评分、情绪等级、依据和建议。
+  Future<EmotionAnalysis?> fetchEmotionAnalysis({
+    String? elderId,
+    String period = 'week',
+  }) async {
+    try {
+      final eid = elderId ?? _elderId;
+      if (eid == null || eid.isEmpty) return null;
+
+      // Gather all required data for emotion analysis
+      final latest = await fetchLatestVitals(elderId: eid);
+      final alerts = await fetchAlerts(elderId: eid);
+
+      // Count recent alarms by type
+      int sosCount = 0;
+      int fallCount = 0;
+      int healthCount = 0;
+      final now = DateTime.now();
+      final periodStart = period == 'day'
+          ? now.subtract(const Duration(days: 1))
+          : period == 'month'
+              ? now.subtract(const Duration(days: 30))
+              : now.subtract(const Duration(days: 7));
+      for (final a in alerts) {
+        if (a.occurredAt.isBefore(periodStart)) continue;
+        healthCount++;
+        final typeLower = a.type.labelZh;
+        if (typeLower.contains('SOS') || typeLower.contains('呼救')) sosCount++;
+        if (typeLower.contains('跌倒') || typeLower.contains('FALL')) fallCount++;
+      }
+
+      final body = <String, dynamic>{
+        'elder_id': eid,
+        'recent_health': {
+          'heart_rate': latest.heartRate,
+          'spo2': latest.bloodOxygen,
+          'temperature': latest.temperature,
+          'systolic': latest.systolic,
+          'diastolic': latest.diastolic,
+        },
+        'sleep_data': {
+          'insomnia_level': '正常', // TODO: integrate real sleep monitoring data
+          'quality_score': 85,
+          'wake_count': 0,
+        },
+        'recent_alarms': {
+          'total_count': healthCount,
+          'sos_count': sosCount,
+          'fall_count': fallCount,
+          'health_abnormal_count': healthCount - sosCount - fallCount,
+        },
+      };
+
+      final resp = await _post('/api/ai/emotion-analysis', body: body);
+      final data = _extractData(resp) as Map<String, dynamic>?;
+      if (data == null) return null;
+
+      return EmotionAnalysis.fromJson(data);
+    } catch (e) {
+      // Return null on failure — UI shows a fallback message
+      return null;
+    }
+  }
+
   /// 数据不足或网络异常时的降级分析结果。
   AiAnalysis _fallbackAnalysis(String period) {
     final periodLabel = period == 'day' ? '今日' : (period == 'month' ? '本月' : '本周');
@@ -1250,22 +1319,25 @@ class ApiService {
     switch (period) {
       case 'day':
         final points = <VitalsHistoryPoint>[];
-        // Generate more realistic data points throughout the day
-        // Morning: low temp, resting HR; Afternoon: higher temp, active HR; Evening: falling
-        for (int h = 6; h <= 22; h++) {
-          // Base temperature follows circadian rhythm
+        // Generate data for all 24 hours with realistic circadian rhythm
+        for (int h = 0; h <= 23; h++) {
+          // Base temperature follows circadian rhythm (lowest at 3-5am, peak at 2-4pm)
           double baseTemp;
           int baseHr;
-          if (h < 8) {
-            baseTemp = 36.3; baseHr = 66; // early morning: lowest
+          if (h < 6) {
+            baseTemp = 36.2; baseHr = 62; // midnight to dawn: lowest (sleeping)
+          } else if (h < 8) {
+            baseTemp = 36.3; baseHr = 66; // early morning: waking up
           } else if (h < 11) {
             baseTemp = 36.5; baseHr = 78; // morning: rising
           } else if (h < 14) {
             baseTemp = 36.8; baseHr = 85; // midday: peak
           } else if (h < 17) {
             baseTemp = 36.7; baseHr = 82; // afternoon: slightly lower
-          } else {
+          } else if (h < 21) {
             baseTemp = 36.5; baseHr = 73; // evening: falling
+          } else {
+            baseTemp = 36.4; baseHr = 68; // late night: resting
           }
           points.add(VitalsHistoryPoint(
             label: '${h.toString().padLeft(2, '0')}:${(rng * 7 + h * 13) % 60 < 30 ? '00' : '30'}',

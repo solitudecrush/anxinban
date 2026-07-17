@@ -21,6 +21,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
   _Metric _metric = _Metric.temperature;
   VitalsHistory? _history;
   AiAnalysis? _ai;
+  EmotionAnalysis? _emotion;
   bool _aiLoading = false;
   bool _chartLoading = true;
   final ScrollController _listScrollController = ScrollController();
@@ -49,14 +50,19 @@ class _ChartsScreenState extends State<ChartsScreen> {
     });
   }
 
-  /// 触发 AI 智能分析（调用 DeepSeek 大模型）
+  /// 触发 AI 智能分析（健康分析 + 情绪分析并行执行）
   Future<void> _runAiAnalysis() async {
     final api = context.read<ApiService>();
     setState(() => _aiLoading = true);
-    final a = await api.analyzeAi(period: _period, useLlm: true);
+    // 并行请求健康分析和情绪分析
+    final results = await Future.wait([
+      api.analyzeAi(period: _period, useLlm: true),
+      api.fetchEmotionAnalysis(period: _period),
+    ]);
     if (!mounted) return;
     setState(() {
-      _ai = a;
+      _ai = results[0] as AiAnalysis?;
+      _emotion = results[1] as EmotionAnalysis?;
       _aiLoading = false;
     });
   }
@@ -191,9 +197,10 @@ class _ChartsScreenState extends State<ChartsScreen> {
             const SizedBox(height: 16),
             if (_aiLoading)
               const AiAnalysisPanel.loading()
-            else if (_ai != null)
+            else if (_ai != null || _emotion != null)
               AiAnalysisPanel(
                 analysis: _ai,
+                emotionAnalysis: _emotion,
                 onRefresh: _runAiAnalysis,
               )
             else
@@ -436,9 +443,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             spots.add(FlSpot(positions[i], t));
           }
         }
+        // Anchor curve at left boundary to prevent backward overshoot artifact
+        if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
+          spots.insert(0, FlSpot(minX, spots.first.y));
+        }
         bars = [
           LineChartBarData(
             isCurved: true,
+            preventCurveOverShooting: true,
             color: Colors.orange,
             barWidth: 3,
             dotData: FlDotData(
@@ -475,9 +487,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             spots.add(FlSpot(positions[i], hr.toDouble()));
           }
         }
+        // Anchor curve at left boundary to prevent backward overshoot artifact
+        if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
+          spots.insert(0, FlSpot(minX, spots.first.y));
+        }
         bars = [
           LineChartBarData(
             isCurved: true,
+            preventCurveOverShooting: true,
             color: Colors.redAccent,
             barWidth: 3,
             dotData: FlDotData(
@@ -519,9 +536,17 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             dia.add(FlSpot(positions[i], d.toDouble()));
           }
         }
+        // Anchor curves at left boundary to prevent backward overshoot artifact
+        if (sys.isNotEmpty && sys.first.x > minX + 0.01) {
+          sys.insert(0, FlSpot(minX, sys.first.y));
+        }
+        if (dia.isNotEmpty && dia.first.x > minX + 0.01) {
+          dia.insert(0, FlSpot(minX, dia.first.y));
+        }
         bars = [
           LineChartBarData(
             isCurved: true,
+            preventCurveOverShooting: true,
             color: Colors.deepPurple,
             barWidth: 3,
             dotData: FlDotData(
@@ -548,6 +573,7 @@ class _HealthLineChartState extends State<_HealthLineChart> {
           ),
           LineChartBarData(
             isCurved: true,
+            preventCurveOverShooting: true,
             color: Colors.lightBlue,
             barWidth: 3,
             dotData: FlDotData(
@@ -584,9 +610,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
             spots.add(FlSpot(positions[i], bo.toDouble()));
           }
         }
+        // Anchor curve at left boundary to prevent backward overshoot artifact
+        if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
+          spots.insert(0, FlSpot(minX, spots.first.y));
+        }
         bars = [
           LineChartBarData(
             isCurved: true,
+            preventCurveOverShooting: true,
             color: Colors.teal,
             barWidth: 3,
             dotData: FlDotData(

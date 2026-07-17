@@ -70,8 +70,10 @@ public class HealthService {
             dto.setTemperature(latestBt.getValue() != null ? latestBt.getValue().doubleValue() : null);
             dto.setUpdateTime(latestBt.getTimestamp().toString());
         } else {
+            // 尝试多种 sensor_type：DeviceUpload 用 "temperature"，MQTT 用 "body-temperature"
             List<SensorData> tempList = sensorDataRepository.findByElderId(elderId).stream()
-                    .filter(s -> "temperature".equals(s.getSensorType()))
+                    .filter(s -> "temperature".equals(s.getSensorType())
+                            || "body-temperature".equals(s.getSensorType()))
                     .sorted(Comparator.comparing(SensorData::getTimestamp).reversed())
                     .limit(1)
                     .collect(Collectors.toList());
@@ -89,8 +91,10 @@ public class HealthService {
                 dto.setUpdateTime(latestHr.getTimestamp().toString());
             }
         } else {
+            // 尝试多种 sensor_type：DeviceUpload 用 "heart_rate"，MQTT 用 "heart-rate"
             List<SensorData> hrList = sensorDataRepository.findByElderId(elderId).stream()
-                    .filter(s -> "heart_rate".equals(s.getSensorType()))
+                    .filter(s -> "heart_rate".equals(s.getSensorType())
+                            || "heart-rate".equals(s.getSensorType()))
                     .sorted(Comparator.comparing(SensorData::getTimestamp).reversed())
                     .limit(1)
                     .collect(Collectors.toList());
@@ -119,8 +123,11 @@ public class HealthService {
                 dto.setUpdateTime(latestBo.getTimestamp().toString());
             }
         } else {
+            // 尝试多种 sensor_type：DeviceUpload 用 "spo2"，MQTT 用 "blood-oxygen"
             List<SensorData> boList = sensorDataRepository.findByElderId(elderId).stream()
-                    .filter(s -> "blood_oxygen".equals(s.getSensorType()))
+                    .filter(s -> "spo2".equals(s.getSensorType())
+                            || "blood_oxygen".equals(s.getSensorType())
+                            || "blood-oxygen".equals(s.getSensorType()))
                     .sorted(Comparator.comparing(SensorData::getTimestamp).reversed())
                     .limit(1)
                     .collect(Collectors.toList());
@@ -203,6 +210,11 @@ public class HealthService {
                 item.setValue(hr.getValue() != null ? hr.getValue().doubleValue() : null);
                 items.add(item);
             }
+            // Fallback to sensor_data: MQTT uses "heart-rate", DeviceUpload uses "heart_rate"
+            if (items.isEmpty()) {
+                items.addAll(querySensorData(elderId,
+                        java.util.List.of("heart_rate", "heart-rate"), start, end));
+            }
         } else if ("blood_oxygen".equals(type)) {
             List<BloodOxygen> bos = bloodOxygenRepository.findByElderIdAndTimestampBetween(elderId, start, end);
             bos.sort(Comparator.comparing(BloodOxygen::getTimestamp));
@@ -212,6 +224,11 @@ public class HealthService {
                 item.setValue(bo.getValue() != null ? bo.getValue().doubleValue() : null);
                 items.add(item);
             }
+            // Fallback to sensor_data: DeviceUpload uses "spo2", MQTT uses "blood-oxygen"
+            if (items.isEmpty()) {
+                items.addAll(querySensorData(elderId,
+                        java.util.List.of("spo2", "blood_oxygen", "blood-oxygen"), start, end));
+            }
         } else if ("temperature".equals(type)) {
             List<BodyTemperature> bts = bodyTemperatureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
             bts.sort(Comparator.comparing(BodyTemperature::getTimestamp));
@@ -220,6 +237,11 @@ public class HealthService {
                 item.setTime(bt.getTimestamp().toString());
                 item.setValue(bt.getValue() != null ? bt.getValue().doubleValue() : null);
                 items.add(item);
+            }
+            // Fallback to sensor_data: DeviceUpload uses "temperature", MQTT uses "body-temperature"
+            if (items.isEmpty()) {
+                items.addAll(querySensorData(elderId,
+                        java.util.List.of("temperature", "body-temperature"), start, end));
             }
         } else {
             List<SensorData> sensors = sensorDataRepository.findByElderIdAndSensorTypeAndTimestampBetween(elderId, type, start, end);
@@ -234,6 +256,42 @@ public class HealthService {
 
         dto.setData(items);
         return dto;
+    }
+
+    /**
+     * 从 sensor_data 表查询健康数据（支持多 sensor_type 查询，解决 MQTT 和 DeviceUpload
+     * 使用不同 sensor_type 命名的问题）。
+     *
+     * @param elderId     老人 ID
+     * @param sensorTypes 要查询的 sensor_type 列表
+     * @param start       时间范围起始
+     * @param end         时间范围结束
+     * @return 转换后的 HealthTrendItemDto 列表（按时间升序排列）
+     */
+    private List<HealthTrendDto.HealthTrendItemDto> querySensorData(
+            String elderId, java.util.List<String> sensorTypes,
+            LocalDateTime start, LocalDateTime end) {
+        List<HealthTrendDto.HealthTrendItemDto> items = new ArrayList<>();
+        for (String st : sensorTypes) {
+            List<SensorData> sensors = sensorDataRepository
+                    .findByElderIdAndSensorTypeAndTimestampBetween(elderId, st, start, end);
+            for (SensorData s : sensors) {
+                HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
+                item.setTime(s.getTimestamp().toString());
+                item.setValue(s.getValue());
+                items.add(item);
+            }
+        }
+        items.sort(Comparator.comparing(item -> {
+            try {
+                String t = item.getTime();
+                if (t == null) return LocalDateTime.now();
+                return LocalDateTime.parse(t.substring(0, Math.min(t.length(), 19)).replace(' ', 'T'));
+            } catch (Exception e) {
+                return LocalDateTime.now();
+            }
+        }));
+        return items;
     }
 
         /**

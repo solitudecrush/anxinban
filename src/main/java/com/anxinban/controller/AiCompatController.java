@@ -598,8 +598,8 @@ public class AiCompatController {
         }
 
         // ========== 综合评估 ==========
-        // 确保焦虑评分至少在良好区间（基于规则推导）
-        anxietyScore = Math.min(100, Math.max(anxietyScore, 65));
+        // 将焦虑评分限制在 0-100 范围内
+        anxietyScore = Math.min(100, Math.max(anxietyScore, 0));
 
         String emotionState;
         String emotionLevel;
