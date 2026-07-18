@@ -2097,6 +2097,6 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 
 > **文档版本**: v3.1
 > **生成日期**: 2026-07-17
-> **对应数据库**: `anxinban` (36张表, 430+条记录)
-> **SQL脚本**: `anxinban_database_full_20260704.sql`
+> **对应数据库**: `anxinban` (35张生产表)
+> **SQL脚本**: `anxinban-db-full-20260704.sql`
 > **框架**: Spring Boot 2.7, Java 17, MySQL 8.0

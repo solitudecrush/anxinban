@@ -3,7 +3,11 @@ package com.anxinban.controller;
 import com.anxinban.dto.ApiResponse;
 import com.anxinban.dto.PageResult;
 import com.anxinban.entity.AiAnalysisRecord;
+import com.anxinban.entity.AiServiceRecord;
+import com.anxinban.entity.AgentConversation;
 import com.anxinban.entity.ElderUser;
+import com.anxinban.mapper.AgentConversationRepository;
+import com.anxinban.mapper.AiServiceRecordRepository;
 import com.anxinban.mapper.ElderUserRepository;
 import com.anxinban.service.AiAnalysisRecordService;
 import com.anxinban.service.AiForwardService;
@@ -25,12 +29,16 @@ import java.util.*;
  *
  * <p>接口列表：</p>
  * <ul>
+ *   <li>GET  /api/ai/usage-stats — AI 用量统计</li>
+ *   <li>GET  /api/ai/service-status — AI 服务状态</li>
+ *   <li>GET  /api/ai/latest-analysis/{elder_id} — 最近 AI 分析</li>
+ *   <li>GET  /api/ai/analysis-records — AI 分析历史记录</li>
  *   <li>POST /api/ai/health-analysis — AI 健康风险分析</li>
  *   <li>POST /api/ai/chat/quick — 本地即时陪伴回复</li>
  *   <li>POST /api/ai/chat/deep — 云端深度陪伴回复</li>
  *   <li>POST /api/ai/rag-query — RAG 养老知识问答</li>
  *   <li>POST /api/ai/vision-analysis — 视觉分析</li>
- *   <li>GET  /api/ai/service-status — AI 服务状态</li>
+ *   <li>POST /api/ai/emotion-analysis — 情绪状态分析</li>
  * </ul>
  *
  * @author anxinban-team
@@ -51,6 +59,12 @@ public class AiCompatController {
     @Autowired
     private AiAnalysisRecordService aiAnalysisRecordService;
 
+    @Autowired
+    private AiServiceRecordRepository aiServiceRecordRepository;
+
+    @Autowired
+    private AgentConversationRepository agentConversationRepository;
+
     // ==================== 0. AI 服务状态 ====================
 
     /**
@@ -69,6 +83,61 @@ public class AiCompatController {
         data.put("fallback_enabled", true);
         data.put("current_mode", reachable ? "python_ai_service" : "java_fallback");
         data.put("source", reachable ? "python_ai_service" : "java_fallback");
+
+        return ApiResponse.success(data);
+    }
+
+    // ==================== 0.2 AI 用量统计 ====================
+
+    /**
+     * AI 用量统计接口。
+     *
+     * <p>返回三类AI服务（陪伴对话、找物品、音乐控制）及智能体对话的数量统计，
+     * 供管理端首页 AI 使用统计板块和数据驾驶舱调用。</p>
+     *
+     * @return 按服务类型分组的用量统计
+     */
+    @GetMapping("/usage-stats")
+    public ApiResponse<Map<String, Object>> usageStats() {
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+
+        // 1) AI 服务记录统计（按 serviceType 分组）
+        List<AiServiceRecord> serviceRecords = aiServiceRecordRepository.findAll();
+        long companionChatCount = serviceRecords.stream()
+                .filter(r -> "companion_chat".equals(r.getServiceType()))
+                .count();
+        long findItemCount = serviceRecords.stream()
+                .filter(r -> "find_item".equals(r.getServiceType()))
+                .count();
+        long musicControlCount = serviceRecords.stream()
+                .filter(r -> "music_control".equals(r.getServiceType()))
+                .count();
+        long totalServiceRecords = serviceRecords.size();
+
+        // 2) 智能体对话记录统计
+        List<AgentConversation> conversations = agentConversationRepository.findAll();
+        long totalConversations = conversations.size();
+
+        // 3) 组装返回数据
+        data.put("companion_chat", companionChatCount);
+        data.put("find_item", findItemCount);
+        data.put("music_control", musicControlCount);
+        data.put("total_service_records", totalServiceRecords);
+        data.put("total_conversations", totalConversations);
+        data.put("total", totalServiceRecords + totalConversations);
+
+        // 按意图分类统计（agent_conversation 表的 intent 字段）
+        Map<String, Long> intentStats = new java.util.LinkedHashMap<>();
+        for (AgentConversation conv : conversations) {
+            String intent = conv.getIntent();
+            if (intent != null && !intent.isEmpty()) {
+                intentStats.merge(intent, 1L, Long::sum);
+            }
+        }
+        data.put("intent_stats", intentStats);
+
+        log.info("AI 用量统计: serviceRecords={} (companion_chat={}, find_item={}, music_control={}), conversations={}",
+                totalServiceRecords, companionChatCount, findItemCount, musicControlCount, totalConversations);
 
         return ApiResponse.success(data);
     }
@@ -647,14 +716,19 @@ public class AiCompatController {
         String prefix = (name != null && !name.isEmpty()) ? name + "老人" : "该老人";
         sb.append(prefix).append("当前情绪状态评估为「").append(emotionState).append("」。");
 
-        sb.append("综合分析了健康数据、睡眠监测和告警记录三个维度，共");
-        sb.append(evidences.size()).append("项异常指标支撑该结论。");
-        sb.append("主要表现为：");
-        for (int i = 0; i < Math.min(3, evidences.size()); i++) {
-            sb.append(evidences.get(i).get("finding"));
-            if (i < Math.min(3, evidences.size()) - 1) sb.append("、");
+        sb.append("综合分析了健康数据、睡眠监测和告警记录三个维度");
+        if (!evidences.isEmpty()) {
+            sb.append("，共").append(evidences.size()).append("项异常指标支撑该结论。");
+            sb.append("主要表现为：");
+            for (int i = 0; i < Math.min(3, evidences.size()); i++) {
+                sb.append(evidences.get(i).get("finding"));
+                if (i < Math.min(3, evidences.size()) - 1) sb.append("、");
+            }
+            sb.append("。");
+        } else {
+            sb.append("，未发现明显异常指标，老人整体身心状态较为平稳。");
         }
-        sb.append("。建议家属和社区工作人员重点关注老人的心理状态，")
+        sb.append("建议家属和社区工作人员持续关注老人的心理状态，")
                 .append("提供必要的陪伴和情绪疏导。");
 
         return sb.toString();

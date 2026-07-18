@@ -1,6 +1,6 @@
 # 安心伴 (anxinban) 数据库表结构文档
 
-> 数据库：`anxinban` | 引擎：MySQL 8.0 | 字符集：utf8mb4 | 总表数：38 张
+> 数据库：`anxinban` | 引擎：MySQL 8.0 | 字符集：utf8mb4 | 总表数：35 张（生产环境 v20260704） | 更新时间：2026-07-17
 
 ---
 
@@ -167,7 +167,7 @@
 
 ---
 
-## 三、健康数据模块 (7 张表)
+## 三、健康数据模块 (4 张活跃表 + 3 张已废弃表)
 
 ### 3.1 blood_pressure — 血压记录表
 
@@ -181,7 +181,9 @@
 | `timestamp` | DATETIME | 测量时间 |
 | `created_at` | DATETIME | 入库时间 |
 
-### 3.2 heart_rate — 心率记录表
+### 3.2 heart_rate — 心率记录表 ⚠️ 已废弃
+
+> ⚠️ **已废弃**：数据已合并到 `sensor_data` 表，使用 `sensor_type` 字段区分数据类型。生产环境（2026-07-04）中不再使用此独立表。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -195,7 +197,9 @@
 
 > 索引: `idx_hr_elder`(elder_id), `idx_hr_timestamp`(timestamp)
 
-### 3.3 blood_oxygen — 血氧记录表
+### 3.3 blood_oxygen — 血氧记录表 ⚠️ 已废弃
+
+> ⚠️ **已废弃**：数据已合并到 `sensor_data` 表，使用 `sensor_type` 字段区分数据类型。生产环境（2026-07-04）中不再使用此独立表。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -209,7 +213,9 @@
 
 > 索引: `idx_bo_elder`(elder_id), `idx_bo_timestamp`(timestamp)
 
-### 3.4 body_temperature — 体温记录表
+### 3.4 body_temperature — 体温记录表 ⚠️ 已废弃
+
+> ⚠️ **已废弃**：数据已合并到 `sensor_data` 表，使用 `sensor_type` 字段区分数据类型。生产环境（2026-07-04）中不再使用此独立表。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -695,9 +701,9 @@ Notification 实体对应的 JPA 表。
 | 7 | `device` | 设备表 | 设备传感器 | Device |
 | 8 | `sensor_data` | 传感器数据表 | 设备传感器 | SensorData |
 | 9 | `blood_pressure` | 血压记录表 | 健康数据 | BloodPressure |
-| 10 | `heart_rate` | 心率记录表 | 健康数据 | HeartRate |
-| 11 | `blood_oxygen` | 血氧记录表 | 健康数据 | BloodOxygen |
-| 12 | `body_temperature` | 体温记录表 | 健康数据 | BodyTemperature |
+| 10 | `heart_rate` | 心率记录表 ⚠️已废弃 | 健康数据 | — |
+| 11 | `blood_oxygen` | 血氧记录表 ⚠️已废弃 | 健康数据 | — |
+| 12 | `body_temperature` | 体温记录表 ⚠️已废弃 | 健康数据 | — |
 | 13 | `health_record` | 健康记录表 | 健康数据 | HealthRecord |
 | 14 | `health_vital_record` | 健康体征记录表 | 健康数据 | HealthVitalRecord |
 | 15 | `sleep_record` | 睡眠数据表 | 健康数据 | SleepRecord |
@@ -733,7 +739,7 @@ Notification 实体对应的 JPA 表。
 elder_user (老人) ──1:N──> device (设备)
        │
        ├──1:N──> sensor_data (传感器数据)
-       ├──1:N──> blood_pressure / heart_rate / blood_oxygen / body_temperature
+       ├──1:N──> blood_pressure (血压) + sensor_data (心率/血氧/体温统一存储)
        ├──1:1──> health_record (健康档案)
        ├──1:N──> health_vital_record (体征记录)
        ├──1:N──> sleep_record (睡眠数据)
@@ -758,4 +764,4 @@ work_order ──关联──> alarm_event / service_request
 
 ---
 
-> 📅 文档生成时间：2026-07-13 | 基于数据库 `anxinban` 实际表结构
+> 📅 文档更新时间：2026-07-17 | 基于生产数据库 `anxinban`（35张表，mysqldump 2026-07-04）

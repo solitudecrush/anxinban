@@ -30,6 +30,23 @@ class _ChartsScreenState extends State<ChartsScreen> {
   void initState() {
     super.initState();
     _loadChartData();
+    // 自动加载情绪分析（使用 Java 规则引擎，无需消耗 API 额度）
+    _autoLoadEmotionAnalysis();
+  }
+
+  /// 页面加载时自动触发情绪分析（静默执行，不显示 loading）。
+  /// 仅调用 Java 规则引擎，不消耗大模型 API 额度。
+  Future<void> _autoLoadEmotionAnalysis() async {
+    try {
+      final api = context.read<ApiService>();
+      final emotion = await api.fetchEmotionAnalysis(period: _period);
+      if (!mounted) return;
+      if (emotion != null) {
+        setState(() => _emotion = emotion);
+      }
+    } catch (_) {
+      // 静默失败，用户可手动触发完整分析
+    }
   }
 
   @override
@@ -1035,7 +1052,7 @@ class _AiPlaceholder extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '基于 DeepSeek 大模型，综合分析体征趋势、\n告警记录和健康档案，生成专业分析报告',
+            '基于 AI 智能体，综合分析体征趋势、告警记录、\n睡眠数据等多维度信息，评估老人情绪状态与健康风险',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,

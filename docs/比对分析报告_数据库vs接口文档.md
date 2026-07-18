@@ -1,7 +1,9 @@
 ﻿# 数据库脚本与 API 接口测试文档 全面比对分析报告
 
-> 生成时间：2026-06-14  
+> 生成时间：2026-06-14（历史存档）  
 > 比对范围：db_schema.sql（22张表）↔ API_TESTING_DOC.md（原7个接口）↔ 后端Java代码 ↔ 前端Flutter/Web代码
+> 
+> 📝 **注**：此报告生成时使用的文件名已更新。`db_schema.sql` → `db-schema.sql`，`API_TESTING_DOC.md` → `api-testing-doc.md`。当前生产数据库为 35 张表（见 `anxinban-db-full-20260704.sql`）。
 
 ---
 

@@ -631,8 +631,15 @@ class ApiService {
       if (eid == null || eid.isEmpty) return null;
 
       // Gather all required data for emotion analysis
-      final latest = await fetchLatestVitals(elderId: eid);
-      final alerts = await fetchAlerts(elderId: eid);
+      final results = await Future.wait([
+        fetchLatestVitals(elderId: eid),
+        fetchAlerts(elderId: eid),
+        fetchLatestSleep(elderId: eid),
+      ]);
+
+      final latest = results[0] as LatestVitals;
+      final alerts = results[1] as List<AlertItem>;
+      final sleepData = results[2] as Map<String, dynamic>?;
 
       // Count recent alarms by type
       int sosCount = 0;
@@ -652,6 +659,11 @@ class ApiService {
         if (typeLower.contains('跌倒') || typeLower.contains('FALL')) fallCount++;
       }
 
+      // Use real sleep data if available, otherwise default to normal
+      final insomniaLevel = sleepData?['insomnia_level'] as String? ?? '正常';
+      final qualityScore = (sleepData?['quality_score'] as num?)?.toInt() ?? 85;
+      final wakeCount = (sleepData?['wake_count'] as num?)?.toInt() ?? 0;
+
       final body = <String, dynamic>{
         'elder_id': eid,
         'recent_health': {
@@ -662,9 +674,9 @@ class ApiService {
           'diastolic': latest.diastolic,
         },
         'sleep_data': {
-          'insomnia_level': '正常', // TODO: integrate real sleep monitoring data
-          'quality_score': 85,
-          'wake_count': 0,
+          'insomnia_level': insomniaLevel,
+          'quality_score': qualityScore,
+          'wake_count': wakeCount,
         },
         'recent_alarms': {
           'total_count': healthCount,
@@ -682,6 +694,22 @@ class ApiService {
     } catch (e) {
       // Return null on failure — UI shows a fallback message
       return null;
+    }
+  }
+
+  /// 获取老人最新睡眠记录。
+  ///
+  /// 调用 GET /api/sleep-record/latest，返回包含失眠等级、质量评分、
+  /// 醒来次数等字段的 Map。无记录时返回 null。
+  Future<Map<String, dynamic>?> fetchLatestSleep({String? elderId}) async {
+    try {
+      final eid = elderId ?? _elderId;
+      if (eid == null || eid.isEmpty) return null;
+      final resp = await _get('/api/sleep-record/latest', queryParams: {'elderId': eid});
+      final data = _extractData(resp) as Map<String, dynamic>?;
+      return data;
+    } catch (_) {
+      return null; // 无睡眠记录是正常情况，不抛异常
     }
   }
 

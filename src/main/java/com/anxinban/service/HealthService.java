@@ -254,7 +254,9 @@ public class HealthService {
             }
         }
 
-        dto.setData(items);
+        // 填补空缺时间点：确保所有预期时间槽位都有数据（插值填充）
+        List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
+        dto.setData(filledItems);
         return dto;
     }
 
@@ -321,6 +323,288 @@ public class HealthService {
         int hour = value.intValue();
         int minute = (int) ((value - hour) * 60);
         return String.format("%02d:%02d", hour, minute);
+    }
+
+    /**
+     * 填补空缺时间点：确保所有预期时间槽位都有数据。
+     *
+     * <p>对于没有实际数据的时间槽位，使用相邻数据点进行线性插值。
+     * 如果前后都没有数据，则使用最近的已知数据点填充。
+     * 保证前端折线图在所有 X 轴位置都有对应的 Y 值，不会出现断线。</p>
+     *
+     * @param rawItems 原始数据列表（已按时间排序）
+     * @param type     数据类型（blood_pressure / heart_rate / blood_oxygen / temperature）
+     * @param period   时间周期（day / week / month）
+     * @param start    时间范围起始
+     * @param end      时间范围结束
+     * @return 填补后的完整数据列表
+     */
+    private List<HealthTrendDto.HealthTrendItemDto> fillGaps(
+            List<HealthTrendDto.HealthTrendItemDto> rawItems,
+            String type, String period,
+            LocalDateTime start, LocalDateTime end) {
+
+        // 生成所有预期的时间槽位
+        List<LocalDateTime> slots = generateTimeSlots(period, start, end);
+
+        // 将原始数据按时间槽位分组（同一槽位内的数据取平均）
+        java.util.Map<Integer, List<HealthTrendDto.HealthTrendItemDto>> slotDataMap = new java.util.LinkedHashMap<>();
+        for (HealthTrendDto.HealthTrendItemDto item : rawItems) {
+            LocalDateTime t = parseTimestamp(item.getTime());
+            if (t == null) continue;
+            int slotIndex = findSlotIndex(t, slots, period);
+            if (slotIndex >= 0) {
+                slotDataMap.computeIfAbsent(slotIndex, k -> new ArrayList<>()).add(item);
+            }
+        }
+
+        // 为每个槽位生成聚合数据（同一槽位多条数据取平均）
+        List<HealthTrendDto.HealthTrendItemDto> slotAggregated = new ArrayList<>();
+        for (int i = 0; i < slots.size(); i++) {
+            List<HealthTrendDto.HealthTrendItemDto> slotItems = slotDataMap.get(i);
+            if (slotItems != null && !slotItems.isEmpty()) {
+                // 有实际数据：聚合（平均）
+                HealthTrendDto.HealthTrendItemDto agg = aggregateSlotItems(slotItems, type);
+                agg.setTime(formatSlotTime(slots.get(i), period));
+                slotAggregated.add(agg);
+            } else {
+                // 无数据：标记为 null，后续插值填充
+                slotAggregated.add(null);
+            }
+        }
+
+        // 对空槽位进行线性插值
+        List<HealthTrendDto.HealthTrendItemDto> result = new ArrayList<>();
+        for (int i = 0; i < slots.size(); i++) {
+            if (slotAggregated.get(i) != null) {
+                result.add(slotAggregated.get(i));
+            } else {
+                // 查找前后最近的有数据点
+                HealthTrendDto.HealthTrendItemDto before = findNearestBefore(slotAggregated, i);
+                HealthTrendDto.HealthTrendItemDto after = findNearestAfter(slotAggregated, i);
+
+                HealthTrendDto.HealthTrendItemDto filled = new HealthTrendDto.HealthTrendItemDto();
+                filled.setTime(formatSlotTime(slots.get(i), period));
+
+                if (before != null && after != null) {
+                    // 线性插值
+                    interpolateItem(filled, before, after, type);
+                } else if (before != null) {
+                    // 只有前面的数据：使用前面的值
+                    copyItemValues(filled, before, type);
+                } else if (after != null) {
+                    // 只有后面的数据：使用后面的值
+                    copyItemValues(filled, after, type);
+                }
+                // 如果前后都没有数据，保持 null 值（前端显示为 0 或空）
+                result.add(filled);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 复制数据项的值字段。
+     */
+    private void copyItemValues(HealthTrendDto.HealthTrendItemDto target,
+                                 HealthTrendDto.HealthTrendItemDto source, String type) {
+        if ("blood_pressure".equals(type)) {
+            target.setSystolic(source.getSystolic());
+            target.setDiastolic(source.getDiastolic());
+        } else {
+            target.setValue(source.getValue());
+        }
+    }
+
+    /**
+     * 在两个数据点之间线性插值。
+     */
+    private void interpolateItem(HealthTrendDto.HealthTrendItemDto target,
+                                  HealthTrendDto.HealthTrendItemDto before,
+                                  HealthTrendDto.HealthTrendItemDto after, String type) {
+        // 使用简单的均值插值（前后等权重）
+        if ("blood_pressure".equals(type)) {
+            Integer sysBefore = before.getSystolic();
+            Integer sysAfter = after.getSystolic();
+            Integer diaBefore = before.getDiastolic();
+            Integer diaAfter = after.getDiastolic();
+            if (sysBefore != null && sysAfter != null) {
+                target.setSystolic((sysBefore + sysAfter) / 2);
+            } else if (sysBefore != null) {
+                target.setSystolic(sysBefore);
+            } else if (sysAfter != null) {
+                target.setSystolic(sysAfter);
+            }
+            if (diaBefore != null && diaAfter != null) {
+                target.setDiastolic((diaBefore + diaAfter) / 2);
+            } else if (diaBefore != null) {
+                target.setDiastolic(diaBefore);
+            } else if (diaAfter != null) {
+                target.setDiastolic(diaAfter);
+            }
+        } else {
+            Double vBefore = before.getValue();
+            Double vAfter = after.getValue();
+            if (vBefore != null && vAfter != null) {
+                target.setValue((vBefore + vAfter) / 2.0);
+            } else if (vBefore != null) {
+                target.setValue(vBefore);
+            } else if (vAfter != null) {
+                target.setValue(vAfter);
+            }
+        }
+    }
+
+    /**
+     * 聚合同一时间槽位内的多条数据（取平均值）。
+     */
+    private HealthTrendDto.HealthTrendItemDto aggregateSlotItems(
+            List<HealthTrendDto.HealthTrendItemDto> items, String type) {
+        HealthTrendDto.HealthTrendItemDto result = new HealthTrendDto.HealthTrendItemDto();
+        if ("blood_pressure".equals(type)) {
+            int sysSum = 0, diaSum = 0, sysCount = 0, diaCount = 0;
+            for (HealthTrendDto.HealthTrendItemDto item : items) {
+                if (item.getSystolic() != null) { sysSum += item.getSystolic(); sysCount++; }
+                if (item.getDiastolic() != null) { diaSum += item.getDiastolic(); diaCount++; }
+            }
+            if (sysCount > 0) result.setSystolic(sysSum / sysCount);
+            if (diaCount > 0) result.setDiastolic(diaSum / diaCount);
+        } else {
+            double sum = 0;
+            int count = 0;
+            for (HealthTrendDto.HealthTrendItemDto item : items) {
+                if (item.getValue() != null) { sum += item.getValue(); count++; }
+            }
+            if (count > 0) result.setValue(sum / count);
+        }
+        return result;
+    }
+
+    /**
+     * 查找索引 i 之前最近的非 null 数据项。
+     */
+    private HealthTrendDto.HealthTrendItemDto findNearestBefore(
+            List<HealthTrendDto.HealthTrendItemDto> items, int i) {
+        for (int j = i - 1; j >= 0; j--) {
+            if (items.get(j) != null) return items.get(j);
+        }
+        return null;
+    }
+
+    /**
+     * 查找索引 i 之后最近的非 null 数据项。
+     */
+    private HealthTrendDto.HealthTrendItemDto findNearestAfter(
+            List<HealthTrendDto.HealthTrendItemDto> items, int i) {
+        for (int j = i + 1; j < items.size(); j++) {
+            if (items.get(j) != null) return items.get(j);
+        }
+        return null;
+    }
+
+    /**
+     * 生成指定周期的所有时间槽位。
+     * day: 每小时一个槽位 (0:00 ~ 23:00)
+     * week: 每天一个槽位 (最近7天)
+     * month: 每天一个槽位 (最近30天)
+     */
+    private List<LocalDateTime> generateTimeSlots(String period, LocalDateTime start, LocalDateTime end) {
+        List<LocalDateTime> slots = new ArrayList<>();
+        LocalDateTime current;
+
+        switch (period) {
+            case "day":
+                // 每小时一个槽位：从 start 的整点开始
+                current = start.withMinute(0).withSecond(0).withNano(0);
+                while (!current.isAfter(end)) {
+                    slots.add(current);
+                    current = current.plusHours(1);
+                }
+                break;
+            case "month":
+                // 每天一个槽位
+                current = start.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                while (!current.isAfter(end)) {
+                    slots.add(current);
+                    current = current.plusDays(1);
+                }
+                break;
+            case "week":
+            default:
+                // 每天一个槽位
+                current = start.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                while (!current.isAfter(end)) {
+                    slots.add(current);
+                    current = current.plusDays(1);
+                }
+                break;
+        }
+        return slots;
+    }
+
+    /**
+     * 找到时间戳对应的槽位索引。
+     */
+    private int findSlotIndex(LocalDateTime timestamp, List<LocalDateTime> slots, String period) {
+        for (int i = 0; i < slots.size(); i++) {
+            LocalDateTime slot = slots.get(i);
+            switch (period) {
+                case "day":
+                    // 同一天同一小时即为同一个槽位
+                    if (timestamp.toLocalDate().equals(slot.toLocalDate())
+                            && timestamp.getHour() == slot.getHour()) {
+                        return i;
+                    }
+                    break;
+                case "week":
+                case "month":
+                default:
+                    // 同一天即为同一个槽位
+                    if (timestamp.toLocalDate().equals(slot.toLocalDate())) {
+                        return i;
+                    }
+                    break;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 格式化槽位时间为前端可解析的字符串。
+     */
+    private String formatSlotTime(LocalDateTime slot, String period) {
+        switch (period) {
+            case "day":
+                return String.format("%02d:%02d", slot.getHour(), slot.getMinute());
+            case "week":
+                return String.format("%04d-%02d-%02d", slot.getYear(), slot.getMonthValue(), slot.getDayOfMonth());
+            case "month":
+                return slot.getDayOfMonth() + "日";
+            default:
+                return slot.toString();
+        }
+    }
+
+    /**
+     * 解析时间字符串为 LocalDateTime，支持多种格式。
+     */
+    private LocalDateTime parseTimestamp(String timeStr) {
+        if (timeStr == null) return null;
+        try {
+            String normalized = timeStr.trim().replace(' ', 'T');
+            if (normalized.length() > 19) {
+                normalized = normalized.substring(0, 19);
+            }
+            return LocalDateTime.parse(normalized);
+        } catch (Exception e) {
+            // 尝试其他格式
+            try {
+                return LocalDateTime.parse(timeStr.trim().substring(0, Math.min(timeStr.trim().length(), 19)).replace(' ', 'T'));
+            } catch (Exception e2) {
+                return null;
+            }
+        }
     }
 
         /**
