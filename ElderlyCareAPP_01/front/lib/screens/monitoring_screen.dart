@@ -59,17 +59,15 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       final api = context.read<ApiService>();
       final raw = await api.fetchDevices();
       if (!mounted) return;
-      // 过滤出需要显示电量的设备类型
-      final target = raw.where((d) {
-        final type = d['deviceType'] as String? ?? '';
-        return type == '手环' || type == '摄像头' || type == '门锁';
-      }).toList();
-      if (target.isEmpty) return;
-      final states = await _simulator.computeBatteryLevels(target);
+      if (raw.isEmpty) {
+        setState(() => _deviceStates = []);
+        return;
+      }
+      final states = await _simulator.computeBatteryLevels(raw);
       if (!mounted) return;
       setState(() => _deviceStates = states);
-    } catch (_) {
-      // 设备列表加载失败不影响其他模块
+    } catch (e) {
+      if (mounted) setState(() => _deviceStates = []);
     }
   }
 
@@ -324,11 +322,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
-          // Device status overview
-          if (_deviceStates != null && _deviceStates!.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildDeviceCard(),
-          ],
+          // ── 设备管理 ──
+          const SizedBox(height: 20),
+          _buildDeviceCard(),
 
           const SizedBox(height: 20),
           AspectRatio(
@@ -369,6 +365,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   // ---------- 设备状态卡片 ----------
 
   Widget _buildDeviceCard() {
+    final states = _deviceStates;
+    final hasDevices = states != null && states.isNotEmpty;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -407,14 +406,38 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
-                Text(
-                  '${_deviceStates!.where((d) => d.online).length}/${_deviceStates!.length} 在线',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
+                if (hasDevices)
+                  Text(
+                    '${states!.where((d) => d.online).length}/${states.length} 在线',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
-            ..._deviceStates!.map((d) => _buildDeviceRow(d)),
+            if (hasDevices)
+              ...states!.map((d) => _buildDeviceRow(d))
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    Icon(Icons.devices_other, size: 36, color: Colors.grey.shade400),
+                    const SizedBox(height: 8),
+                    Text(
+                      states == null ? '加载中…' : '暂无设备数据',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                    ),
+                    if (states != null && states.isEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '请确认已绑定老人且设备已配网',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
           ],
         ),
       ),

@@ -1,8 +1,10 @@
 package com.anxinban.mqtt.service;
 import com.anxinban.entity.AlarmEvent;
+import com.anxinban.entity.Notification;
 import com.anxinban.mqtt.constant.MqttTopicConstants;
 import com.anxinban.mqtt.dto.*;
 import com.anxinban.mapper.AlarmEventRepository;
+import com.anxinban.mapper.NotificationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.slf4j.Logger;
@@ -32,6 +34,7 @@ public class RuleEngineService implements MqttMessageListener {
     private static final Logger log = LoggerFactory.getLogger(RuleEngineService.class);
     private final MqttClientService mqttClientService;
     private final AlarmEventRepository alarmEventRepository;
+    private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
     private final Map<String, Map<String, DeviceState>> deviceStateCache = new ConcurrentHashMap<>();
     private static final LocalTime NIGHT_START = LocalTime.of(22, 0);
@@ -40,9 +43,11 @@ public class RuleEngineService implements MqttMessageListener {
 
     public RuleEngineService(MqttClientService mqttClientService,
                              AlarmEventRepository alarmEventRepository,
+                             NotificationRepository notificationRepository,
                              ObjectMapper objectMapper) {
         this.mqttClientService = mqttClientService;
         this.alarmEventRepository = alarmEventRepository;
+        this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -102,8 +107,9 @@ public class RuleEngineService implements MqttMessageListener {
         // 规则判断：夜间时段 + 从有人变为无人
         if (isNight && previousOccupied && !currentOccupied) {
             log.warn("触发夜间离床规则：房屋={}, 房间={}, 设备={}", houseId, room, report.getDeviceId());
-            
+
             // 生成告警
+            java.time.LocalDateTime utcNow = java.time.LocalDateTime.now();
             AlarmEvent alarm = new AlarmEvent();
             alarm.setAlarmId(java.util.UUID.randomUUID().toString());
             alarm.setDeviceId(report.getDeviceId());
@@ -112,9 +118,24 @@ public class RuleEngineService implements MqttMessageListener {
             alarm.setStatus("pending");
             alarm.setDescription("老人夜间离床提醒");
             alarm.setRoomNumber(room);
-            alarm.setCreatedAt(java.time.LocalDateTime.now());
+            alarm.setOccurTime(utcNow);
+            alarm.setCreatedAt(utcNow);
             alarm.setIsRead(false);
             alarmEventRepository.save(alarm);
+
+            // 同步创建 Notification
+            Notification notification = new Notification();
+            notification.setNotificationId("notif_" + alarm.getAlarmId());
+            notification.setUserId(houseId);
+            notification.setUserType("family");
+            notification.setType("alert");
+            notification.setTitle("夜间离床告警");
+            notification.setContent("老人夜间离床提醒");
+            notification.setIsRead(false);
+            notification.setRoom(room);
+            notification.setNotifyTime(utcNow);
+            notification.setCreatedAt(utcNow);
+            notificationRepository.save(notification);
 
             log.info("已生成夜间离床告警：{}", alarm.getAlarmId());
 

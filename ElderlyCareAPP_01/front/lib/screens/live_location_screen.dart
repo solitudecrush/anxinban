@@ -39,7 +39,11 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   }
 
   Future<void> _initialize() async {
-    await AmapConfig.init();
+    try {
+      await AmapConfig.init();
+    } catch (_) {
+      // 高德 Key 初始化失败，继续使用 dart-define 的值
+    }
     if (!mounted) return;
     if (AmapConfig.keysLookUnset) {
       setState(() {
@@ -48,14 +52,24 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       });
       return;
     }
-    _initAmapLocation();
-    _checkSystemLocation();
+    // 先检查定位权限，通过后再启动定位
+    final ok = await _checkSystemLocation();
+    if (ok && mounted) {
+      try {
+        _initAmapLocation();
+      } catch (e) {
+        setState(() {
+          _error = '定位初始化失败: $e';
+        });
+      }
+    }
     if (mounted) {
       setState(() => _initialized = true);
     }
   }
 
   void _initAmapLocation() {
+    if (_locationStarted) return; // 防止重复初始化
     // 高德隐私合规声明
     AMapFlutterLocation.updatePrivacyAgree(true);
     AMapFlutterLocation.updatePrivacyShow(true, true);
@@ -102,20 +116,26 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     _locationStarted = true;
   }
 
-  Future<void> _checkSystemLocation() async {
-    final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() => _error = '请打开系统定位服务');
-      return;
-    }
-    var permission = await geo.Geolocator.checkPermission();
-    if (permission == geo.LocationPermission.denied) {
-      permission = await geo.Geolocator.requestPermission();
-    }
-    if (permission == geo.LocationPermission.denied ||
-        permission == geo.LocationPermission.deniedForever) {
-      setState(() => _error = '需要定位权限以显示实时位置');
-      return;
+  Future<bool> _checkSystemLocation() async {
+    try {
+      final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) setState(() => _error = '请打开系统定位服务');
+        return false;
+      }
+      var permission = await geo.Geolocator.checkPermission();
+      if (permission == geo.LocationPermission.denied) {
+        permission = await geo.Geolocator.requestPermission();
+      }
+      if (permission == geo.LocationPermission.denied ||
+          permission == geo.LocationPermission.deniedForever) {
+        if (mounted) setState(() => _error = '需要定位权限以显示实时位置');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (mounted) setState(() => _error = '定位服务异常: $e');
+      return false;
     }
   }
 
@@ -126,7 +146,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       _locationPlugin.destroy();
     }
     _locationSub?.cancel();
-    _mapController?.disponse();
+    _mapController?.dispose();
     _mapController = null;
     super.dispose();
   }
@@ -255,7 +275,14 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
-                          onPressed: _checkSystemLocation,
+                          onPressed: () async {
+                            final ok = await _checkSystemLocation();
+                            if (ok && !_locationStarted) {
+                              try {
+                                _initAmapLocation();
+                              } catch (_) {}
+                            }
+                          },
                           child: const Text('重试'),
                         ),
                       ],

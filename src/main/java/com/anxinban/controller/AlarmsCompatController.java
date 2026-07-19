@@ -62,10 +62,13 @@ public class AlarmsCompatController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
         List<AlarmEvent> alarms = alarmEventRepository.findAll();
-        // 按创建时间倒序排列
+        // 按 occurTime 倒序排列（null 时回退到 createdAt）
         alarms.sort((a, b) -> {
-            if (a.getCreatedAt() == null || b.getCreatedAt() == null) return 0;
-            return b.getCreatedAt().compareTo(a.getCreatedAt());
+            LocalDateTime ta = a.getOccurTime() != null ? a.getOccurTime() : a.getCreatedAt();
+            LocalDateTime tb = b.getOccurTime() != null ? b.getOccurTime() : b.getCreatedAt();
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
         });
 
         List<Map<String, Object>> allItems = new ArrayList<>();
@@ -105,8 +108,9 @@ public class AlarmsCompatController {
         item.put("status", a.getStatus());
         item.put("is_read", a.getIsRead() != null ? a.getIsRead() : false);
         String occurTime = "";
-        if (a.getCreatedAt() != null) {
-            String ts = a.getCreatedAt().toString();
+        LocalDateTime ot = a.getOccurTime() != null ? a.getOccurTime() : a.getCreatedAt();
+        if (ot != null) {
+            String ts = ot.toString();
             occurTime = ts.length() >= 19 ? ts.substring(0, 19) : ts;
         }
         item.put("occur_time", occurTime);
@@ -149,8 +153,9 @@ public class AlarmsCompatController {
         item.put("status", a.getStatus());
         item.put("is_read", a.getIsRead() != null ? a.getIsRead() : false);
         String occurTime = "";
-        if (a.getCreatedAt() != null) {
-            String ts = a.getCreatedAt().toString();
+        LocalDateTime ot = a.getOccurTime() != null ? a.getOccurTime() : a.getCreatedAt();
+        if (ot != null) {
+            String ts = ot.toString();
             occurTime = ts.length() >= 19 ? ts.substring(0, 19) : ts;
         }
         item.put("occur_time", occurTime);

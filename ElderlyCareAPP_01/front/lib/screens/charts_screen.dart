@@ -227,23 +227,6 @@ class _ChartsScreenState extends State<ChartsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── 🎭 情绪状态横幅（页面最醒目元素，始终显示）──
-            if (_emotion != null) ...[
-              EmotionBanner(emotion: _emotion!),
-              const SizedBox(height: 16),
-            ],
-
-            // ── 🎵 音乐舒缓推荐（仅焦虑时显示）──
-            if (_emotion != null &&
-                _emotion!.emotionLevel.index >= EmotionLevel.medium.index) ...[
-              MusicRecommendationCard(
-                emotion: _emotion!,
-                onPlayMusic: _musicLoading ? null : _handlePlayMusic,
-                loading: _musicLoading,
-              ),
-              const SizedBox(height: 16),
-            ],
-
             // ── 血压图例 ──
             if (_metric == _Metric.bloodPressure)
               Padding(
@@ -285,7 +268,24 @@ class _ChartsScreenState extends State<ChartsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── AI 健康分析（情绪卡片已移除，独立展示在上面）──
+            // ── 🎭 情绪状态横幅 ──
+            if (_emotion != null) ...[
+              EmotionBanner(emotion: _emotion!),
+              const SizedBox(height: 16),
+            ],
+
+            // ── 🎵 音乐舒缓推荐（仅焦虑时显示）──
+            if (_emotion != null &&
+                _emotion!.emotionLevel.index >= EmotionLevel.medium.index) ...[
+              MusicRecommendationCard(
+                emotion: _emotion!,
+                onPlayMusic: _musicLoading ? null : _handlePlayMusic,
+                loading: _musicLoading,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── AI 健康分析 ──
             if (_aiLoading)
               const AiAnalysisPanel.loading()
             else if (_ai != null)

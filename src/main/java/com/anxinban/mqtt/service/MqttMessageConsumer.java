@@ -1,9 +1,11 @@
 package com.anxinban.mqtt.service;
 import com.anxinban.entity.AlarmEvent;
+import com.anxinban.entity.Notification;
 import com.anxinban.entity.SensorData;
 import com.anxinban.mqtt.constant.MqttTopicConstants;
 import com.anxinban.mqtt.dto.*;
 import com.anxinban.mapper.AlarmEventRepository;
+import com.anxinban.mapper.NotificationRepository;
 import com.anxinban.mapper.SensorDataRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +47,7 @@ public class MqttMessageConsumer implements MqttMessageListener {
     private final MqttClientService mqttClientService;
     private final SensorDataRepository sensorDataRepository;
     private final AlarmEventRepository alarmEventRepository;
+    private final NotificationRepository notificationRepository;
     /** 数据映射器实例 */
     private final ObjectMapper objectMapper;
 
@@ -61,10 +64,12 @@ public class MqttMessageConsumer implements MqttMessageListener {
     public MqttMessageConsumer(MqttClientService mqttClientService,
                                SensorDataRepository sensorDataRepository,
                                AlarmEventRepository alarmEventRepository,
+                               NotificationRepository notificationRepository,
                                ObjectMapper objectMapper) {
         this.mqttClientService = mqttClientService;
         this.sensorDataRepository = sensorDataRepository;
         this.alarmEventRepository = alarmEventRepository;
+        this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -210,9 +215,9 @@ public class MqttMessageConsumer implements MqttMessageListener {
 
         // 如果是报警状态，生成告警事件
         if (event.isAlarm()) {
-            AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "smoke", "high", 
+            AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "smoke", "high",
                     event.getDescription(), room);
-            alarmEventRepository.save(alarm);
+            saveAlarmWithNotification(alarm, houseId);
             log.info("已生成烟雾告警：{}", alarm.getAlarmId());
         }
 
@@ -313,7 +318,7 @@ public class MqttMessageConsumer implements MqttMessageListener {
         if ("fail".equals(event.getResult())) {
             AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "fingerprint-fail", "medium",
                     "指纹识别失败，重试次数：" + event.getRetryCount(), room);
-            alarmEventRepository.save(alarm);
+            saveAlarmWithNotification(alarm, houseId);
             log.info("已生成指纹失败告警：{}", alarm.getAlarmId());
         } else {
             log.info("指纹识别成功：设备={}, 用户={}", event.getDeviceId(), event.getUserId());
@@ -330,7 +335,7 @@ public class MqttMessageConsumer implements MqttMessageListener {
             AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "stranger", "high",
                     event.getDescription(), event.getRoom());
             alarm.setSnapshotUrl(event.getImageUrl());
-            alarmEventRepository.save(alarm);
+            saveAlarmWithNotification(alarm, houseId);
             log.info("已生成陌生人闯入告警：{}", alarm.getAlarmId());
         } else {
             log.info("门禁通过：设备={}, 用户={}", event.getDeviceId(), event.getFingerprintUserId());
@@ -346,7 +351,7 @@ public class MqttMessageConsumer implements MqttMessageListener {
         AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "fall-detection", "high",
                 event.getDescription(), event.getRoom());
         alarm.setSnapshotUrl(event.getImageUrl());
-        alarmEventRepository.save(alarm);
+        saveAlarmWithNotification(alarm, houseId);
         log.info("已生成摔倒检测告警：{}", alarm.getAlarmId());
     }
 
@@ -359,7 +364,7 @@ public class MqttMessageConsumer implements MqttMessageListener {
         AlarmEvent alarm = createAlarmEvent(event.getDeviceId(), "emergency-call", "high",
                 "紧急呼叫！佩戴者：" + event.getWearerName() + "，心率：" + event.getHeartRate() + "bpm，位置：" + event.getLocationDesc(),
                 room);
-        alarmEventRepository.save(alarm);
+        saveAlarmWithNotification(alarm, houseId);
         log.info("已生成紧急呼叫告警：{}", alarm.getAlarmId());
     }
 
@@ -428,8 +433,9 @@ public class MqttMessageConsumer implements MqttMessageListener {
         /**
          * createAlarmEvent 方法。
          */
-    private AlarmEvent createAlarmEvent(String deviceId, String alarmType, String level, 
+    private AlarmEvent createAlarmEvent(String deviceId, String alarmType, String level,
                                         String description, String room) {
+        LocalDateTime now = LocalDateTime.now();
         AlarmEvent alarm = new AlarmEvent();
         alarm.setAlarmId(UUID.randomUUID().toString());
         alarm.setDeviceId(deviceId);
@@ -438,9 +444,43 @@ public class MqttMessageConsumer implements MqttMessageListener {
         alarm.setStatus("pending");
         alarm.setDescription(description);
         alarm.setRoomNumber(room);
-        alarm.setCreatedAt(LocalDateTime.now());
+        alarm.setOccurTime(now);
+        alarm.setCreatedAt(now);
         alarm.setIsRead(false);
         return alarm;
+    }
+
+    /**
+     * 保存告警并同步创建对应的通知记录。
+     */
+    private void saveAlarmWithNotification(AlarmEvent alarm, String houseId) {
+        alarmEventRepository.save(alarm);
+        Notification notification = new Notification();
+        notification.setNotificationId("notif_" + alarm.getAlarmId());
+        notification.setUserId(houseId);
+        notification.setUserType("family");
+        notification.setType("alert");
+        notification.setTitle(mapAlarmTypeToTitle(alarm.getType()));
+        notification.setContent(alarm.getDescription());
+        notification.setIsRead(false);
+        notification.setRoom(alarm.getRoomNumber());
+        notification.setElderId(alarm.getElderId());
+        notification.setNotifyTime(alarm.getOccurTime());
+        notification.setCreatedAt(alarm.getCreatedAt());
+        notificationRepository.save(notification);
+        log.info("已同步创建通知：{}", notification.getNotificationId());
+    }
+
+    private String mapAlarmTypeToTitle(String alarmType) {
+        if (alarmType == null) return "新告警通知";
+        switch (alarmType) {
+            case "smoke": return "烟雾告警";
+            case "fingerprint-fail": return "指纹识别失败告警";
+            case "stranger": return "陌生人闯入告警";
+            case "fall-detection": return "摔倒检测告警";
+            case "emergency-call": return "紧急呼叫告警";
+            default: return "新告警通知";
+        }
     }
 
         /**
