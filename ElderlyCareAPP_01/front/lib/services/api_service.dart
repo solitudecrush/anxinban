@@ -1075,6 +1075,19 @@ class ApiService {
     );
   }
 
+  // ---------- 设备 ----------
+
+  /// 获取老人绑定的设备列表。
+  /// 后端返回 List<DeviceDto>。
+  Future<List<Map<String, dynamic>>> fetchDevices({String? elderId}) async {
+    final eid = elderId ?? _elderId;
+    if (eid == null || eid.isEmpty) return [];
+    final resp = await _get('/api/elder/$eid/devices');
+    final data = _extractData(resp);
+    final list = data is List ? data : <dynamic>[];
+    return list.cast<Map<String, dynamic>>();
+  }
+
   // ---------- SOS ----------
 
   /// 触发 SOS 求救。

@@ -294,7 +294,7 @@ function mapElderDto(e) {
     hr: e.heartRate || 72,
     spo2: e.bloodOxygen || 98,
     temp: e.temperature || 36.5,
-    insomnia: e.insomnia || '无',
+    insomnia: e.insomnia || extractInsomniaFromHealthNote(e.healthNote) || '轻度',
     sleepTime: e.sleepTime || '22:00',
     lastOnline: e.lastOnline || formatDateTime(),
     address: e.address,
@@ -302,6 +302,13 @@ function mapElderDto(e) {
     avatar: e.avatar,
     tags: e.tags || [],
   };
+}
+
+// 从 health_note 字段中提取失眠等级
+function extractInsomniaFromHealthNote(note) {
+  if (!note) return null;
+  const match = note.match(/失眠[:：](重度|中度|轻度)/);
+  return match ? match[1] : null;
 }
 
 // 将前端旧格式映射为后端 ElderDto

@@ -478,7 +478,7 @@ class AnalysisEngine {
       // Abnormal range: 0-50
       final distFromAttn = value > attentionHigh ? value - attentionHigh : attentionLow - value;
       final penalty = (distFromAttn / (attentionHigh - attentionLow).abs() * 50).clamp(0, 50);
-      return (50 - penalty).clamp(10, 50);
+      return (50 - penalty).clamp(10, 50).toDouble();
     }
   }
 

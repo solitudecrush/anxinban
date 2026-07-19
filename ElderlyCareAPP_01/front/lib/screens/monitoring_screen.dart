@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/camera_request.dart';
 import '../services/api_service.dart';
+import '../services/device_battery_simulator.dart';
 import 'live_location_screen.dart';
 
 class MonitoringScreen extends StatefulWidget {
@@ -16,31 +16,34 @@ class MonitoringScreen extends StatefulWidget {
 }
 
 class _MonitoringScreenState extends State<MonitoringScreen> {
-  final _rng = Random();
-  Timer? _timer;
-  int _demoHr = 72;
   List<CameraRequest>? _requests;
+  List<DeviceBatteryState>? _deviceStates;
   StreamSubscription<String>? _sub;
+  Timer? _batteryTimer;
+  final _simulator = DeviceBatterySimulator();
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _demoHr = 60 + _rng.nextInt(41));
-    });
     _load();
     final api = context.read<ApiService>();
     _sub = api.syncStream.listen((_) => _load());
+    // 每 60 秒自动刷新电量，无需手动刷新
+    _batteryTimer = Timer.periodic(const Duration(seconds: 60), (_) => _loadDevices());
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _sub?.cancel();
+    _batteryTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
+    await Future.wait([_loadCameraRequests(), _loadDevices()]);
+  }
+
+  Future<void> _loadCameraRequests() async {
     try {
       final api = context.read<ApiService>();
       final list = await api.fetchCameraRequests();
@@ -48,6 +51,25 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       setState(() => _requests = list.toList()..sort((a, b) => b.requestTime.compareTo(a.requestTime)));
     } catch (_) {
       if (mounted) setState(() => _requests = []);
+    }
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      final api = context.read<ApiService>();
+      final raw = await api.fetchDevices();
+      if (!mounted) return;
+      // 过滤出需要显示电量的设备类型
+      final target = raw.where((d) {
+        final type = d['deviceType'] as String? ?? '';
+        return type == '手环' || type == '摄像头' || type == '门锁';
+      }).toList();
+      if (target.isEmpty) return;
+      final states = await _simulator.computeBatteryLevels(target);
+      if (!mounted) return;
+      setState(() => _deviceStates = states);
+    } catch (_) {
+      // 设备列表加载失败不影响其他模块
     }
   }
 
@@ -302,6 +324,12 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
+          // Device status overview
+          if (_deviceStates != null && _deviceStates!.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildDeviceCard(),
+          ],
+
           const SizedBox(height: 20),
           AspectRatio(
             aspectRatio: 16 / 10,
@@ -333,28 +361,181 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            '该功能开发中，即将支持：',
-            style: TextStyle(
-              color: Colors.grey.shade800,
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
+        ],
+      ),
+    );
+  }
+
+  // ---------- 设备状态卡片 ----------
+
+  Widget _buildDeviceCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200.withValues(alpha: 0.8),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2C7DA0), Color(0xFF4A90E2)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.devices, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  '设备状态',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                Text(
+                  '${_deviceStates!.where((d) => d.online).length}/${_deviceStates!.length} 在线',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._deviceStates!.map((d) => _buildDeviceRow(d)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceRow(DeviceBatteryState device) {
+    final batteryColor = _batteryColor(device.battery);
+    final iconData = _deviceIcon(device.deviceType, device.location);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: device.online
+                  ? const Color(0xFFF0F7FF)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              iconData,
+              size: 20,
+              color: device.online
+                  ? const Color(0xFF2C7DA0)
+                  : Colors.grey.shade400,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text('• 摄像头心率测量', style: TextStyle(fontSize: 14)),
-          const Text('• 红外体温监测', style: TextStyle(fontSize: 14)),
-          const SizedBox(height: 20),
-          Center(
-            child: Text(
-              '模拟心率：$_demoHr bpm',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device.deviceName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: device.online
+                        ? Colors.grey.shade900
+                        : Colors.grey.shade400,
+                  ),
+                ),
+                Text(
+                  device.location,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 72,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${device.battery}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: batteryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: device.battery / 100,
+                    minHeight: 5,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(batteryColor),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: device.online ? const Color(0xFF22C55E) : Colors.grey.shade400,
+              boxShadow: device.online
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF22C55E).withValues(alpha: 0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Color _batteryColor(int level) {
+    if (level > 50) return const Color(0xFF22C55E);
+    if (level > 30) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  IconData _deviceIcon(String type, String location) {
+    switch (type) {
+      case '手环':
+        return Icons.watch;
+      case '摄像头':
+        if (location.contains('门口')) return Icons.door_front;
+        if (location.contains('卧室')) return Icons.bed;
+        return Icons.videocam;
+      case '门锁':
+        return Icons.lock;
+      default:
+        return Icons.devices_other;
+    }
   }
 }
 

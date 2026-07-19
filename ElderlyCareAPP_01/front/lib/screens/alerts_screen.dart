@@ -51,25 +51,28 @@ class _AlertsScreenState extends State<AlertsScreen> {
           api.setUserId(uid);
         }
       }
-      final list = await api.fetchNotifications();
+      // Always fetch both notifications and aggregated alerts for a complete view.
+      // Previously notifications from app_notification table and alerts from alert table
+      // were queried separately, causing alerts to be missing in the message center
+      // when app_notification had any records (even non-alert ones).
+      final notifList = await api.fetchNotifications();
+      final aggregated = await _aggregateMessages(api, prefs);
       if (!mounted) return;
 
-      // If notification API returns empty, aggregate from other sources
-      if (list.isEmpty) {
-        // Only re-aggregate if we don't already have aggregated data
-        if (!_isAggregated || _items == null || _items!.isEmpty) {
-          final aggregated = await _aggregateMessages(api, prefs);
-          setState(() {
-            _items = aggregated;
-            _isAggregated = true;
-          });
+      // Merge notifications and aggregated alerts, deduplicating by ID
+      final seen = <String>{};
+      final merged = <NotificationItem>[];
+      for (final item in [...notifList, ...aggregated]) {
+        if (seen.add(item.id)) {
+          merged.add(item);
         }
-      } else {
-        setState(() {
-          _items = list.toList()..sort((a, b) => b.time.compareTo(a.time));
-          _isAggregated = false;
-        });
       }
+      merged.sort((a, b) => b.time.compareTo(a.time));
+
+      setState(() {
+        _items = merged;
+        _isAggregated = true;
+      });
     } catch (_) {
       // On error, try to aggregate from individual sources
       try {
