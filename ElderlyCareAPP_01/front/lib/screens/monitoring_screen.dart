@@ -528,7 +528,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       case '手环':
         return Icons.watch;
       case '摄像头':
-        if (location.contains('门口')) return Icons.door_front;
+        if (location.contains('门口')) return Icons.meeting_room;
         if (location.contains('卧室')) return Icons.bed;
         return Icons.videocam;
       case '门锁':
