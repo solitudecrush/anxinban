@@ -491,8 +491,11 @@ class ApiService {
       }).toList()
         ..sort((a, b) => _labelSortValue(a.label, period).compareTo(_labelSortValue(b.label, period)));
 
-      if (points.isNotEmpty) {
-        return VitalsHistory(period: period, points: points);
+      // 去重：确保同一时间坐标只有一条数据（同一 label 保留数据最多的那条）
+      final deduped = _deduplicatePoints(points, period);
+
+      if (deduped.isNotEmpty) {
+        return VitalsHistory(period: period, points: deduped);
       }
     } catch (_) {
       // 后端无数据或接口不可用时回退 mock
@@ -693,6 +696,48 @@ class ApiService {
       return EmotionAnalysis.fromJson(data);
     } catch (e) {
       // Return null on failure — UI shows a fallback message
+      return null;
+    }
+  }
+
+  /// 发送快速陪伴消息（用于音乐控制等简单指令）。
+  ///
+  /// 调用 POST /api/ai/chat/quick，后端优先转发 Python AI 服务，
+  /// 不可用时回退到 Java 规则引擎。
+  Future<Map<String, dynamic>?> sendChatQuick({
+    required String elderId,
+    required String message,
+  }) async {
+    try {
+      final resp = await _post('/api/ai/chat/quick', body: {
+        'elder_id': elderId,
+        'message': message,
+      });
+      return _extractData(resp) as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 创建音乐干预记录。
+  ///
+  /// 调用 POST /api/intervention，记录播放舒缓音乐的干预操作。
+  /// 后端通过 [InterventionDto] 接收，使用 camelCase 字段名。
+  Future<Map<String, dynamic>?> createIntervention({
+    required String elderId,
+    required String type,
+    String? reason,
+    String? musicType,
+  }) async {
+    try {
+      final resp = await _post('/api/intervention', body: {
+        'elderId': elderId,
+        'type': type,
+        if (reason != null) 'reason': reason,
+        if (musicType != null) 'musicType': musicType,
+      });
+      return _extractData(resp) as Map<String, dynamic>?;
+    } catch (_) {
       return null;
     }
   }
@@ -1338,6 +1383,35 @@ class ApiService {
   }
 
   String _pad(int n) => n.toString().padLeft(2, '0');
+
+  /// 去重：确保同一时间坐标（label）只有一条数据。
+  ///
+  /// 对于同一 label 的多条数据，合并保留所有非 null 指标值。
+  /// 这样可以消除上游因数据源或插值逻辑引入的重复条目。
+  List<VitalsHistoryPoint> _deduplicatePoints(
+      List<VitalsHistoryPoint> points, String period) {
+    final seen = <String, VitalsHistoryPoint>{};
+    for (final p in points) {
+      if (seen.containsKey(p.label)) {
+        final existing = seen[p.label]!;
+        // 合并：保留非 null 值（优先使用已有值，后到的非 null 值覆盖）
+        seen[p.label] = VitalsHistoryPoint(
+          label: p.label,
+          temperature: p.temperature ?? existing.temperature,
+          heartRate: p.heartRate ?? existing.heartRate,
+          systolic: p.systolic ?? existing.systolic,
+          diastolic: p.diastolic ?? existing.diastolic,
+          bloodOxygen: p.bloodOxygen ?? existing.bloodOxygen,
+        );
+      } else {
+        seen[p.label] = p;
+      }
+    }
+    final result = seen.values.toList()
+      ..sort((a, b) =>
+          _labelSortValue(a.label, period).compareTo(_labelSortValue(b.label, period)));
+    return result;
+  }
 
   // ---------- 兼容旧页面的 Mock 回退数据 ----------
 

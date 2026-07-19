@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -178,14 +179,18 @@ public class HealthService {
         LocalDateTime start;
         switch (period) {
             case "day":
-                start = end.minus(1, ChronoUnit.DAYS);
+                // 查询昨天完整一天的数据（00:00:00 ~ 23:59:59）
+                LocalDate yesterday = LocalDate.now().minusDays(1);
+                start = yesterday.atStartOfDay();
+                end = yesterday.atTime(23, 59, 59);
                 break;
             case "month":
                 start = end.minus(30, ChronoUnit.DAYS);
                 break;
             case "week":
             default:
-                start = end.minus(7, ChronoUnit.DAYS);
+                // 最近7天（含今天），前端图表使用7个 X 轴标签
+                start = end.minus(6, ChronoUnit.DAYS);
                 break;
         }
 

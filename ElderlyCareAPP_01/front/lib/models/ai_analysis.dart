@@ -417,4 +417,22 @@ class EmotionAnalysis {
       EmotionLevel.high => '重度焦虑',
     };
   }
+
+  /// 是否包含音乐相关的关怀建议。
+  bool get hasMusicSuggestion =>
+      suggestions.any((s) =>
+          s.contains('音乐') ||
+          s.contains('戏曲') ||
+          s.contains('舒缓') ||
+          s.contains('播放'));
+
+  /// 提取所有音乐相关的建议。
+  List<String> get musicSuggestions =>
+      suggestions
+          .where((s) =>
+              s.contains('音乐') ||
+              s.contains('戏曲') ||
+              s.contains('舒缓') ||
+              s.contains('播放'))
+          .toList();
 }

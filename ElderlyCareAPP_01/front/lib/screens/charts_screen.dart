@@ -6,6 +6,8 @@ import '../models/ai_analysis.dart';
 import '../models/vitals_history.dart';
 import '../services/api_service.dart';
 import '../widgets/ai_analysis_panel.dart';
+import '../widgets/emotion_banner.dart';
+import '../widgets/music_recommendation_card.dart';
 
 enum _Metric { temperature, heartRate, bloodPressure, bloodOxygen }
 
@@ -24,6 +26,7 @@ class _ChartsScreenState extends State<ChartsScreen> {
   EmotionAnalysis? _emotion;
   bool _aiLoading = false;
   bool _chartLoading = true;
+  bool _musicLoading = false;
   final ScrollController _listScrollController = ScrollController();
 
   @override
@@ -84,6 +87,53 @@ class _ChartsScreenState extends State<ChartsScreen> {
     });
   }
 
+  /// 处理"播放舒缓音乐"按钮点击。
+  /// 创建音乐干预记录并通过快速对话接口发送音乐控制指令。
+  Future<void> _handlePlayMusic() async {
+    final api = context.read<ApiService>();
+    final eid = api.elderId;
+    if (eid == null || eid.isEmpty) return;
+
+    setState(() => _musicLoading = true);
+
+    try {
+      // 1. 创建音乐干预记录
+      await api.createIntervention(
+        elderId: eid,
+        type: 'music',
+        reason: '情绪分析触发：${_emotion?.emotionState ?? '未知'}',
+        musicType: '舒缓音乐',
+      );
+
+      // 2. 发送音乐控制指令
+      await api.sendChatQuick(
+        elderId: eid,
+        message: '播放舒缓音乐',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('音乐干预请求已发送，将通过智能音箱为老人播放舒缓音乐'),
+          backgroundColor: const Color(0xFF5856D6),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('音乐干预请求发送失败，请重试'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _musicLoading = false);
+    }
+  }
+
   /// 下拉刷新：只刷新图表数据
   Future<void> _onRefresh() async {
     await _loadChartData();
@@ -140,7 +190,8 @@ class _ChartsScreenState extends State<ChartsScreen> {
               selected: {_period},
               onSelectionChanged: (s) {
                 setState(() => _period = s.first);
-                _loadChartData(); // 切换周期：只更新图表，AI 分析保留（等用户手动触发）
+                _loadChartData();
+                _autoLoadEmotionAnalysis(); // 切换周期时同步刷新情绪数据
               },
             ),
             const SizedBox(height: 12),
@@ -175,6 +226,25 @@ class _ChartsScreenState extends State<ChartsScreen> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // ── 🎭 情绪状态横幅（页面最醒目元素，始终显示）──
+            if (_emotion != null) ...[
+              EmotionBanner(emotion: _emotion!),
+              const SizedBox(height: 16),
+            ],
+
+            // ── 🎵 音乐舒缓推荐（仅焦虑时显示）──
+            if (_emotion != null &&
+                _emotion!.emotionLevel.index >= EmotionLevel.medium.index) ...[
+              MusicRecommendationCard(
+                emotion: _emotion!,
+                onPlayMusic: _musicLoading ? null : _handlePlayMusic,
+                loading: _musicLoading,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── 血压图例 ──
             if (_metric == _Metric.bloodPressure)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -187,6 +257,8 @@ class _ChartsScreenState extends State<ChartsScreen> {
                   ],
                 ),
               ),
+
+            // ── 折线图 ──
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -212,12 +284,13 @@ class _ChartsScreenState extends State<ChartsScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // ── AI 健康分析（情绪卡片已移除，独立展示在上面）──
             if (_aiLoading)
               const AiAnalysisPanel.loading()
-            else if (_ai != null || _emotion != null)
+            else if (_ai != null)
               AiAnalysisPanel(
                 analysis: _ai,
-                emotionAnalysis: _emotion,
                 onRefresh: _runAiAnalysis,
               )
             else
@@ -410,6 +483,19 @@ class _HealthLineChartState extends State<_HealthLineChart> {
     };
   }
 
+  /// 去重 FlSpot 列表：同一 x 坐标只保留一个点，多个点时取 y 平均值。
+  List<FlSpot> _deduplicateSpots(List<FlSpot> spots) {
+    if (spots.length <= 1) return spots;
+    final map = <double, List<double>>{};
+    for (final s in spots) {
+      map.putIfAbsent(s.x, () => []).add(s.y);
+    }
+    return map.entries
+        .map((e) => FlSpot(e.key, e.value.reduce((a, b) => a + b) / e.value.length))
+        .toList()
+      ..sort((a, b) => a.x.compareTo(b.x));
+  }
+
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ──── build ────
@@ -453,13 +539,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       case _Metric.temperature:
         minY = 35.0;
         maxY = 38.5;
-        final spots = <FlSpot>[];
+        final rawSpots = <FlSpot>[];
         for (var i = 0; i < n; i++) {
           final t = pts[i].temperature;
           if (t != null) {
-            spots.add(FlSpot(positions[i], t));
+            rawSpots.add(FlSpot(positions[i], t));
           }
         }
+        final spots = _deduplicateSpots(rawSpots);
         // Anchor curve at left boundary to prevent backward overshoot artifact
         if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
           spots.insert(0, FlSpot(minX, spots.first.y));
@@ -497,13 +584,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       case _Metric.heartRate:
         minY = 40;
         maxY = 120;
-        final spots = <FlSpot>[];
+        final rawSpots = <FlSpot>[];
         for (var i = 0; i < n; i++) {
           final hr = pts[i].heartRate;
           if (hr != null) {
-            spots.add(FlSpot(positions[i], hr.toDouble()));
+            rawSpots.add(FlSpot(positions[i], hr.toDouble()));
           }
         }
+        final spots = _deduplicateSpots(rawSpots);
         // Anchor curve at left boundary to prevent backward overshoot artifact
         if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
           spots.insert(0, FlSpot(minX, spots.first.y));
@@ -541,18 +629,20 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       case _Metric.bloodPressure:
         minY = 40;
         maxY = 180;
-        final sys = <FlSpot>[];
-        final dia = <FlSpot>[];
+        final rawSys = <FlSpot>[];
+        final rawDia = <FlSpot>[];
         for (var i = 0; i < n; i++) {
           final s = pts[i].systolic;
           final d = pts[i].diastolic;
           if (s != null) {
-            sys.add(FlSpot(positions[i], s.toDouble()));
+            rawSys.add(FlSpot(positions[i], s.toDouble()));
           }
           if (d != null) {
-            dia.add(FlSpot(positions[i], d.toDouble()));
+            rawDia.add(FlSpot(positions[i], d.toDouble()));
           }
         }
+        final sys = _deduplicateSpots(rawSys);
+        final dia = _deduplicateSpots(rawDia);
         // Anchor curves at left boundary to prevent backward overshoot artifact
         if (sys.isNotEmpty && sys.first.x > minX + 0.01) {
           sys.insert(0, FlSpot(minX, sys.first.y));
@@ -620,13 +710,14 @@ class _HealthLineChartState extends State<_HealthLineChart> {
       case _Metric.bloodOxygen:
         minY = 85;
         maxY = 105;
-        final spots = <FlSpot>[];
+        final rawSpots = <FlSpot>[];
         for (var i = 0; i < n; i++) {
           final bo = pts[i].bloodOxygen;
           if (bo != null) {
-            spots.add(FlSpot(positions[i], bo.toDouble()));
+            rawSpots.add(FlSpot(positions[i], bo.toDouble()));
           }
         }
+        final spots = _deduplicateSpots(rawSpots);
         // Anchor curve at left boundary to prevent backward overshoot artifact
         if (spots.isNotEmpty && spots.first.x > minX + 0.01) {
           spots.insert(0, FlSpot(minX, spots.first.y));

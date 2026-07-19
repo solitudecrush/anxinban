@@ -10,16 +10,12 @@ class AiAnalysisPanel extends StatelessWidget {
   const AiAnalysisPanel({
     super.key,
     required this.analysis,
-    this.emotionAnalysis,
     this.onRefresh,
     this.loading = false,
   });
 
   /// The analysis data to display. Null triggers empty/error state.
   final AiAnalysis? analysis;
-
-  /// Optional emotion analysis result from /api/ai/emotion-analysis.
-  final EmotionAnalysis? emotionAnalysis;
 
   /// Called when user taps the refresh button.
   final VoidCallback? onRefresh;
@@ -32,7 +28,6 @@ class AiAnalysisPanel extends StatelessWidget {
     super.key,
     this.onRefresh,
   })  : analysis = null,
-        emotionAnalysis = null,
         loading = true;
 
   /// Factory for empty/no-data state.
@@ -40,7 +35,6 @@ class AiAnalysisPanel extends StatelessWidget {
     super.key,
     this.onRefresh,
   })  : analysis = null,
-        emotionAnalysis = null,
         loading = false;
 
   // ──── Color palette ────
@@ -76,31 +70,8 @@ class AiAnalysisPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) return _LoadingPlaceholder();
-    if (analysis == null && emotionAnalysis == null) {
+    if (analysis == null) {
       return _EmptyPlaceholder(onRefresh: onRefresh);
-    }
-
-    // Single data source mode: emotion analysis only (no health analysis)
-    if (analysis == null && emotionAnalysis != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(fromLlm: false),
-          const SizedBox(height: 12),
-          _EmotionCard(emotion: emotionAnalysis!),
-          if (onRefresh != null) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.tonalIcon(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('刷新分析'),
-              ),
-            ),
-          ],
-        ],
-      );
     }
 
     final a = analysis!;
@@ -123,12 +94,6 @@ class AiAnalysisPanel extends StatelessWidget {
           trendDescription: a.trendSummary.description,
         ),
         const SizedBox(height: 12),
-
-        // ── Emotion Analysis Card ──
-        if (emotionAnalysis != null) ...[
-          _EmotionCard(emotion: emotionAnalysis!),
-          const SizedBox(height: 12),
-        ],
 
         // ── Data deficiency warning ──
         if (a.meta.dataCompleteness == DataCompleteness.minimal)
