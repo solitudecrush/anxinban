@@ -84,7 +84,7 @@
                   <tr>
                     <th>设备名称</th>
                     <th>类型</th>
-                    <th>楼栋</th>
+                    <th>位置</th>
                     <th>状态</th>
                     <th>电量</th>
                   </tr>
@@ -754,11 +754,12 @@
       const data = getDevices();
       document.getElementById("device-tbody").innerHTML = data.map(d => {
         const batteryClass = d.battery > 50 ? "high" : d.battery > 20 ? "medium" : "low";
+        const location = d.location || d.room || '';
         return `
           <tr>
             <td>${d.name}</td>
             <td>${d.type}</td>
-            <td>${d.building}</td>
+            <td>${location}</td>
             <td><span class="badge ${d.online ? 'badge-online' : 'badge-offline'}">${d.online ? "在线" : "离线"}</span></td>
             <td>
               <div style="display:flex; align-items:center; gap:8px;">

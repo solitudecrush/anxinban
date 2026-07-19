@@ -65,12 +65,16 @@ class DeviceBatterySimulator {
   /// 每种设备类型的每小时掉电百分比
   static double _drainRatePerHour(String deviceType) {
     switch (deviceType) {
+      case '手表':
+        return 3.0; // 小电池，传感器常开，中等掉电
       case '手环':
-        return 4.0; // 小电池，传感器常开，掉电最快
+        return 4.0; // 旧版手环，掉电最快
       case '摄像头':
         return 2.5; // 偶尔推流
       case '门锁':
         return 1.5; // 极低功耗
+      case '门窗传感器':
+        return 1.0; // 极低功耗，仅开关触发
       default:
         return 3.0;
     }
@@ -113,11 +117,11 @@ class DeviceBatterySimulator {
 
     for (final d in apiDevices) {
       final id = d['deviceId'] as String? ?? '';
-      final name = d['deviceName'] as String? ?? '';
-      final type = d['deviceType'] as String? ?? '';
-      final location = d['location'] as String? ?? '';
+      final name = d['name'] as String? ?? d['deviceName'] as String? ?? '';
+      final type = d['type'] as String? ?? d['deviceType'] as String? ?? '';
+      final location = d['location'] as String? ?? d['room'] as String? ?? '';
       final online = (d['status'] as String?) == 'online';
-      final apiBattery = (d['batteryLevel'] as int?) ?? 80;
+      final apiBattery = (d['battery'] as int?) ?? (d['batteryLevel'] as int?) ?? 80;
 
       final existing = saved[id];
       final int newBattery;

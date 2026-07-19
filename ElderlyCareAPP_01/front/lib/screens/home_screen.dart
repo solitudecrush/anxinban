@@ -317,14 +317,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 _ScaleButton(
-                  onTap: () => context.read<NavController>().setTab(3),
+                  onTap: () => context.read<NavController>().setTab(3, messageFilter: 'all'),
                   child: Material(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => context.read<NavController>().setTab(3),
+                      onTap: () => context.read<NavController>().setTab(3, messageFilter: 'all'),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             TextButton(
                               onPressed: () =>
-                                  context.read<NavController>().setTab(3),
+                                  context.read<NavController>().setTab(3, messageFilter: 'all'),
                               child: const Text('查看更多 >'),
                             ),
                           ],

@@ -25,12 +25,14 @@ class AlertItem {
     required this.type,
     required this.detail,
     required this.occurredAt,
+    this.isRead = false,
   });
 
   final String id;
   final AlertTypeCode type;
   final String detail;
   final DateTime occurredAt;
+  final bool isRead;
 
   factory AlertItem.fromJson(Map<String, dynamic> json) {
     return AlertItem(
@@ -38,6 +40,7 @@ class AlertItem {
       type: AlertTypeCode.fromApi(json['type'] as String),
       detail: json['detail'] as String,
       occurredAt: DateTime.parse(json['occurredAt'] as String).toLocal(),
+      isRead: json['isRead'] as bool? ?? false,
     );
   }
 }

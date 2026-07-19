@@ -28,8 +28,9 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   bool _mapReady = false;
   bool _locationStarted = false;
   bool _initialized = false;
+  bool _mapAvailable = false; // 仅当定位成功启动后才显示地图
 
-  late AMapFlutterLocation _locationPlugin;
+  AMapFlutterLocation? _locationPlugin;
   StreamSubscription<Map<String, Object>>? _locationSub;
 
   @override
@@ -69,51 +70,59 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   }
 
   void _initAmapLocation() {
-    if (_locationStarted) return; // 防止重复初始化
-    // 高德隐私合规声明
-    AMapFlutterLocation.updatePrivacyAgree(true);
-    AMapFlutterLocation.updatePrivacyShow(true, true);
-    // 设置 API Key
-    AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
+    if (_locationStarted) return;
+    try {
+      AMapFlutterLocation.updatePrivacyAgree(true);
+      AMapFlutterLocation.updatePrivacyShow(true, true);
+      AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
 
-    _locationPlugin = AMapFlutterLocation();
-    _locationPlugin.setLocationOption(AMapLocationOption(
-      onceLocation: false,
-      needAddress: true,
-      locationMode: AMapLocationMode.Hight_Accuracy,
-      locationInterval: 5000,
-    ));
+      _locationPlugin = AMapFlutterLocation();
+      _locationPlugin!.setLocationOption(AMapLocationOption(
+        onceLocation: false,
+        needAddress: true,
+        locationMode: AMapLocationMode.Hight_Accuracy,
+        locationInterval: 5000,
+      ));
 
-    _locationSub = _locationPlugin.onLocationChanged().listen((result) {
-      if (!mounted) return;
-      final errorCode = result['errorCode'] as int?;
-      if (errorCode != null && errorCode != 0) {
+      _locationSub = _locationPlugin!.onLocationChanged().listen((result) {
+        if (!mounted) return;
+        final errorCode = result['errorCode'] as int?;
+        if (errorCode != null && errorCode != 0) {
+          setState(() {
+            _error = result['errorInfo'] as String? ?? '定位失败 (code: $errorCode)';
+          });
+          return;
+        }
+        final lat = result['latitude'] as double?;
+        final lng = result['longitude'] as double?;
+        if (lat == null || lng == null) return;
+
+        final ll = LatLng(lat, lng);
         setState(() {
-          _error = result['errorInfo'] as String? ?? '定位失败 (code: $errorCode)';
+          _lastLocation = result;
+          _center = ll;
+          _error = null;
+          _mapAvailable = true; // 定位数据到达，地图可用
         });
-        return;
-      }
-      final lat = result['latitude'] as double?;
-      final lng = result['longitude'] as double?;
-      if (lat == null || lng == null) return;
 
-      final ll = LatLng(lat, lng);
-      setState(() {
-        _lastLocation = result;
-        _center = ll;
-        _error = null;
+        if (_mapReady && _mapController != null) {
+          _mapController!.moveCamera(
+            CameraUpdate.newLatLngZoom(ll, 16),
+            animated: true,
+          );
+        }
       });
 
-      if (_mapReady && _mapController != null) {
-        _mapController!.moveCamera(
-          CameraUpdate.newLatLngZoom(ll, 16),
-          animated: true,
-        );
-      }
-    });
-
-    _locationPlugin.startLocation();
-    _locationStarted = true;
+      _locationPlugin!.startLocation();
+      _locationStarted = true;
+      // 即使定位未返回数据，也允许地图显示（使用 fallback 坐标）
+      setState(() => _mapAvailable = true);
+    } catch (e) {
+      setState(() {
+        _error = '定位初始化失败: $e';
+        _mapAvailable = false;
+      });
+    }
   }
 
   Future<bool> _checkSystemLocation() async {
@@ -141,12 +150,12 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
 
   @override
   void dispose() {
-    if (_locationStarted) {
-      _locationPlugin.stopLocation();
-      _locationPlugin.destroy();
+    if (_locationStarted && _locationPlugin != null) {
+      try { _locationPlugin!.stopLocation(); } catch (_) {}
+      try { _locationPlugin!.destroy(); } catch (_) {}
     }
     _locationSub?.cancel();
-    _mapController?.dispose();
+    try { _mapController?.dispose(); } catch (_) {}
     _mapController = null;
     super.dispose();
   }
@@ -182,6 +191,39 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     return '精度约 ${accuracy.toStringAsFixed(0)} m';
   }
 
+  Widget _buildMapFallback() {
+    return Container(
+      color: const Color(0xFFF0F7FF),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _error ?? '地图暂不可用',
+              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '请确保已配置高德地图 Key 并授予定位权限',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            ),
+            const SizedBox(height: 20),
+            if (_error != null)
+              FilledButton.tonal(
+                onPressed: () async {
+                  setState(() { _error = null; _mapAvailable = false; _initialized = false; });
+                  await _initialize();
+                },
+                child: const Text('重试'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -191,8 +233,12 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       ),
       body: Stack(
         children: [
-          if (!_initialized || AmapConfig.keysLookUnset)
-            const SizedBox.shrink()
+          if (!_initialized)
+            const Center(child: CircularProgressIndicator())
+          else if (!_mapAvailable || AmapConfig.keysLookUnset)
+            Positioned.fill(
+              child: _buildMapFallback(),
+            )
           else
             Positioned.fill(
               child: AMapWidget(

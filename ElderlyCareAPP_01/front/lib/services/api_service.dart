@@ -904,6 +904,7 @@ class ApiService {
       type: type,
       detail: '${m['alarmType'] ?? ''} · ${m['description'] ?? ''} · ${_formatTime(m['occurTime'])}',
       occurredAt: _parseDateTime(m['occurTime']),
+      isRead: m['isRead'] as bool? ?? false,
     );
   }
 

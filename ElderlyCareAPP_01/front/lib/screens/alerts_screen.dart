@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_item.dart';
 import '../services/api_service.dart';
+import '../state/nav_controller.dart';
 import 'camera_request_screen.dart';
 import 'service_request_screen.dart';
 
@@ -24,6 +25,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Timer? _timer;
   bool _isAggregated = false;
 
+  /// 本地已读记录（ID 集合），防止后端写入未完成时重载覆盖已读状态。
+  final Set<String> _localReadIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -31,16 +35,33 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final api = context.read<ApiService>();
     _sub = api.syncStream.listen((_) => _load());
     _timer = Timer.periodic(const Duration(seconds: 10), (_) => _load());
+    // 监听 NavController，当首页"查看更多"点击时消费初始筛选参数
+    context.read<NavController>().addListener(_onNavChanged);
+  }
+
+  void _onNavChanged() {
+    final filter = context.read<NavController>().consumeMessageFilter();
+    if (filter != null && mounted) {
+      setState(() => _filter = filter);
+    }
   }
 
   @override
   void dispose() {
+    context.read<NavController>().removeListener(_onNavChanged);
     _sub?.cancel();
     _timer?.cancel();
     super.dispose();
   }
 
   Future<void> _load() async {
+    // 消费 NavController 传入的初始筛选参数（由首页"查看更多"传入）
+    final nav = context.read<NavController>();
+    final initialFilter = nav.consumeMessageFilter();
+    if (initialFilter != null && mounted) {
+      setState(() => _filter = initialFilter);
+    }
+
     try {
       final api = context.read<ApiService>();
       // Ensure userId is available; fall back to SharedPreferences
@@ -64,10 +85,21 @@ class _AlertsScreenState extends State<AlertsScreen> {
       final merged = <NotificationItem>[];
       for (final item in [...notifList, ...aggregated]) {
         if (seen.add(item.id)) {
+          // 本地已读 → 强制标记为已读（防止后端尚未完成写入时被重载覆盖）
+          if (_localReadIds.contains(item.id)) {
+            item.read = true;
+          }
           merged.add(item);
         }
       }
       merged.sort((a, b) => b.time.compareTo(a.time));
+
+      // 清理本地已读记录中后端已确认的 ID（节省内存）
+      for (final item in merged) {
+        if (item.read && _localReadIds.contains(item.id)) {
+          // 不删除——保留到明确不再需要为止。Set 很小，不影响性能。
+        }
+      }
 
       setState(() {
         _items = merged;
@@ -100,7 +132,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           title: '告警通知',
           content: alarm.detail,
           time: alarm.occurredAt,
-          read: false,
+          read: alarm.isRead,
         ));
       }
     } catch (_) {}
@@ -164,11 +196,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   void _onTapItem(NotificationItem n) {
-    setState(() => n.read = true);
-    // Sync read status to backend
+    setState(() {
+      n.read = true;
+      _localReadIds.add(n.id);
+    });
+    // 根据消息来源调用正确的后端 API 持久化已读状态
     final api = context.read<ApiService>();
     try {
-      api.markNotificationRead(n.id);
+      if (n.id.startsWith('alarm-')) {
+        // 从 alarm_event 表聚合的消息 → 调用告警已读接口
+        final realAlarmId = n.id.substring(6); // remove "alarm-" prefix
+        api.markAlarmRead(realAlarmId);
+      } else if (n.id.startsWith('camera-') || n.id.startsWith('service-')) {
+        // camera_request / service_request 没有已读接口，仅本地记录
+      } else {
+        // 来自 notification 表的消息 → 调用通知已读接口
+        api.markNotificationRead(n.id);
+      }
     } catch (_) {
       // Best-effort read sync
     }
@@ -242,10 +286,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
     setState(() {
       for (final n in _items!) {
         n.read = true;
+        _localReadIds.add(n.id);
       }
     });
     try {
       final api = context.read<ApiService>();
+      // 分别标记各类型消息为已读
+      for (final n in _items!) {
+        try {
+          if (n.id.startsWith('alarm-')) {
+            final realAlarmId = n.id.substring(6);
+            api.markAlarmRead(realAlarmId);
+          } else if (!n.id.startsWith('camera-') && !n.id.startsWith('service-')) {
+            api.markNotificationRead(n.id);
+          }
+        } catch (_) {}
+      }
+      // 同时调用通知表的一键已读
       await api.markAllNotificationsRead();
     } catch (_) {
       // Best-effort sync

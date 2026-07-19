@@ -391,12 +391,13 @@ function mapDeviceDto(d) {
   if (!d) return null;
   return {
     id: d.deviceId,
-    name: d.deviceName,
-    type: d.deviceType,
+    name: d.name || d.deviceName || '',
+    type: d.type || d.deviceType || '',
     building: d.building,
     room: d.room,
+    location: d.location || d.room || '',
     online: d.status === 'online',
-    battery: d.batteryLevel || 100,
+    battery: d.battery || d.batteryLevel || 100,
   };
 }
 

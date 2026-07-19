@@ -322,10 +322,6 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
-          // ── 设备管理 ──
-          const SizedBox(height: 20),
-          _buildDeviceCard(),
-
           const SizedBox(height: 20),
           AspectRatio(
             aspectRatio: 16 / 10,
@@ -357,6 +353,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
+          // —— 设备管理（位于实时画面下方）——
+          const SizedBox(height: 20),
+          _buildDeviceCard(),
         ],
       ),
     );
@@ -548,14 +547,17 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
 
   IconData _deviceIcon(String type, String location) {
     switch (type) {
+      case '手表':
       case '手环':
         return Icons.watch;
       case '摄像头':
-        if (location.contains('门口')) return Icons.meeting_room;
+        if (location.contains('入户') || location.contains('门口')) return Icons.meeting_room;
         if (location.contains('卧室')) return Icons.bed;
         return Icons.videocam;
       case '门锁':
         return Icons.lock;
+      case '门窗传感器':
+        return Icons.sensors;
       default:
         return Icons.devices_other;
     }
