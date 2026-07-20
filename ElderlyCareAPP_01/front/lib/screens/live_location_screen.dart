@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:amap_flutter_base/amap_flutter_base.dart';
 import 'package:amap_flutter_location/amap_flutter_location.dart';
@@ -6,6 +7,7 @@ import 'package:amap_flutter_location/amap_location_option.dart';
 import 'package:amap_flutter_map/amap_flutter_map.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geo;
+import 'package:permission_handler/permission_handler.dart';
 
 import '../config/amap_config.dart';
 
@@ -29,7 +31,8 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   bool _mapReady = false;
   bool _locationStarted = false;
   bool _initialized = false;
-  bool _mapAvailable = false; // 仅当定位成功启动后才显示地图
+  bool _mapAvailable = false; // Key 有效后即为 true，不依赖定位权限
+  bool _shouldStartLocation = false; // 地图准备好后需要启动定位
   bool _disposed = false; // 防止 dispose 后异步回调访问已销毁的插件
 
   AMapFlutterLocation? _locationPlugin;
@@ -44,10 +47,12 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   Future<void> _initialize() async {
     // ⚠️ 隐私合规必须第一时间设置，不能有任何 await 在前
     // 否则在异步等待期间 SDK 可能因未设置隐私合规而 native crash
+    // ⚠️ 地图 SDK 和定位 SDK 的隐私合规必须**同时**初始化，缺一不可。
     AMapFlutterLocation.updatePrivacyAgree(true);
     AMapFlutterLocation.updatePrivacyShow(true, true);
-    AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
-
+    AMapFlutterMap.updatePrivacyAgree(true);
+    AMapFlutterMap.updatePrivacyShow(true, true);
+    // 先尝试从 AndroidManifest 获取真实 Key
     try {
       await AmapConfig.init();
     } catch (_) {
@@ -61,20 +66,37 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       });
       return;
     }
-    // 先检查定位权限，通过后再启动定位
+    // Key 有效后才设置（避免用无效 Key 污染 SDK 全局状态导致后续闪退）
+    AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
+
+    // ── Key 有效 → 先显示地图（让用户看到地图瓦片加载） ──
+    setState(() {
+      _mapAvailable = true; // 地图始终可见，不依赖定位权限
+      _initialized = true;
+    });
+
+    // ── 第二步：检查定位权限，独立于地图显示 ──
     final ok = await _checkSystemLocation();
-    if (ok && mounted) {
-      try {
-        _initAmapLocation();
-      } catch (e) {
-        setState(() {
-          _error = '定位初始化失败: $e';
-        });
+    if (!mounted) return;
+
+    // ── 第三步：Android 13+ 需要通知权限（高德持续定位依赖前台服务通知）──
+    if (ok) {
+      await _ensureNotificationPermission();
+    }
+    if (!mounted) return;
+
+    if (ok) {
+      setState(() {
+        _shouldStartLocation = true;
+      });
+      // 如果 AMapWidget 已经创建完成（onMapCreated 已回调），
+      // 立即启动定位；否则等 onMapCreated 中触发
+      if (_mapReady) {
+        _startLocationSafe();
       }
     }
-    if (mounted) {
-      setState(() => _initialized = true);
-    }
+    // 权限未通过时 _error 已在 _checkSystemLocation 中设置，
+    // 但地图仍然可见，让用户可以看到底图。
   }
 
   void _initAmapLocation() {
@@ -136,6 +158,37 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     }
   }
 
+  void _startLocationSafe() {
+    if (_locationStarted || _disposed) return;
+    try {
+      _initAmapLocation();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = '定位启动失败: $e');
+      }
+    }
+  }
+
+  Future<void> _retry() async {
+    setState(() {
+      _error = null;
+      _shouldStartLocation = false;
+    });
+
+    final ok = await _checkSystemLocation();
+    if (!mounted) return;
+
+    if (ok) {
+      setState(() {
+        _shouldStartLocation = true;
+      });
+      // 如果 AMapWidget 已经创建完成，立即启动定位
+      if (_mapReady) {
+        _startLocationSafe();
+      }
+    }
+  }
+
   Future<bool> _checkSystemLocation() async {
     try {
       final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
@@ -156,6 +209,20 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = '定位服务异常: $e');
       return false;
+    }
+  }
+
+  /// Android 13+：请求通知权限。
+  /// 高德持续定位依赖前台服务，Android 13 起必须先获得通知授权才能拉起前台服务。
+  Future<void> _ensureNotificationPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      var status = await Permission.notification.status;
+      if (status.isDenied || status.isPermanentlyDenied) {
+        status = await Permission.notification.request();
+      }
+    } catch (_) {
+      // notification 权限不影响定位核心功能，静默处理
     }
   }
 
@@ -219,7 +286,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
             if (_error != null)
               FilledButton.tonal(
                 onPressed: () async {
-                  setState(() { _error = null; _mapAvailable = false; _initialized = false; });
+                  setState(() { _error = null; _shouldStartLocation = false; _initialized = false; });
                   await _initialize();
                 },
                 child: const Text('重试'),
@@ -241,7 +308,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
         children: [
           if (!_initialized)
             const Center(child: CircularProgressIndicator())
-          else if (!_mapAvailable || AmapConfig.keysLookUnset)
+          else if (AmapConfig.keysLookUnset)
             Positioned.fill(
               child: _buildMapFallback(),
             )
@@ -268,6 +335,11 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                 onMapCreated: (c) {
                   _mapController = c;
                   _mapReady = true;
+                  // 如果初始化流程已通过权限检查，但地图刚创建完成，
+                  // 此时才启动定位（避免在 AMapWidget 未就绪时启动）
+                  if (_shouldStartLocation && !_locationStarted) {
+                    _startLocationSafe();
+                  }
                   if (_lastLocation != null) {
                     final lat = _lastLocation!['latitude'] as double?;
                     final lng = _lastLocation!['longitude'] as double?;
@@ -304,46 +376,42 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                 ),
               ),
             ),
-          if (_error != null && _lastLocation == null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.location_off_outlined,
-                          size: 40,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
+          if (_error != null && _mapAvailable)
+            Positioned(
+              top: 8,
+              left: 12,
+              right: 12,
+              child: Material(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                elevation: 3,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          size: 18, color: Colors.orange.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
                           _error!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyLarge,
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontSize: 13,
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: () async {
-                            final ok = await _checkSystemLocation();
-                            if (ok && !_locationStarted) {
-                              try {
-                                _initAmapLocation();
-                              } catch (_) {}
-                            }
-                          },
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
+                      ),
+                      TextButton(
+                        onPressed: _retry,
+                        child: const Text('重试', style: TextStyle(fontSize: 13)),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          if (!(_error != null && _lastLocation == null))
+          if (_mapAvailable)
             Positioned(
               left: 16,
               right: 16,

@@ -333,6 +333,37 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 20),
+          AspectRatio(
+            aspectRatio: 16 / 10,
+            child: CustomPaint(
+              painter: _DashedBorderPainter(),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F4FD).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.videocam, size: 56, color: Colors.grey.shade500),
+                    const SizedBox(height: 10),
+                    Text(
+                      hasActiveViewer ? '社区正在查看实时画面' : '实时画面准备就绪',
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 16),
+                    ),
+                    if (hasActiveViewer) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '查看人员：${active!.staffName}',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
           // —— 门外陌生人抓拍卡片 ——
           if (_latestSnapshot != null)
             Container(
@@ -508,37 +539,6 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: 20),
-          AspectRatio(
-            aspectRatio: 16 / 10,
-            child: CustomPaint(
-              painter: _DashedBorderPainter(),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F4FD).withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.videocam, size: 56, color: Colors.grey.shade500),
-                    const SizedBox(height: 10),
-                    Text(
-                      hasActiveViewer ? '社区正在查看实时画面' : '实时画面准备就绪',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 16),
-                    ),
-                    if (hasActiveViewer) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '查看人员：${active!.staffName}',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
           // —— 设备管理（位于实时画面下方）——
           const SizedBox(height: 20),
           _buildDeviceCard(),

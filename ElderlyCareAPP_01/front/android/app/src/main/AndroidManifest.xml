@@ -13,6 +13,11 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
 
+    <!-- 高德地图 SDK 所需前台服务权限（Android 9+） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- 前台服务通知权限（Android 13+，必须运行时请求） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:label="健康助手"
         android:name="${applicationName}"
@@ -52,8 +57,11 @@
             android:name="com.amap.api.v2.apikey"
             android:value="${AMAP_ANDROID_KEY}" />
 
-        <!-- 高德定位服务 -->
-        <service android:name="com.amap.api.location.APSService" />
+        <!-- 高德定位服务（前台服务，声明 location 类型以适配 Android 11+） -->
+        <service
+            android:name="com.amap.api.location.APSService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
