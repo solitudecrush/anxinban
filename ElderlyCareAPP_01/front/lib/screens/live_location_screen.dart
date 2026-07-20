@@ -50,8 +50,8 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     // ⚠️ 地图 SDK 和定位 SDK 的隐私合规必须**同时**初始化，缺一不可。
     AMapFlutterLocation.updatePrivacyAgree(true);
     AMapFlutterLocation.updatePrivacyShow(true, true);
-    AMapFlutterMap.updatePrivacyAgree(true);
-    AMapFlutterMap.updatePrivacyShow(true, true);
+    // 注意：amap_flutter_map 3.0.0 已移除 AMapFlutterMap 静态方法，
+    // 地图隐私合规通过 AMapWidget 的 privacyStatement 参数配置（见 build 方法）
     // 先尝试从 AndroidManifest 获取真实 Key
     try {
       await AmapConfig.init();
@@ -234,7 +234,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       try { _locationPlugin!.destroy(); } catch (_) {}
     }
     _locationSub?.cancel();
-    try { _mapController?.dispose(); } catch (_) {}
+    // amap_flutter_map 3.0.0: AMapController 不再有 dispose 方法
     _mapController = null;
     super.dispose();
   }

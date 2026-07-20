@@ -45,11 +45,10 @@ public class NotificationController {
      * @return 处理结果
      */
     @PostMapping("/{notificationId}/read")
-    public ApiResponse<Void> markAsRead(@PathVariable String notificationId) {
-        boolean success = notificationService.markAsRead(notificationId);
-        if (!success) {
-            return ApiResponse.error(404, "通知不存在");
-        }
+    public ApiResponse<Void> markAsRead(@PathVariable String notificationId,
+                                         @RequestParam(required = false) String userId,
+                                         @RequestParam(required = false) String userType) {
+        notificationService.markAsRead(notificationId, userId, userType);
         return ApiResponse.success(null);
     }
 

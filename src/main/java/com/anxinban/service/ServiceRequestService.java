@@ -6,6 +6,7 @@ package com.anxinban.service;
  * @author 安心伴开发团队
  * @since 0.0.1-SNAPSHOT
  */
+import com.anxinban.dto.NotificationDto;
 import com.anxinban.dto.PageResult;
 import com.anxinban.dto.ServiceRequestDto;
 import com.anxinban.entity.ServiceRequest;
@@ -30,12 +31,14 @@ public class ServiceRequestService {
     private final FamilyUserRepository familyUserRepository;
     /** 数据访问仓库，用于持久化操作 */
     private final ElderUserRepository elderUserRepository;
+    private final NotificationService notificationService;
 
     @Autowired
-    public ServiceRequestService(ServiceRequestRepository serviceRequestRepository, FamilyUserRepository familyUserRepository, ElderUserRepository elderUserRepository) {
+    public ServiceRequestService(ServiceRequestRepository serviceRequestRepository, FamilyUserRepository familyUserRepository, ElderUserRepository elderUserRepository, NotificationService notificationService) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.familyUserRepository = familyUserRepository;
         this.elderUserRepository = elderUserRepository;
+        this.notificationService = notificationService;
     }
 
         /**
@@ -54,6 +57,21 @@ public class ServiceRequestService {
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         ServiceRequest saved = serviceRequestRepository.save(entity);
+
+        // 创建通知记录，用于消息中心已读状态持久化
+        try {
+            NotificationDto notif = new NotificationDto();
+            notif.setNotificationId("service-" + saved.getRequestId());
+            notif.setUserId(dto.getFamilyId());
+            notif.setUserType("family");
+            notif.setType("order");
+            notif.setTitle("服务申请 - " + (dto.getType() != null ? dto.getType() : ""));
+            notif.setContent(dto.getContent());
+            notificationService.createNotification(notif);
+        } catch (Exception ignored) {
+            // 通知创建失败不影响主流程
+        }
+
         return convertToDto(saved);
     }
 

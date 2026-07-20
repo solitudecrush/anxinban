@@ -94,6 +94,28 @@ class _AlertsScreenState extends State<AlertsScreen> {
       }
       merged.sort((a, b) => b.time.compareTo(a.time));
 
+      // 日期规则：今天和昨天的数据默认显示未读，其他显示已读
+      // 但如果数据库已标记为已读（用户之前手动标记过），则保持已读状态
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      for (final item in merged) {
+        if (_localReadIds.contains(item.id)) {
+          item.read = true; // 本次会话已手动标记已读，保持不变
+        } else if (item.read) {
+          // 数据库记录显示已读，说明用户之前手动标记过，保持不变
+          // （来自 notification 表的 isRead=true 记录）
+          continue;
+        } else {
+          final itemDate = DateTime(item.time.year, item.time.month, item.time.day);
+          if (itemDate == today || itemDate == yesterday) {
+            item.read = false; // 今天/昨天 → 未读
+          } else {
+            item.read = true; // 更早 → 已读
+          }
+        }
+      }
+
       // 清理本地已读记录中后端已确认的 ID（节省内存）
       for (final item in merged) {
         if (item.read && _localReadIds.contains(item.id)) {
@@ -147,7 +169,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           title: '监控申请',
           content: '${req.staffName} 申请查看${req.elderName}的监控 - $statusText',
           time: req.requestTime,
-          read: req.status != 'pending',
+          read: false, // 默认未读，实际已读状态由通知表或时间规则决定
         ));
       }
     } catch (_) {}
@@ -162,7 +184,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           title: '服务申请 - ${req.type}',
           content: '${req.content}\n状态: $statusText',
           time: req.requestTime,
-          read: req.status != 'pending',
+          read: false, // 默认未读，实际已读状态由通知表或时间规则决定
         ));
       }
     } catch (_) {}
@@ -208,7 +230,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
         final realAlarmId = n.id.substring(6); // remove "alarm-" prefix
         api.markAlarmRead(realAlarmId);
       } else if (n.id.startsWith('camera-') || n.id.startsWith('service-')) {
-        // camera_request / service_request 没有已读接口，仅本地记录
+        // camera_request / service_request 的通知 ID 即 camera-xxx / service-xxx
+        api.markNotificationRead(n.id);
       } else {
         // 来自 notification 表的消息 → 调用通知已读接口
         api.markNotificationRead(n.id);
@@ -297,7 +320,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           if (n.id.startsWith('alarm-')) {
             final realAlarmId = n.id.substring(6);
             api.markAlarmRead(realAlarmId);
-          } else if (!n.id.startsWith('camera-') && !n.id.startsWith('service-')) {
+          } else {
             api.markNotificationRead(n.id);
           }
         } catch (_) {}

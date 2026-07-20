@@ -952,8 +952,12 @@ class ApiService {
     return (data?['count'] as num?)?.toInt() ?? 0;
   }
 
-  Future<void> markNotificationRead(String notificationId) async {
-    await _post('/api/notification/$notificationId/read');
+  Future<void> markNotificationRead(String notificationId, {String? userId, String userType = 'family'}) async {
+    final uid = userId ?? _userId;
+    await _post('/api/notification/$notificationId/read', queryParams: {
+      if (uid != null && uid.isNotEmpty) 'userId': uid,
+      'userType': userType,
+    });
   }
 
   /// 一键已读所有通知

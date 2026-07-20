@@ -7,8 +7,10 @@ package com.anxinban.service;
  * @since 0.0.1-SNAPSHOT
  */
 import com.anxinban.dto.MonitorRequestDto;
+import com.anxinban.dto.NotificationDto;
 import com.anxinban.entity.MonitorRequest;
 import com.anxinban.mapper.ElderUserRepository;
+import com.anxinban.mapper.FamilyUserRepository;
 import com.anxinban.mapper.MonitorRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,15 @@ public class MonitorRequestService {
     private final MonitorRequestRepository monitorRequestRepository;
     /** 数据访问仓库，用于持久化操作 */
     private final ElderUserRepository elderUserRepository;
+    private final NotificationService notificationService;
+    private final FamilyUserRepository familyUserRepository;
 
     @Autowired
-    public MonitorRequestService(MonitorRequestRepository monitorRequestRepository, ElderUserRepository elderUserRepository) {
+    public MonitorRequestService(MonitorRequestRepository monitorRequestRepository, ElderUserRepository elderUserRepository, NotificationService notificationService, FamilyUserRepository familyUserRepository) {
         this.monitorRequestRepository = monitorRequestRepository;
         this.elderUserRepository = elderUserRepository;
+        this.notificationService = notificationService;
+        this.familyUserRepository = familyUserRepository;
     }
 
         /**
@@ -42,6 +48,24 @@ public class MonitorRequestService {
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         MonitorRequest saved = monitorRequestRepository.save(entity);
+
+        // 创建通知记录，用于消息中心已读状态持久化
+        try {
+            var familyUser = familyUserRepository.findByElderId(dto.getElderId());
+            if (familyUser != null) {
+                NotificationDto notif = new NotificationDto();
+                notif.setNotificationId("camera-" + saved.getRequestId());
+                notif.setUserId(familyUser.getFamilyId());
+                notif.setUserType("family");
+                notif.setType("camera");
+                notif.setTitle("监控申请");
+                notif.setContent((dto.getStaffName() != null ? dto.getStaffName() : "") + " 申请查看" + (dto.getElderName() != null ? dto.getElderName() : "") + "的监控");
+                notificationService.createNotification(notif);
+            }
+        } catch (Exception ignored) {
+            // 通知创建失败不影响主流程
+        }
+
         return convertToDto(saved);
     }
 

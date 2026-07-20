@@ -80,9 +80,22 @@ public class NotificationService {
          *
          * @param notificationId 唯一标识，主键
          */
-    public boolean markAsRead(String notificationId) {
+    public boolean markAsRead(String notificationId, String userId, String userType) {
         Notification existing = notificationRepository.findByNotificationId(notificationId);
-        if (existing == null) return false;
+        if (existing == null) {
+            // 通知不存在则创建一条已读记录（兼容旧数据：camera-/service- 前缀的通知）
+            Notification notif = new Notification();
+            notif.setNotificationId(notificationId);
+            notif.setUserId(userId != null ? userId : "");
+            notif.setUserType(userType != null ? userType : "family");
+            notif.setType("alert");
+            notif.setTitle("");
+            notif.setContent("");
+            notif.setIsRead(true);
+            notif.setCreatedAt(LocalDateTime.now());
+            notificationRepository.save(notif);
+            return true;
+        }
         existing.setIsRead(true);
         notificationRepository.save(existing);
         return true;
