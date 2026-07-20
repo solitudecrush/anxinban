@@ -6,7 +6,10 @@ import 'package:provider/provider.dart';
 import '../models/camera_request.dart';
 import '../services/api_service.dart';
 import '../services/device_battery_simulator.dart';
+import '../models/snapshot_record.dart';
+import '../services/snapshot_store.dart';
 import 'live_location_screen.dart';
+import 'snapshot_history_screen.dart';
 
 class MonitoringScreen extends StatefulWidget {
   const MonitoringScreen({super.key});
@@ -20,6 +23,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   List<DeviceBatteryState>? _deviceStates;
   StreamSubscription<String>? _sub;
   Timer? _batteryTimer;
+  SnapshotRecord? _latestSnapshot;
   final _simulator = DeviceBatterySimulator();
 
   @override
@@ -40,7 +44,14 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   }
 
   Future<void> _load() async {
-    await Future.wait([_loadCameraRequests(), _loadDevices()]);
+    await Future.wait([_loadCameraRequests(), _loadDevices(), _loadSnapshot()]);
+  }
+
+  Future<void> _loadSnapshot() async {
+    await SnapshotStore.seedIfEmpty(); // 首次启动写入种子数据
+    final latest = await SnapshotStore.getLatest();
+    if (!mounted) return;
+    setState(() => _latestSnapshot = latest);
   }
 
   Future<void> _loadCameraRequests() async {
@@ -322,6 +333,181 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               ),
             ),
           ),
+          // —— 门外陌生人抓拍卡片 ——
+          if (_latestSnapshot != null)
+            Container(
+              margin: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.shade100.withValues(alpha: 0.6),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SnapshotHistoryScreen(),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 标题行
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF2C7DA0),
+                                    Color(0xFF4A90E2)
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.camera_outdoor,
+                                  color: Colors.white),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '门外陌生人抓拍',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _latestSnapshot!.formattedTime,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios,
+                                size: 16, color: Colors.grey.shade400),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // 最新抓拍预览图
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            _latestSnapshot!.imageAssetPath,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 180,
+                              color: Colors.grey.shade100,
+                              child: Center(
+                                child: Icon(Icons.broken_image_outlined,
+                                    size: 48,
+                                    color: Colors.grey.shade400),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // 底部提示
+                        Center(
+                          child: Text(
+                            '查看近期抓拍记录 ›',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: const Color(0xFF4A90E2),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_latestSnapshot == null)
+            Container(
+              margin: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.shade100.withValues(alpha: 0.6),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2C7DA0), Color(0xFF4A90E2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.camera_outdoor,
+                          color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '门外陌生人抓拍',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '暂无抓拍记录',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 20),
           AspectRatio(
             aspectRatio: 16 / 10,

@@ -23,12 +23,14 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
 
   AMapController? _mapController;
   LatLng _center = _fallback;
+  Set<Marker> _markers = {}; // 缓存 markers，避免每次 build 重建
   Map<String, Object>? _lastLocation;
   String? _error;
   bool _mapReady = false;
   bool _locationStarted = false;
   bool _initialized = false;
   bool _mapAvailable = false; // 仅当定位成功启动后才显示地图
+  bool _disposed = false; // 防止 dispose 后异步回调访问已销毁的插件
 
   AMapFlutterLocation? _locationPlugin;
   StreamSubscription<Map<String, Object>>? _locationSub;
@@ -40,6 +42,12 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   }
 
   Future<void> _initialize() async {
+    // ⚠️ 隐私合规必须第一时间设置，不能有任何 await 在前
+    // 否则在异步等待期间 SDK 可能因未设置隐私合规而 native crash
+    AMapFlutterLocation.updatePrivacyAgree(true);
+    AMapFlutterLocation.updatePrivacyShow(true, true);
+    AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
+
     try {
       await AmapConfig.init();
     } catch (_) {
@@ -70,12 +78,8 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   }
 
   void _initAmapLocation() {
-    if (_locationStarted) return;
+    if (_locationStarted || _disposed) return;
     try {
-      AMapFlutterLocation.updatePrivacyAgree(true);
-      AMapFlutterLocation.updatePrivacyShow(true, true);
-      AMapFlutterLocation.setApiKey(AmapConfig.androidKey, '');
-
       _locationPlugin = AMapFlutterLocation();
       _locationPlugin!.setLocationOption(AMapLocationOption(
         onceLocation: false,
@@ -85,7 +89,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       ));
 
       _locationSub = _locationPlugin!.onLocationChanged().listen((result) {
-        if (!mounted) return;
+        if (!mounted || _disposed) return;
         final errorCode = result['errorCode'] as int?;
         if (errorCode != null && errorCode != 0) {
           setState(() {
@@ -103,6 +107,13 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
           _center = ll;
           _error = null;
           _mapAvailable = true; // 定位数据到达，地图可用
+          _markers = <Marker>{
+            Marker(
+              position: ll,
+              infoWindowEnable: true,
+              infoWindow: const InfoWindow(title: '老人当前位置'),
+            ),
+          };
         });
 
         if (_mapReady && _mapController != null) {
@@ -115,8 +126,8 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
 
       _locationPlugin!.startLocation();
       _locationStarted = true;
-      // 即使定位未返回数据，也允许地图显示（使用 fallback 坐标）
-      setState(() => _mapAvailable = true);
+      // 不在此处设置 _mapAvailable = true，等待 onLocationChanged 收到第一条
+      // 有效定位数据后再显示地图（此时原生 SDK 一定已完成初始化）
     } catch (e) {
       setState(() {
         _error = '定位初始化失败: $e';
@@ -150,6 +161,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     if (_locationStarted && _locationPlugin != null) {
       try { _locationPlugin!.stopLocation(); } catch (_) {}
       try { _locationPlugin!.destroy(); } catch (_) {}
@@ -160,13 +172,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     super.dispose();
   }
 
-  Set<Marker> get _markers => <Marker>{
-        Marker(
-          position: _center,
-          infoWindowEnable: true,
-          infoWindow: const InfoWindow(title: '老人当前位置'),
-        ),
-      };
+  // markers 已缓存为 _markers 成员变量，在 setState 时同步更新
 
   String? get _coordText {
     final loc = _lastLocation;
