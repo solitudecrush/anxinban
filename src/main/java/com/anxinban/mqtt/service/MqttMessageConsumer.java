@@ -461,7 +461,8 @@ public class MqttMessageConsumer implements MqttMessageListener {
         notification.setUserType("family");
         notification.setType("alert");
         notification.setTitle(mapAlarmTypeToTitle(alarm.getType()));
-        notification.setContent(alarm.getDescription());
+        String alarmDesc = alarm.getDescription();
+        notification.setContent(alarmDesc != null && !alarmDesc.isEmpty() ? alarmDesc : "暂无详情");
         notification.setIsRead(false);
         notification.setRoom(alarm.getRoomNumber());
         notification.setElderId(alarm.getElderId());

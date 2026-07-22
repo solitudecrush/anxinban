@@ -89,8 +89,8 @@ public class NotificationService {
             notif.setUserId(userId != null ? userId : "");
             notif.setUserType(userType != null ? userType : "family");
             notif.setType("alert");
-            notif.setTitle("");
-            notif.setContent("");
+            notif.setTitle("新通知");
+            notif.setContent("暂无详情");
             notif.setIsRead(true);
             notif.setCreatedAt(LocalDateTime.now());
             notificationRepository.save(notif);
@@ -132,7 +132,7 @@ public class NotificationService {
         dto.setUserType(entity.getUserType());
         dto.setType(entity.getType());
         dto.setTitle(entity.getTitle());
-        dto.setContent(entity.getContent());
+        dto.setContent(entity.getContent() != null && !entity.getContent().isEmpty() ? entity.getContent() : "暂无详情");
         dto.setIsRead(entity.getIsRead());
         dto.setBuilding(entity.getBuilding());
         dto.setRoom(entity.getRoom());

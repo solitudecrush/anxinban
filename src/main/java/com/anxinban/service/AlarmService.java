@@ -224,7 +224,7 @@ public class AlarmService {
         dto.setDeviceId(entity.getDeviceId());
         dto.setAlarmType(entity.getType());
         dto.setSeverity(entity.getRiskLevel());
-        dto.setDescription(entity.getDescription());
+        dto.setDescription(entity.getDescription() != null && !entity.getDescription().isEmpty() ? entity.getDescription() : "暂无详情");
         dto.setStatus(entity.getStatus());
         dto.setIsRead(entity.getIsRead());
         // 优先使用告警发生时间 occurTime，若为空则回退到 createdAt

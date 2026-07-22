@@ -9,8 +9,10 @@ import com.anxinban.entity.ElderUser;
 import com.anxinban.mapper.AgentConversationRepository;
 import com.anxinban.mapper.AiServiceRecordRepository;
 import com.anxinban.mapper.ElderUserRepository;
+import com.anxinban.dto.EmotionDetailDTO;
 import com.anxinban.service.AiAnalysisRecordService;
 import com.anxinban.service.AiForwardService;
+import com.anxinban.service.EmotionDetailService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
@@ -64,6 +66,9 @@ public class AiCompatController {
 
     @Autowired
     private AgentConversationRepository agentConversationRepository;
+
+    @Autowired
+    private EmotionDetailService emotionDetailService;
 
     // ==================== 0. AI 服务状态 ====================
 
@@ -491,7 +496,14 @@ public class AiCompatController {
      */
     @PostMapping("/emotion-analysis")
     public ApiResponse<Map<String, Object>> emotionAnalysis(@RequestBody EmotionAnalysisRequest request) {
-        log.info("AI情绪分析请求: elderId={}", request.getElderId());
+        log.info("AI情绪分析请求: elderId={}, dimension={}", request.getElderId(), request.getDimension());
+
+        // 如果传入了 dimension 参数，使用简化的维度分析逻辑（需求二）
+        // 日维度 → 平稳，周/月维度 → 焦虑
+        if (request.getDimension() != null && !request.getDimension().isEmpty()) {
+            log.info("[dimension_mode] 使用维度分析逻辑: dimension={}", request.getDimension());
+            return ApiResponse.success(doDimensionBasedAnalysis(request));
+        }
 
         // 1) 尝试调用外部 Python AI 服务
         Map<String, Object> pythonResult = aiForwardService.forward("/api/ai/emotion-analysis", request);
@@ -503,6 +515,47 @@ public class AiCompatController {
         // 2) Java 规则引擎 fallback
         log.info("[java_fallback] 使用 Java 规则引擎: emotion-analysis");
         return ApiResponse.success(doEmotionAnalysisFallback(request));
+    }
+
+    /**
+     * 基于时间维度的情绪分析（需求二）。
+     *
+     * <p>数据源已统一为 chat_records 表，日/周/月三个维度均从此表实时聚合计算。
+     * 情绪标签和分布数据逻辑一致：正向情绪（开心+平静）占比 > 60% → "平稳"，
+     * 负向情绪（焦虑+低落+孤单+思念）占比 > 50% → "焦虑"。</p>
+     *
+     * <p>该方法委托给 {@link EmotionDetailService}，确保与
+     * GET /api/health/emotion/detail 接口返回的数据一致。</p>
+     */
+    private Map<String, Object> doDimensionBasedAnalysis(EmotionAnalysisRequest request) {
+        // 使用 emotionDetailService 统一计算，保证数据一致性
+        String elderId = request.getElderId() != null ? request.getElderId() : request.getUserId();
+        if (elderId == null || elderId.isEmpty()) {
+            elderId = "1"; // 默认用户 ID
+        }
+
+        String dimension = request.getDimension();
+        if (dimension == null || dimension.isEmpty()) {
+            dimension = "week";
+        }
+
+        EmotionDetailDTO detail = emotionDetailService.getEmotionDetail(elderId, dimension);
+
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("elder_id", elderId);
+        data.put("dimension", detail.getDimension());
+        data.put("dateRange", detail.getDateRange());
+        data.put("emotion_state", "情绪" + detail.getEmotionLabel());
+        data.put("emotion_label", detail.getEmotionLabel());
+        data.put("emotion_score", detail.getEmotionScore());
+        data.put("emotion_level", "焦虑".equals(detail.getEmotionLabel()) ? "anxious" : "normal");
+        data.put("color_class", "焦虑".equals(detail.getEmotionLabel()) ? "warning" : "success");
+        data.put("analysis_text", detail.getAnalysisText());
+        data.put("emotion_distribution", detail.getEmotionDistribution());
+        data.put("suggestions", detail.getSuggestions());
+        data.put("source", "chat_records_aggregation");
+
+        return data;
     }
 
     private Map<String, Object> doEmotionAnalysisFallback(EmotionAnalysisRequest request) {
@@ -908,6 +961,12 @@ public class AiCompatController {
         @JsonProperty("elder_id")
         private String elderId;
 
+        @JsonProperty("user_id")
+        private String userId;
+
+        @JsonProperty("dimension")
+        private String dimension;
+
         @JsonProperty("recent_health")
         private Map<String, Object> recentHealth;
 
@@ -919,6 +978,12 @@ public class AiCompatController {
 
         public String getElderId() { return elderId; }
         public void setElderId(String elderId) { this.elderId = elderId; }
+
+        public String getUserId() { return userId; }
+        public void setUserId(String userId) { this.userId = userId; }
+
+        public String getDimension() { return dimension; }
+        public void setDimension(String dimension) { this.dimension = dimension; }
 
         public Map<String, Object> getRecentHealth() { return recentHealth; }
         public void setRecentHealth(Map<String, Object> recentHealth) { this.recentHealth = recentHealth; }

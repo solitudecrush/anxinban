@@ -61,3 +61,12 @@ build/
 .env
 .env.*
 !.env.example
+
+### Runtime logs ###
+*.log
+
+### User uploads (keep directory structure, ignore files) ###
+uploads/avatars/*.jpg
+uploads/avatars/*.png
+uploads/avatars/*.jpeg
+!uploads/avatars/default.png

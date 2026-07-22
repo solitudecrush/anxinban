@@ -39,6 +39,10 @@ public class SleepRecord {
     @Column(name = "quality_score")
     private Integer qualityScore;
 
+    /** 总睡眠时长（小时） */
+    @Column(name = "total_sleep_hours")
+    private Double totalSleepHours;
+
     /** 深睡占比 % */
     @Column(name = "deep_sleep_percent")
     private Integer deepSleepPercent;
@@ -70,6 +74,9 @@ public class SleepRecord {
 
     public Integer getQualityScore() { return qualityScore; }
     public void setQualityScore(Integer qualityScore) { this.qualityScore = qualityScore; }
+
+    public Double getTotalSleepHours() { return totalSleepHours; }
+    public void setTotalSleepHours(Double totalSleepHours) { this.totalSleepHours = totalSleepHours; }
 
     public Integer getDeepSleepPercent() { return deepSleepPercent; }
     public void setDeepSleepPercent(Integer deepSleepPercent) { this.deepSleepPercent = deepSleepPercent; }
