@@ -175,25 +175,49 @@ public class HealthService {
         dto.setType(type);
         dto.setPeriod(period);
 
-        LocalDateTime end = LocalDateTime.now();
+        LocalDate today = LocalDate.now();
         LocalDateTime start;
+        LocalDateTime end;
         switch (period) {
             case "day":
-                // 查询昨天完整一天的数据（00:00:00 ~ 23:59:59）
-                LocalDate yesterday = LocalDate.now().minusDays(1);
+                // 直接显示昨天完整一天的数据（00:00 ~ 23:59）
+                LocalDate yesterday = today.minusDays(1);
                 start = yesterday.atStartOfDay();
                 end = yesterday.atTime(23, 59, 59);
                 break;
             case "month":
-                start = end.minus(30, ChronoUnit.DAYS);
+                // 最近30天（含今天），每天一个数据点
+                start = today.minusDays(29).atStartOfDay();
+                end = today.atTime(23, 59, 59);
                 break;
             case "week":
             default:
                 // 最近7天（含今天），前端图表使用7个 X 轴标签
-                start = end.minus(6, ChronoUnit.DAYS);
+                start = today.minusDays(6).atStartOfDay();
+                end = today.atTime(23, 59, 59);
                 break;
         }
 
+        List<HealthTrendDto.HealthTrendItemDto> items = queryHistoryData(elderId, type, start, end);
+
+        // 填补空缺时间点：确保所有预期时间槽位都有数据（插值填充）
+        List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
+        dto.setData(filledItems);
+        return dto;
+    }
+
+    /**
+     * 根据类型从对应的数据库表查询历史健康数据。
+     * 优先查询专用表，数据为空时回退到 sensor_data 通用表。
+     *
+     * @param elderId 老人 ID
+     * @param type    数据类型（blood_pressure / heart_rate / blood_oxygen / temperature）
+     * @param start   时间范围起始
+     * @param end     时间范围结束
+     * @return 转换后的 HealthTrendItemDto 列表
+     */
+    private List<HealthTrendDto.HealthTrendItemDto> queryHistoryData(
+            String elderId, String type, LocalDateTime start, LocalDateTime end) {
         List<HealthTrendDto.HealthTrendItemDto> items = new ArrayList<>();
 
         if ("blood_pressure".equals(type)) {
@@ -215,7 +239,6 @@ public class HealthService {
                 item.setValue(hr.getValue() != null ? hr.getValue().doubleValue() : null);
                 items.add(item);
             }
-            // Fallback to sensor_data: MQTT uses "heart-rate", DeviceUpload uses "heart_rate"
             if (items.isEmpty()) {
                 items.addAll(querySensorData(elderId,
                         java.util.List.of("heart_rate", "heart-rate"), start, end));
@@ -229,7 +252,6 @@ public class HealthService {
                 item.setValue(bo.getValue() != null ? bo.getValue().doubleValue() : null);
                 items.add(item);
             }
-            // Fallback to sensor_data: DeviceUpload uses "spo2", MQTT uses "blood-oxygen"
             if (items.isEmpty()) {
                 items.addAll(querySensorData(elderId,
                         java.util.List.of("spo2", "blood_oxygen", "blood-oxygen"), start, end));
@@ -243,7 +265,6 @@ public class HealthService {
                 item.setValue(bt.getValue() != null ? bt.getValue().doubleValue() : null);
                 items.add(item);
             }
-            // Fallback to sensor_data: DeviceUpload uses "temperature", MQTT uses "body-temperature"
             if (items.isEmpty()) {
                 items.addAll(querySensorData(elderId,
                         java.util.List.of("temperature", "body-temperature"), start, end));
@@ -258,11 +279,7 @@ public class HealthService {
                 items.add(item);
             }
         }
-
-        // 填补空缺时间点：确保所有预期时间槽位都有数据（插值填充）
-        List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
-        dto.setData(filledItems);
-        return dto;
+        return items;
     }
 
     /**
@@ -581,7 +598,10 @@ public class HealthService {
     private String formatSlotTime(LocalDateTime slot, String period) {
         switch (period) {
             case "day":
-                return String.format("%02d:%02d", slot.getHour(), slot.getMinute());
+                // 返回完整日期时间格式，匹配前端期望的 "yyyy-MM-dd HH:mm"
+                return String.format("%04d-%02d-%02d %02d:%02d",
+                        slot.getYear(), slot.getMonthValue(), slot.getDayOfMonth(),
+                        slot.getHour(), slot.getMinute());
             case "week":
                 return String.format("%04d-%02d-%02d", slot.getYear(), slot.getMonthValue(), slot.getDayOfMonth());
             case "month":
