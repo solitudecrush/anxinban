@@ -605,7 +605,7 @@ public class HealthService {
             case "week":
                 return String.format("%04d-%02d-%02d", slot.getYear(), slot.getMonthValue(), slot.getDayOfMonth());
             case "month":
-                return slot.getDayOfMonth() + "日";
+                return String.format("%04d-%02d-%02d", slot.getYear(), slot.getMonthValue(), slot.getDayOfMonth());
             default:
                 return slot.toString();
         }
