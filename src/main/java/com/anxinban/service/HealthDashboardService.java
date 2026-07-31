@@ -48,7 +48,7 @@ public class HealthDashboardService {
     /**
      * 构建健康数据看板全部数据。
      *
-     * @param elderId 老人 ID
+     * @param elderId 老人 ID，用于查询各数据表
      * @return 包含四个面板的完整看板数据
      */
     public HealthDashboardDto buildDashboard(String elderId) {
@@ -147,7 +147,7 @@ public class HealthDashboardService {
     private CompanionPanel buildCompanionPanel(String elderId) {
         CompanionPanel panel = new CompanionPanel();
 
-        // 查询近 30 天陪伴对话记录（从 chat_records 表，统一数据源）
+        // chat_records.user_id 存储的是老人 ID，直接使用 elderId 查询
         LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
         LocalDate today = LocalDate.now();
         List<ChatRecord> recentRecords = chatRecordRepository

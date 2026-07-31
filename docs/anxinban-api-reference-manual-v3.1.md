@@ -1,8 +1,8 @@
-# 安心伴（Anxinban）后端 RESTful API 接口参考手册 v3.1
+# 安心伴（Anxinban）后端 RESTful API 接口参考手册 v3.2
 
 > **公网地址**: `http://120.27.129.78:8080`
 > **本地地址**: `http://localhost:8080`
-> **生成日期**: 2026-07-17（v3.1修订）
+> **生成日期**: 2026-07-31（v3.2修订）
 > **统一响应格式**: `{"code": 200, "message": "success", "data": {...}}`
 > **Content-Type**: 所有 POST/PUT 请求需 `Content-Type: application/json`，文件上传用 `multipart/form-data`
 > **HTTP状态码映射**: `200`-成功, `201`-创建成功, `400`-请求参数错误, `401`-未认证, `403`-无权限, `404`-资源不存在, `500`-服务器内部错误
@@ -69,9 +69,9 @@ curl -s http://120.27.129.78:8080/
   "code": 200, "message": "success",
   "data": {
     "service": "anxinban-backend",
-    "version": "1.0.0",
+    "version": "0.0.1-SNAPSHOT",
     "health": "/api/health",
-    "docs": "/docs"
+    "docs": "/api"
   }
 }
 ```
@@ -130,12 +130,14 @@ curl -s -X POST http://120.27.129.78:8080/api/auth/login/web \
 {
   "code": 200, "message": "success",
   "data": {
+    "accessToken": null,
+    "refreshToken": null,
     "userId": "STF-f65acafd",
     "name": "李新成",
     "phone": "13900000000",
     "role": "staff",
-    "userType": "staff",
-    "token": null
+    "communityId": "community_001",
+    "avatar": "/uploads/avatars/default.png"
   }
 }
 ```
@@ -429,14 +431,12 @@ curl -s http://120.27.129.78:8080/api/dashboard/stats
 {
   "code": 200, "message": "success",
   "data": {
-    "elderCount": 6,
-    "deviceCount": 17,
-    "alarmCount": 40,
-    "workOrderCount": 27,
-    "staffCount": 5,
+    "elderTotal": 6,
+    "todayAlarmCount": 40,
     "onlineDeviceCount": 15,
-    "pendingAlarmCount": 15,
-    "pendingOrderCount": 22
+    "pendingOrderCount": 22,
+    "healthAbnormalCount": 3,
+    "todayIntrusionCount": 2
   }
 }
 ```
@@ -591,7 +591,7 @@ curl -s -X POST http://120.27.129.78:8080/api/alarms/alarm_001/handle \
 curl -s "http://120.27.129.78:8080/api/work-order/list?page=1&pageSize=10"
 
 # 按状态筛选
-curl -s "http://120.27.129.78:8080/api/work-order/list?status=待处理&page=1&pageSize=10"
+curl -s "http://120.27.129.78:8080/api/work-order/list?status=待分配&page=1&pageSize=10"
 
 # 按关键词搜索
 curl -s "http://120.27.129.78:8080/api/work-order/list?keyword=跌倒&page=1&pageSize=10"
@@ -603,7 +603,7 @@ curl -s "http://120.27.129.78:8080/api/work-order/list?keyword=跌倒&page=1&pag
 |------|------|------|
 | keyword | String | 关键词搜索 |
 | elderName | String | 老人姓名 |
-| status | String | 状态：待处理/处理中/已完成 |
+| status | String | 状态：待分配/处理中/已完成 |
 | page | int | 页码 |
 | pageSize | int | 每页条数 |
 
@@ -929,7 +929,7 @@ curl -s -X POST http://120.27.129.78:8080/api/device/upload \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 75 | 最新健康数据(兼容) | GET | `/api/health/latest/{elder_id}` | snake_case版 |
+| 74 | 最新健康数据(兼容) | GET | `/api/health/latest/{elder_id}` | snake_case版 |
 
 ### 14.1 最新健康数据(兼容)
 
@@ -1433,7 +1433,7 @@ curl -s -X POST http://120.27.129.78:8080/api/upload/snapshot \
 
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
-| 124 | 获取智能体上下文 | GET | `/api/agent/context?elderId=xxx` | 获取老人完整智能体上下文 |
+| 125 | 获取智能体上下文 | GET | `/api/agent/context?elderId=xxx` | 获取老人完整智能体上下文 |
 
 ### 28.1 获取智能体上下文
 
@@ -1630,12 +1630,7 @@ curl -s -X POST http://120.27.129.78:8080/api/local-agent/control \
 
 ## 31. AI服务
 
-> 异步接口，返回 `CompletableFuture`。
-
-| # | 接口名称 | 方法 | URL | 说明 |
-|---|---------|------|-----|------|
-| 72 | AI异步对话 | POST | `/api/ai/chat` | (已在第11节) |
-| 73 | AI异步找物 | POST | `/api/ai/find-item` | (已在第11节) |
+> 异步接口，返回 `CompletableFuture`。详见第11节接口 72-73。
 
 ---
 
@@ -1875,6 +1870,181 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 
 ---
 
+## 36. 健康数据看板
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 169 | 健康数据看板 | GET | `/api/health-dashboard` | 聚合睡眠/陪伴/音乐/找物数据 |
+
+### 36.1 健康数据看板
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health-dashboard?elderId=elder_001"
+```
+
+请求参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elderId | String | 否 | 老人ID，默认"1" |
+
+返回包含四个面板的完整看板数据：睡眠分析、陪伴记录、音乐疗法、物品寻找。
+
+---
+
+## 37. 健康详情（音乐/陪伴/找物/情绪）
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 170 | 音乐详情 | GET | `/api/health/music/detail` | 每日播放时长+热门歌曲 |
+| 171 | 陪伴详情 | GET | `/api/health/companion/detail` | 每日情绪分布+对话预览 |
+| 172 | 找物详情 | GET | `/api/health/item/detail` | 找物历史+成功率 |
+| 173 | 情绪分析 | GET | `/api/health/emotion/analysis` | 情绪标签+评分 |
+| 174 | 情绪详情 | GET | `/api/health/emotion/detail` | 完整情绪分析详情 |
+
+### 37.1 音乐详情
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health/music/detail?elderId=elder_001&startDate=2025-05-12&endDate=2025-05-18"
+```
+
+请求参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elderId | String | 否 | 老人ID，默认"1" |
+| startDate | Date | 否 | 开始日期（ISO格式），默认7天前 |
+| endDate | Date | 否 | 结束日期（ISO格式），默认今天 |
+
+### 37.2 陪伴详情
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health/companion/detail?elderId=elder_001"
+```
+
+参数同 37.1。
+
+### 37.3 找物详情
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health/item/detail?elderId=elder_001"
+```
+
+参数同 37.1。
+
+### 37.4 情绪分析
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health/emotion/analysis?elderId=elder_001&dimension=week"
+```
+
+请求参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elderId | String | 是 | 老人ID |
+| dimension | String | 否 | 时间维度：day/week/month，默认week |
+
+### 37.5 情绪详情
+
+```bash
+curl -s "http://120.27.129.78:8080/api/health/emotion/detail?elderId=elder_001&dimension=week"
+```
+
+参数同 37.4。返回完整情绪分析详情，包括情绪标签、评分、分析文本、情绪分布、关键事件及建议。
+
+---
+
+## 38. 睡眠记录补充
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 175 | 最新睡眠记录 | GET | `/api/sleep-record/latest` | 获取最新睡眠记录（含失眠等级） |
+
+### 38.1 最新睡眠记录
+
+```bash
+curl -s "http://120.27.129.78:8080/api/sleep-record/latest?elderId=elder_001"
+```
+
+返回最新睡眠记录及失眠等级映射（quality_score >= 80 → 正常，>= 60 → 轻度，>= 40 → 中度，< 40 → 重度）。
+
+---
+
+## 39. AI 补充接口
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 176 | AI用量统计 | GET | `/api/ai/usage-stats` | 三类AI服务+智能体对话统计 |
+| 177 | AI情绪分析 | POST | `/api/ai/emotion-analysis` | 多维情绪状态分析 |
+
+### 39.1 AI用量统计
+
+```bash
+curl -s http://120.27.129.78:8080/api/ai/usage-stats
+```
+
+返回 companion_chat / find_item / music_control 三类服务及智能体对话的数量统计。
+
+### 39.2 AI情绪分析
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/ai/emotion-analysis \
+  -H "Content-Type: application/json" \
+  -d '{"elder_id": "elder_001", "dimension": "week"}'
+```
+
+请求体字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| elder_id | String | 是 | 老人ID |
+| user_id | String | 否 | 用户ID（兼容） |
+| dimension | String | 否 | 时间维度：day/week/month |
+| recent_health | Object | 否 | 健康数据 |
+| sleep_data | Object | 否 | 睡眠数据 |
+| recent_alarms | Object | 否 | 近期告警汇总 |
+
+---
+
+## 40. AI 服务记录
+
+| # | 接口名称 | 方法 | URL | 说明 |
+|---|---------|------|-----|------|
+| 178 | 创建AI服务记录 | POST | `/api/ai-service/record` | 同步创建AI服务记录 |
+| 179 | 异步创建记录 | POST | `/api/ai-service/record/async` | 异步创建（返回CompletableFuture） |
+| 180 | 查询记录列表 | GET | `/api/ai-service/record/list` | 按elderId/serviceType筛选 |
+| 181 | 异步查询列表 | GET | `/api/ai-service/record/list/async` | 异步查询（返回CompletableFuture） |
+
+### 40.1 创建AI服务记录
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/ai-service/record \
+  -H "Content-Type: application/json" \
+  -d '{
+    "elderId": "elder_001",
+    "serviceType": "companion_chat",
+    "emotion": "开心",
+    "emotionColor": "#4CAF50",
+    "summary": "老人与AI助手聊天，情绪愉悦",
+    "interactionTime": "2025-05-17 09:00:00"
+  }'
+```
+
+serviceType 可选值：`companion_chat`（陪伴对话）、`find_item`（找物品）、`music_control`（音乐控制）。
+
+### 40.2 查询AI服务记录列表
+
+```bash
+# 按老人ID查询
+curl -s "http://120.27.129.78:8080/api/ai-service/record/list?elderId=elder_001"
+
+# 按服务类型查询
+curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=companion_chat"
+```
+
+---
+
 ## 附录：通用数据结构
 
 ### ApiResponse<T> — 统一响应
@@ -1967,7 +2137,7 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 | orderType | String | 工单类型：紧急巡检/健康关注/设备检查/设备维修/上门护理/日常关怀 |
 | type | String | 工单类型(兼容字段) |
 | description | String | 工单描述 |
-| status | String | 状态：待处理/处理中/已完成 |
+| status | String | 状态：待分配/处理中/已完成 |
 | creatorId | String | 创建人ID |
 | handlerId | String | 处理人ID |
 | handlerName | String | 处理人姓名 |
@@ -2009,12 +2179,14 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| accessToken | String | 访问令牌（当前为null） |
+| refreshToken | String | 刷新令牌（当前为null） |
 | userId | String | 用户ID |
 | name | String | 姓名 |
 | phone | String | 手机号 |
 | role | String | 角色 |
-| userType | String | 用户类型：staff/family |
-| token | String | 令牌(当前为null) |
+| communityId | String | 社区ID |
+| avatar | String | 头像URL |
 
 ### 告警类型枚举
 
@@ -2073,7 +2245,7 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 | 健康管理-兼容 | 1 |
 | 健康记录 | 3 |
 | 健康体征 | 3 |
-| 睡眠记录 | 2 |
+| 睡眠记录 | 3 |
 | 陪伴记录 | 2 |
 | VLM记录 | 2 |
 | 摄像头查看 | 2 |
@@ -2091,12 +2263,16 @@ curl -s "http://120.27.129.78:8080/api/elders?page=1&pageSize=10&building=1号�
 | 生命体征独立查询 | 9 |
 | 模拟器 | 11 |
 | 老人管理-兼容 | 1 |
-| **总计** | **171** |
+| 健康数据看板 | 1 |
+| 健康详情(音乐/陪伴/找物/情绪) | 5 |
+| AI补充 | 2 |
+| AI服务记录 | 4 |
+| **总计** | **182** |
 
 ---
 
-> **文档版本**: v3.1
-> **生成日期**: 2026-07-17
+> **文档版本**: v3.2
+> **生成日期**: 2026-07-31
 > **对应数据库**: `anxinban` (35张生产表)
 > **SQL脚本**: `anxinban-db-full-20260704.sql`
 > **框架**: Spring Boot 2.7, Java 17, MySQL 8.0

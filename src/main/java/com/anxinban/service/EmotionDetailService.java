@@ -95,14 +95,15 @@ public class EmotionDetailService {
                 .findByUserIdAndDateBetweenOrderByDateAsc(elderId, startDate, endDate);
 
         // 3) 情绪标签分布统计（从 chat_records 表实时聚合计算）
+        // 对 emotion 字段做 trim 处理，防止前后空格导致匹配失败
         Map<String, Long> rawStats = records.stream()
-                .filter(r -> r.getEmotion() != null && !r.getEmotion().isEmpty()
-                        && ALL_VALID_EMOTIONS.contains(r.getEmotion()))
-                .collect(Collectors.groupingBy(ChatRecord::getEmotion, Collectors.counting()));
+                .filter(r -> r.getEmotion() != null && !r.getEmotion().trim().isEmpty()
+                        && ALL_VALID_EMOTIONS.contains(r.getEmotion().trim()))
+                .collect(Collectors.groupingBy(r -> r.getEmotion().trim(), Collectors.counting()));
 
         Map<String, Integer> distribution = new LinkedHashMap<>();
 
-        // 按固定顺序排列情绪标签
+        // 按固定顺序排列情绪标签，保证前端渲染顺序一致
         String[] orderedEmotions = {"开心", "平静", "低落", "焦虑", "孤单", "思念"};
         if (!rawStats.isEmpty()) {
             long total = rawStats.values().stream().mapToLong(Long::longValue).sum();
@@ -114,9 +115,9 @@ public class EmotionDetailService {
                 }
             }
         } else {
-            // 无数据时填充空分布（让前端自行处理）
-            log.warn("chat_records 表中无数据: elderId={}, startDate={}, endDate={}",
-                    elderId, startDate, endDate);
+            // 无数据时填充空分布（让前端通过空 Map 自行展示"暂无数据"）
+            log.warn("chat_records 表中无有效情绪数据: elderId={}, dimension={}, startDate={}, endDate={}, totalRecords={}",
+                    elderId, dimension, startDate, endDate, records.size());
         }
         dto.setEmotionDistribution(distribution);
 
@@ -267,10 +268,10 @@ public class EmotionDetailService {
         // 仅选取负向情绪（低落、焦虑、孤单、思念）的记录，按日期倒序（最新在前），最多取5条
         // 若时间范围内无负向情绪记录（如日维度当日情绪平稳），则返回空数组
         List<ChatRecord> notableRecords = records.stream()
-                .filter(r -> r.getMessage() != null && !r.getMessage().isEmpty())
+                .filter(r -> r.getMessage() != null && !r.getMessage().trim().isEmpty())
                 .filter(r -> {
                     String emotion = r.getEmotion();
-                    return emotion != null && NEGATIVE_EMOTIONS.contains(emotion);
+                    return emotion != null && NEGATIVE_EMOTIONS.contains(emotion.trim());
                 })
                 .sorted(Comparator.comparing(ChatRecord::getDate).reversed())
                 .limit(5)

@@ -1,9 +1,9 @@
 # 安心伴智慧养老守护系统 后端接口规范文档
 
-> **文档版本**：v2.2（2026-07-17 复审）  
+> **文档版本**：v2.3（2026-07-31 复审）  
 > **唯一对接标准**：Web 前端、App 前端、本地硬件、本地智能体、云端智能体及云平台服务均以此文档为准进行接口开发与联调。
 > 
-> 📖 **详细接口参考手册**：参见 `anxinban-api-reference-manual-v3.1.md`（171个接口，含 curl 示例和响应格式）
+> 📖 **详细接口参考手册**：参见 `anxinban-api-reference-manual-v3.1.md`（182个接口，含 curl 示例和响应格式）
 
 ## 1. 文档说明
 
@@ -138,8 +138,8 @@
 | 模块 | 接口 | 参数名 | 可选值 |
 | --- | --- | --- | --- |
 | 老人健康历史 | `GET /api/elder/{elderId}/health/history` | `range` | day / week / month |
-| 健康趋势 | `GET /api/health/trend/{elderId}` | `period` | day / week / month |
-| 健康分析 | `GET /api/health/analysis/{elderId}` | `period` | day / week / month |
+| 情绪分析 | `GET /api/health/emotion/analysis` | `dimension` | day / week / month |
+| 情绪详情 | `GET /api/health/emotion/detail` | `dimension` | day / week / month |
 
 ---
 
@@ -466,51 +466,58 @@
 | sleepTime | 入睡时间 | String |
 | updateTime | 数据更新时间 | String |
 
-### 6.2 获取健康趋势
+### 6.2 获取健康数据看板
 
-- **接口**：`GET /api/health/trend/{elderId}`
-- **说明**：获取健康数据趋势
+- **接口**：`GET /api/health-dashboard`
+- **说明**：聚合睡眠分析、陪伴记录、音乐疗法、物品寻找四项数据
 - **查询参数**：
 
 | 参数 | 说明 | 是否必填 |
 | --- | --- | --- |
-| type | 数据类型 | 是 |
-| period | 时间范围（day/week/month，默认week） | 否 |
+| elderId | 老人ID | 否（默认"1"） |
 
-- **响应**：HealthTrendDto
+- **响应**：HealthDashboardDto（包含四个面板的完整看板数据）
 
-### 6.3 获取健康分析
+### 6.3 获取音乐详情
 
-- **接口**：`GET /api/health/analysis/{elderId}`
-- **说明**：获取AI健康分析报告
+- **接口**：`GET /api/health/music/detail`
+- **说明**：每日播放总时长 + 最近7天热门歌曲 Top5
 - **查询参数**：
 
 | 参数 | 说明 | 是否必填 |
 | --- | --- | --- |
-| period | 时间范围（day/week/month，默认week） | 否 |
+| elderId | 老人ID | 否（默认"1"） |
+| startDate | 开始日期（ISO格式） | 否（默认7天前） |
+| endDate | 结束日期（ISO格式） | 否（默认今天） |
 
-- **响应**：HealthAnalysisDto
+### 6.4 获取陪伴对话详情
 
-| 字段 | 说明 | 类型 |
-| --- | --- | --- |
-| elderId | 老人ID | String |
-| period | 分析周期 | String |
-| summary | 健康总结 | String |
-| suggestion | 健康建议 | String |
+- **接口**：`GET /api/health/companion/detail`
+- **说明**：每日情绪分布 + 最近10条对话预览
+- **查询参数**：同 6.3
 
-### 6.4 获取健康异常告警
+### 6.5 获取物品寻找详情
 
-- **接口**：`GET /api/health/abnormal/{elderId}`
-- **说明**：获取老人健康异常告警列表
+- **接口**：`GET /api/health/item/detail`
+- **说明**：物品寻找历史记录、总次数及成功率
+- **查询参数**：同 6.3
+
+### 6.6 获取情绪分析
+
+- **接口**：`GET /api/health/emotion/analysis`
+- **说明**：根据时间维度返回情绪标签和评分
 - **查询参数**：
 
 | 参数 | 说明 | 是否必填 |
 | --- | --- | --- |
-| status | 告警状态筛选 | 否 |
-| page | 页码（默认1） | 否 |
-| pageSize | 每页大小（默认20） | 否 |
+| elderId | 老人ID | 是 |
+| dimension | 时间维度（day/week/month，默认week） | 否 |
 
-- **响应**：`PageResult<AlarmDto>`
+### 6.7 获取情绪详情
+
+- **接口**：`GET /api/health/emotion/detail`
+- **说明**：完整情绪分析详情（标签、评分、分析文本、情绪分布、关键事件、建议）
+- **查询参数**：同 6.6
 
 ---
 
@@ -921,7 +928,7 @@
 | page | 页码（默认1） | 否 |
 | pageSize | 每页大小（默认20） | 否 |
 
-> Web端状态枚举：`pending`（待处理）、`approved`（已通过）、`rejected`（已拒绝）
+> Web端状态枚举：`pending`（待处理）、`converted`（已转工单）、`rejected`（已拒绝）
 
 - **响应**：`PageResult<ServiceRequestDto>`
 
@@ -1680,12 +1687,12 @@ flowchart LR
 | completed | 已完成 |
 | ignored | 已拒绝 |
 
-### 21.5 服务申请状态（Web端）
+### 21.5 服务申请状态（Web端，与App端一致）
 
 | 编码 | 说明 |
 | --- | --- |
 | pending | 待处理 |
-| approved | 已通过 |
+| converted | 已转工单 |
 | rejected | 已拒绝 |
 
 ### 21.6 监控申请状态
@@ -1740,14 +1747,14 @@ flowchart LR
 5. **状态编码统一**：工单状态后端返回中文（`待分配`/`处理中`/`已完成`），告警状态返回英文（`pending`/`handled`），请前端按对应枚举值处理。
 6. **分页参数**：多数接口用 `pageSize`；干预列表用 `size`（见 §2.5）。
 7. **服务申请筛选**：Web 端列表参数名为 `requestType`（非 `type`）。
-8. **健康趋势参数**：老人模块用 `range`，健康模块用 `period`（见 §2.7）。
+8. **时间维度参数**：老人健康历史用 `range`（day/week/month），情绪分析/详情用 `dimension`（day/week/month），见 §2.7。
 9. **HTTP 状态码**：外层 HTTP 始终为 200，业务结果看 body 中的 `code`（见 §2.2）。
 
 ---
 
 ## 23. 文档与代码对照（2026-06-02 全量核查）
 
-> 对照范围：`anxinban/src/main/java/com/anxinban/controller/` 下 **19 个 Controller**，共 **100 个端点**。以下标注当前仍须联调方注意的实现局限。
+> 对照范围：`src/main/java/com/anxinban/controller/` 下 **33 个 Controller**，共 **182 个端点**。以下标注当前仍须联调方注意的实现局限。
 
 ### 23.1 代码实现局限（文档已如实标注，后续可优化）
 
@@ -1777,8 +1784,9 @@ flowchart LR
 - **文档覆盖率**：已实现 Controller 端点 **100% 收录**（见 §24 速查表）。
 - **文档准确性**：路径、参数、响应结构与当前代码一致。
 - **告警持久化**：`POST /api/local-agent/alarm-report` 已写入告警库。
-- **本次代码变更已同步**：`HealthService` 对 `insomnia`/`sleep_time` 的映射规则已写入 §3.4；SOS/干预字段局限已写入 §23.1。
-- **复审日期**：2026-06-02（代码修改后二次核查）
+- **健康数据模块修正**：移除了不存在的 `/api/health/trend`、`/api/health/analysis`、`/api/health/abnormal`，新增 `/api/health-dashboard`、`/api/health/music/detail`、`/api/health/companion/detail`、`/api/health/item/detail`、`/api/health/emotion/analysis`、`/api/health/emotion/detail`。
+- **新增模块**：AI 服务记录（`/api/ai-service`）、AI 用量统计、AI 情绪分析、睡眠记录最新接口。
+- **复审日期**：2026-07-31（v2.3 修订）
 
 ---
 
@@ -1869,8 +1877,17 @@ flowchart LR
 | GET | `/api/sos/{sosId}` | SOS 详情 | Web, App |
 | GET | `/api/sos/list` | SOS 历史 | Web, App |
 | PUT | `/api/sos/{sosId}/handle` | 处理 SOS | Web |
+| GET | `/api/health-dashboard` | 健康数据看板 | Web, App |
+| GET | `/api/health/music/detail` | 音乐详情 | Web, App |
+| GET | `/api/health/companion/detail` | 陪伴对话详情 | Web, App |
+| GET | `/api/health/item/detail` | 找物详情 | Web, App |
+| GET | `/api/health/emotion/analysis` | 情绪分析 | Web, App |
+| GET | `/api/health/emotion/detail` | 情绪详情 | Web, App |
+| GET | `/api/sleep-record/latest` | 最新睡眠记录 | Web, App, CA |
 | POST | `/api/ai/chat` | AI 异步对话 | Web, App, CA |
 | POST | `/api/ai/find-item` | AI 异步找物 | Web, App, CA |
+| GET | `/api/ai/usage-stats` | AI 用量统计 | Web |
+| POST | `/api/ai/emotion-analysis` | AI 情绪分析 | Web, App, CA |
 | POST | `/api/ai-service/record` | 创建 AI 服务记录 | Web, App, CA |
 | POST | `/api/ai-service/record/async` | 异步创建 AI 服务记录 | Web, App, CA |
 | GET | `/api/ai-service/record/list` | 查询 AI 服务记录列表 | Web, App, CA |

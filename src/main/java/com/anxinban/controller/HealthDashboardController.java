@@ -31,14 +31,13 @@ public class HealthDashboardController {
     /**
      * 获取老人健康数据看板。
      *
-     * @param elderId 老人 ID（必填）
+     * @param elderId 老人 ID，不传默认 "1"
      * @return 包含四个面板的完整看板数据
      */
     @GetMapping
-    public ApiResponse<HealthDashboardDto> getDashboard(@RequestParam String elderId) {
-        if (elderId == null || elderId.isEmpty()) {
-            return ApiResponse.error(400, "elderId 不能为空");
-        }
+    public ApiResponse<HealthDashboardDto> getDashboard(
+            @RequestParam(defaultValue = "1") String elderId) {
+
         HealthDashboardDto dto = healthDashboardService.buildDashboard(elderId);
         return ApiResponse.success(dto);
     }

@@ -1,142 +1,107 @@
 ﻿# 安心伴智慧养老守护系统 — API 接口完整测试文档
 
+> ⚠️ **本文档已严重过时，请勿作为对接依据！**  
+> 以下接口路径大部分已不再使用，请以最新文档为准：  
+> - **接口规范**：`docs/api文档.md`（v2.3，2026-07-31）  
+> - **接口参考手册**：`docs/anxinban-api-reference-manual-v3.1.md`（v3.2，182个接口，含 curl 示例）  
+
 > **基地址**：http://localhost:8080  
 > **后端框架**：Spring Boot 2.7 / Java 17  
 > **端口**：8080  
 > **数据库**：MySQL 8.0+（35张表，生产环境 v20260704）  
-> **文档版本**：v2.1（2026-07-17 更新，覆盖核心API接口）
+> **文档版本**：v2.2（2026-07-31 标记过时）
 
 ---
 
-## 一、接口总览
+## 一、接口总览（⚠️ 已过时，仅供参考）
 
-| 序号 | 模块 | 方法 | 路径 | 说明 | 对应数据库表 |
-|------|------|------|------|------|-------------|
-| 1 | 个人信息 | GET | /api/profile | 获取老人基本信息 | elder_user |
-| 2 | 个人信息 | PATCH | /api/profile | 更新老人基本信息 | elder_user |
-| 3 | 实时体征 | GET | /api/vitals/latest | 获取最新体征 | sensor_data |
-| 4 | 体征趋势 | GET | /api/vitals/history?period= | 体征历史趋势 | sensor_data |
-| 5 | 告警列表 | GET | /api/alerts | 获取所有告警 | alarm_event |
-| 6 | 最新告警 | GET | /api/alerts/latest | 获取最新告警 | alarm_event |
-| 7 | AI 分析 | POST | /api/ai/analyze | 健康数据分析 | sensor_data, blood_pressure |
-| 8 | 老人列表 | GET | /api/elder/list | 获取所有老人 | elder_user |
-| 9 | 老人详情 | GET | /api/elder/{elderId} | 单个老人信息 | elder_user |
-| 10 | 更新老人 | PUT | /api/elder/{elderId} | 更新老人信息 | elder_user |
-| 11 | 设备列表 | GET | /api/device/list | 获取所有设备 | device |
-| 12 | 设备详情 | GET | /api/device/{deviceId} | 单个设备信息 | device |
-| 13 | 设备状态 | PATCH | /api/device/{deviceId}/status | 更新设备状态 | device |
-| 14 | 传感器数据 | GET | /api/sensor-data/list | 传感器历史数据 | sensor_data |
-| 15 | 血压记录 | GET | /api/blood-pressure/list | 血压历史记录 | blood_pressure |
-| 16 | 告警列表(分页) | GET | /api/alarm/list | 分页告警列表 | alarm_event |
-| 17 | 处理告警 | POST | /api/alarm/{alarmId}/handle | 处理告警 | alarm_event |
-| 18 | 用户登录 | POST | /api/auth/login | 登录认证 | staff_user, family_user |
-| 19 | 员工列表 | GET | /api/staff/list | 获取员工 | staff_user |
-| 20 | 家属列表 | GET | /api/family/list | 获取家属 | family_user |
-| 21 | 紧急联系人 | GET | /api/emergency-contact/list | 紧急联系人 | emergency_contact |
-| 22 | 健康档案 | GET | /api/health-record/{elderId} | 健康档案 | health_record |
-| 23 | 保存健康档案 | PUT | /api/health-record/{elderId} | 保存档案 | health_record |
-| 24 | SOS记录 | GET | /api/sos/list | SOS记录列表 | sos_record |
-| 25 | 工单列表 | GET | /api/work-order/list | 工单管理 | work_order |
-| 26 | 创建工单 | POST | /api/work-order/create | 创建工单 | work_order |
-| 27 | 服务申请 | GET | /api/service-request/list | 服务申请列表 | service_request |
-| 28 | 提交服务申请 | POST | /api/service-request/create | 提交申请 | service_request |
-| 29 | 监控申请 | GET | /api/monitor-request/list | 监控申请列表 | monitor_request |
-| 30 | 审批监控申请 | POST | /api/monitor-request/approve | 同意/拒绝 | monitor_request |
-| 31 | 通知列表 | GET | /api/notification/list | 通知列表 | notification |
-| 32 | AI建议历史 | GET | /api/ai-advice/list | AI建议记录 | ai_advice |
-| 33 | 本地智能体 | GET | /api/local-agent/list | 本地智能体列表 | local_agent |
-| 34 | 云端智能体 | GET | /api/cloud-agent/list | 云端智能体列表 | cloud_agent |
-| 35 | 音乐干预记录 | GET | /api/music-intervention/list | 干预记录 | music_intervention |
-| 36 | 家居控制日志 | GET | /api/home-control-log/list | 控制日志 | home_control_log |
-| 37 | 对话记录 | GET | /api/conversation/list | 智能体对话 | agent_conversation |
-| 38 | 意图日志 | GET | /api/intent-log/list | 意图识别日志 | agent_intent_log |
-| 39 | 告警处理记录 | GET | /api/alarm-process/list | 处理记录 | alarm_process |
+以下为历史接口列表，实际可用接口请参考 `anxinban-api-reference-manual-v3.1.md`（182个接口）。
 
----
-
-## 二、已实现接口（7个）
-
-### 1. GET /api/profile
-> 获取老人基本信息。无参数。
-
-**响应示例**（200 OK）：
-```json
-{
-  "name": "张大爷",
-  "age": 78,
-  "gender": "男",
-  "familyPhone": "13800000000",
-  "address": "未填写"
-}
-```
-
-### 2. PATCH /api/profile
-> 更新个人信息字段。
-
-**请求体**：
-```json
-{"field": "name", "value": "李大爷"}
-```
-
-**field可选值**：name / age / gender / familyPhone / address  
-**校验规则**：name(2-20字符), age(1-120), gender(男/女), familyPhone(11位手机号), address(2-120字符)
-
-### 3. GET /api/vitals/latest
-> 最新体征数据（模拟生成，每次不同）。
-
-**响应**：
-```json
-{
-  "temperature": 36.5,
-  "heartRate": 72,
-  "systolic": 125,
-  "diastolic": 82,
-  "measuredAt": "2026-06-09T14:30:00Z"
-}
-```
-
-### 4. GET /api/vitals/history?period=week
-> 体征历史趋势。period = day / week / month
-
-### 5. GET /api/alerts
-> 所有告警列表（内置3条模拟数据）。
-
-### 6. GET /api/alerts/latest
-> 最新告警；无告警返回204。
-
-### 7. POST /api/ai/analyze
-> AI健康分析。请求体：{"period": "week"}
-> 配置 OPENAI_API_KEY 后可调用ChatGPT。
+| 序号 | 原路径(已废弃) | 当前正确路径 | 说明 |
+|------|------|------|------|
+| 1 | GET /api/profile | GET /api/elder/{elderId} | 获取老人基本信息 |
+| 2 | PATCH /api/profile | PUT /api/elder/{elderId} | 更新老人基本信息 |
+| 3 | GET /api/vitals/latest | GET /api/vital-signs/latest/{elderId} | 获取最新体征 |
+| 4 | GET /api/vitals/history | GET /api/vital-signs/heart-rate/list 等 | 体征历史趋势 |
+| 5 | GET /api/alerts | GET /api/alarm/list | 获取告警列表 |
+| 6 | GET /api/alerts/latest | GET /api/alarm/list?page=1&pageSize=1 | 最新告警 |
+| 7 | POST /api/ai/analyze | POST /api/ai/health-analysis | 健康数据分析 |
+| 8 | GET /api/elder/list | GET /api/elder/list | ✓ 仍可用 |
+| 9 | GET /api/elder/{elderId} | GET /api/elder/{elderId} | ✓ 仍可用 |
+| 10 | PUT /api/elder/{elderId} | PUT /api/elder/{elderId} | ✓ 仍可用 |
+| 11 | GET /api/device/list | GET /api/device/list | ✓ 仍可用 |
+| 12 | GET /api/device/{deviceId} | GET /api/device/{deviceId} | ✓ 仍可用 |
+| 13 | PATCH /api/device/{deviceId}/status | PUT /api/device/{deviceId}/status | 更新设备状态 |
+| 14 | GET /api/sensor-data/list | GET /api/device/{deviceId}/sensor-data | 传感器历史数据 |
+| 15 | GET /api/blood-pressure/list | GET /api/vital-signs/blood-pressure/list | 血压历史记录 |
+| 16 | GET /api/alarm/list | GET /api/alarm/list | ✓ 仍可用 |
+| 17 | POST /api/alarm/{alarmId}/handle | PUT /api/alarm/{alarmId}/resolve | 处理告警 |
+| 18 | POST /api/auth/login | POST /api/auth/login | ✓ 仍可用（推荐用 /login/web 或 /login/app） |
+| 19 | GET /api/staff/list | GET /api/staff/list | ✓ 仍可用 |
+| 20 | GET /api/family/list | 无此接口 | 家属信息通过 /api/auth/me 查询 |
+| 21 | GET /api/emergency-contact/list | GET /api/emergency-contact/list | ✓ 仍可用 |
+| 22 | GET /api/health-record/{elderId} | GET /api/health-record/by-elder/{elderId} | 健康档案 |
+| 23 | PUT /api/health-record/{elderId} | POST /api/health-record | 保存档案（upsert） |
+| 24 | GET /api/sos/list | GET /api/sos/list | ✓ 仍可用 |
+| 25 | GET /api/work-order/list | GET /api/work-order/list | ✓ 仍可用 |
+| 26 | POST /api/work-order/create | POST /api/work-order | 创建工单 |
+| 27 | GET /api/service-request/list | GET /api/service-request/list | ✓ 仍可用 |
+| 28 | POST /api/service-request/create | POST /api/service-request | 提交申请 |
+| 29 | GET /api/monitor-request/list | 无此通用接口 | 使用 /list/family 或 /list/staff |
+| 30 | POST /api/monitor-request/approve | POST /api/monitor-request/{id}/approve | 同意/拒绝 |
+| 31 | GET /api/notification/list | GET /api/notification/list | ✓ 仍可用 |
+| 32 | GET /api/ai-advice/list | 无此接口 | 使用 POST /api/cloud-agent/advice 写入 |
+| 33 | GET /api/local-agent/list | 无此接口 | 仅心跳/状态上报 |
+| 34 | GET /api/cloud-agent/list | 无此接口 | 仅注册/状态上报 |
+| 35 | GET /api/music-intervention/list | GET /api/intervention/list | 干预记录 |
+| 36 | GET /api/home-control-log/list | 无此接口 | 使用 POST /api/local-agent/control 写入 |
+| 37 | GET /api/conversation/list | GET /api/cloud-agent/conversations | 智能体对话 |
+| 38 | GET /api/intent-log/list | 无此接口 | 使用 POST /api/local-agent/intent 写入 |
+| 39 | GET /api/alarm-process/list | 无此接口 | 告警处理记录已内嵌 AlarmDto |
 
 ---
 
-## 三、数据库表与API完整映射
+## 二、已废弃的模拟接口（全部不可用）
 
-| 数据库表 | 接口数 | 接口路径 |
+> ⚠️ 以下 7 个接口曾为早期原型阶段使用的 mock 接口，**当前代码中已不存在**。请勿调用。
+
+1. ~~GET /api/profile~~ → 使用 `GET /api/elder/{elderId}`
+2. ~~PATCH /api/profile~~ → 使用 `PUT /api/elder/{elderId}`
+3. ~~GET /api/vitals/latest~~ → 使用 `GET /api/vital-signs/latest/{elderId}`
+4. ~~GET /api/vitals/history~~ → 使用 `GET /api/vital-signs/heart-rate/list` 等
+5. ~~GET /api/alerts~~ → 使用 `GET /api/alarm/list`
+6. ~~GET /api/alerts/latest~~ → 使用 `GET /api/alarm/list?page=1&pageSize=1`
+7. ~~POST /api/ai/analyze~~ → 使用 `POST /api/ai/health-analysis`
+
+---
+
+## 三、数据库表与API完整映射（更新）
+
+| 数据库表 | 接口数 | 主要接口路径 |
 |---------|--------|---------|
-| elder_user | 3 | /api/profile, /api/elder/list, /api/elder/{id} |
-| device | 3 | /api/device/list, /api/device/{id}, /api/device/{id}/status |
-| sensor_data | 3 | /api/vitals/latest, /api/vitals/history, /api/sensor-data/list |
-| blood_pressure | 1 | /api/blood-pressure/list |
-| alarm_event | 3 | /api/alerts, /api/alarm/list, /api/alarm/{id}/handle |
-| local_agent | 1 | /api/local-agent/list |
-| cloud_agent | 1 | /api/cloud-agent/list |
-| music_intervention | 1 | /api/music-intervention/list |
-| home_control_log | 1 | /api/home-control-log/list |
-| agent_conversation | 1 | /api/conversation/list |
-| agent_intent_log | 1 | /api/intent-log/list |
-| staff_user | 2 | /api/auth/login, /api/staff/list |
-| family_user | 2 | /api/auth/login, /api/family/list |
-| emergency_contact | 1 | /api/emergency-contact/list |
-| health_record | 2 | /api/health-record/{elderId} |
-| sos_record | 1 | /api/sos/list |
-| work_order | 2 | /api/work-order/list, /api/work-order/create |
-| service_request | 2 | /api/service-request/list, /api/service-request/create |
-| monitor_request | 2 | /api/monitor-request/list, /api/monitor-request/approve |
-| notification | 1 | /api/notification/list |
-| ai_advice | 1 | /api/ai-advice/list |
-| alarm_process | 1 | /api/alarm-process/list |
-| **合计22张表** | **38个接口** | |
+| elder_user | 6 | /api/elder/list, /api/elder/{id}, /api/elder/detail/{id}, /api/elder/bound |
+| device | 7 | /api/device/list, /api/device/{id}, /api/device/register, /api/device/{id}/status, /api/device/{id}/sensor-data |
+| sensor_data | 5 | /api/device/{id}/sensor-data, /api/device/sensor/temperature-humidity, /api/device/sensor/{type} |
+| blood_pressure | 2 | /api/vital-signs/blood-pressure/list, /api/vital-signs/blood-pressure/latest |
+| alarm_event | 9 | /api/alarm/list, /api/alarm/{id}, /api/alarm/{id}/acknowledge, /api/alarm/{id}/resolve |
+| local_agent | 7 | /api/local-agent/heartbeat, /api/local-agent/data, /api/local-agent/alarm-report |
+| cloud_agent | 10 | /api/cloud-agent/register, /api/cloud-agent/report, /api/cloud-agent/chat |
+| music_intervention | 5 | /api/intervention/list, /api/intervention/{id}, /api/intervention (合并到 intervention) |
+| home_control_log | 1 | /api/local-agent/control (仅写入，无列表查询) |
+| agent_conversation | 2 | /api/cloud-agent/conversations, /api/cloud-agent/conversations/{id} |
+| agent_intent_log | 1 | /api/local-agent/intent (仅写入，无列表查询) |
+| staff_user | 3 | /api/auth/login/web, /api/staff/list, /api/staff |
+| family_user | 2 | /api/auth/login/app, /api/auth/me |
+| emergency_contact | 5 | /api/emergency-contact/list, /api/emergency-contact, /api/emergency-contact/{id} |
+| health_record | 3 | /api/health-record/by-elder/{id}, /api/health-record/{id}, /api/health-record |
+| sos_record | 4 | /api/sos, /api/sos/{id}, /api/sos/list, /api/sos/{id}/handle |
+| work_order | 5 | /api/work-order/list, /api/work-order/{id}, /api/work-order |
+| service_request | 6 | /api/service-request, /api/service-request/my-list, /api/service-request/list |
+| monitor_request | 8 | /api/monitor-request, /api/monitor-request/list/family, /api/monitor-request/list/staff |
+| notification | 4 | /api/notification/list, /api/notification/{id}/read, /api/notification/read-all |
+| ai_advice | 1 | /api/cloud-agent/advice (仅写入) |
+| ai_service_record | 4 | /api/ai-service/record, /api/ai-service/record/list |
+| **合计22张表** | **~110+个接口** | 详见 `anxinban-api-reference-manual-v3.1.md` |
 
 ---
 
