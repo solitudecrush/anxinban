@@ -9,14 +9,8 @@ package com.anxinban.service;
 import com.anxinban.dto.HealthAnalysisDto;
 import com.anxinban.dto.HealthLatestDto;
 import com.anxinban.dto.HealthTrendDto;
-import com.anxinban.entity.BloodOxygen;
 import com.anxinban.entity.SensorData;
-import com.anxinban.entity.BodyTemperature;
-import com.anxinban.entity.HeartRate;
-import com.anxinban.mapper.BloodOxygenRepository;
 import com.anxinban.mapper.SensorDataRepository;
-import com.anxinban.mapper.BodyTemperatureRepository;
-import com.anxinban.mapper.HeartRateRepository;
 import com.anxinban.mapper.SensorDataRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -38,21 +32,12 @@ import java.util.stream.Collectors;
 public class HealthService {
     private final SensorDataRepository sensorDataRepository;
     /** 心率 */
-    private final HeartRateRepository heartRateRepository;
     /** 血氧 */
-    private final BloodOxygenRepository bloodOxygenRepository;
     /** 体温 */
-    private final BodyTemperatureRepository bodyTemperatureRepository;
 
     @Autowired
-    public HealthService(SensorDataRepository sensorDataRepository,
-                         HeartRateRepository heartRateRepository,
-                         BloodOxygenRepository bloodOxygenRepository,
-                         BodyTemperatureRepository bodyTemperatureRepository) {
+    public HealthService(SensorDataRepository sensorDataRepository) {
         this.sensorDataRepository = sensorDataRepository;
-        this.heartRateRepository = heartRateRepository;
-        this.bloodOxygenRepository = bloodOxygenRepository;
-        this.bodyTemperatureRepository = bodyTemperatureRepository;
     }
 
         /**
@@ -65,10 +50,12 @@ public class HealthService {
         dto.setElderId(elderId);
 
         // 体温：优先从独立表 body_temperature 读取，fallback 到 sensor_data
-        BodyTemperature latestBt = bodyTemperatureRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        SensorData latestBt = getLatestSensor(elderId, "temperature");
         if (latestBt != null) {
-            dto.setTemperature(latestBt.getValue() != null ? latestBt.getValue().doubleValue() : null);
-            dto.setUpdateTime(latestBt.getTimestamp().toString());
+            if (latestBt != null) {
+                dto.setTemperature(latestBt.getValue());
+                dto.setUpdateTime(latestBt.getTimestamp().toString());
+            }
         } else {
             // 尝试多种 sensor_type：DeviceUpload 用 "temperature"，MQTT 用 "body-temperature"
             List<SensorData> tempList = sensorDataRepository.findByElderId(elderId).stream()
@@ -84,9 +71,9 @@ public class HealthService {
         }
 
         // 心率：优先从独立表 heart_rate 读取，fallback 到 sensor_data
-        HeartRate latestHr = heartRateRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        SensorData latestHr = getLatestSensor(elderId, "heart_rate");
         if (latestHr != null) {
-            dto.setHeartRate(latestHr.getValue());
+            dto.setHeartRate(latestHr.getValue() != null ? latestHr.getValue().intValue() : null);
             if (dto.getUpdateTime() == null) {
                 dto.setUpdateTime(latestHr.getTimestamp().toString());
             }
@@ -117,7 +104,7 @@ public class HealthService {
         }
 
         // 血氧：优先从独立表 blood_oxygen 读取，fallback 到 sensor_data
-        BloodOxygen latestBo = bloodOxygenRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
+        SensorData latestBo = getLatestSensor(elderId, "spo2");
         if (latestBo != null) {
             dto.setBloodOxygen(latestBo.getValue() != null ? latestBo.getValue().intValue() : null);
             if (dto.getUpdateTime() == null) {
@@ -246,12 +233,14 @@ public class HealthService {
                 items.add(item);
             }
         } else if ("heart_rate".equals(type)) {
-            List<HeartRate> hrs = heartRateRepository.findByElderIdAndTimestampBetween(elderId, start, end);
-            hrs.sort(Comparator.comparing(HeartRate::getTimestamp));
-            for (HeartRate hr : hrs) {
+            List<SensorData> hrs = sensorDataRepository.findByElderId(elderId).stream()
+                    .filter(s -> "heart_rate".equals(s.getSensorType()) && s.getTimestamp() != null && !s.getTimestamp().isBefore(start) && !s.getTimestamp().isAfter(end))
+                    .sorted(Comparator.comparing(SensorData::getTimestamp))
+                    .collect(Collectors.toList());
+            for (SensorData hr : hrs) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(hr.getTimestamp().toString());
-                item.setValue(hr.getValue() != null ? hr.getValue().doubleValue() : null);
+                item.setValue(hr.getValue());
                 items.add(item);
             }
             if (items.isEmpty()) {
@@ -259,9 +248,11 @@ public class HealthService {
                         java.util.List.of("heart_rate", "heart-rate"), start, end));
             }
         } else if ("blood_oxygen".equals(type)) {
-            List<BloodOxygen> bos = bloodOxygenRepository.findByElderIdAndTimestampBetween(elderId, start, end);
-            bos.sort(Comparator.comparing(BloodOxygen::getTimestamp));
-            for (BloodOxygen bo : bos) {
+            List<SensorData> bos = sensorDataRepository.findByElderId(elderId).stream()
+                    .filter(s -> "spo2".equals(s.getSensorType()) && s.getTimestamp() != null && !s.getTimestamp().isBefore(start) && !s.getTimestamp().isAfter(end))
+                    .sorted(Comparator.comparing(SensorData::getTimestamp))
+                    .collect(Collectors.toList());
+            for (SensorData bo : bos) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(bo.getTimestamp().toString());
                 item.setValue(bo.getValue() != null ? bo.getValue().doubleValue() : null);
@@ -272,12 +263,14 @@ public class HealthService {
                         java.util.List.of("spo2", "blood_oxygen", "blood-oxygen"), start, end));
             }
         } else if ("temperature".equals(type)) {
-            List<BodyTemperature> bts = bodyTemperatureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
-            bts.sort(Comparator.comparing(BodyTemperature::getTimestamp));
-            for (BodyTemperature bt : bts) {
+            List<SensorData> bts = sensorDataRepository.findByElderId(elderId).stream()
+                    .filter(s -> "temperature".equals(s.getSensorType()) && s.getTimestamp() != null && !s.getTimestamp().isBefore(start) && !s.getTimestamp().isAfter(end))
+                    .sorted(Comparator.comparing(SensorData::getTimestamp))
+                    .collect(Collectors.toList());
+            for (SensorData bt : bts) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(bt.getTimestamp().toString());
-                item.setValue(bt.getValue() != null ? bt.getValue().doubleValue() : null);
+                item.setValue(bt.getValue());
                 items.add(item);
             }
             if (items.isEmpty()) {

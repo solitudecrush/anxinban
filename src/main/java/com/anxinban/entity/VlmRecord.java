@@ -1,6 +1,7 @@
 package com.anxinban.entity;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 /**
@@ -11,8 +12,6 @@ import java.time.LocalDateTime;
  * @author anxinban-team
  * @since 0.0.1-SNAPSHOT
  */
-@Entity
-@Table(name = "vlm_record")
 public class VlmRecord {
 
     @Id

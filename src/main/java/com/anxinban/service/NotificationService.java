@@ -139,7 +139,7 @@ public class NotificationService {
         dto.setOrderId(entity.getWorkOrderId());
         dto.setRequestId(entity.getCameraRequestId());
         dto.setElderId(entity.getElderId());
-        dto.setRelatedId(entity.getWorkOrderId());
+        dto.setRelatedId(entity.getRelatedId());
         dto.setCreateTime(entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null);
         return dto;
     }

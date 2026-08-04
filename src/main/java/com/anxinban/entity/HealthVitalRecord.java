@@ -1,6 +1,7 @@
 package com.anxinban.entity;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,8 +14,6 @@ import java.time.LocalDateTime;
  * @author anxinban-team
  * @since 0.0.1-SNAPSHOT
  */
-@Entity
-@Table(name = "health_vital_record")
 public class HealthVitalRecord {
 
     @Id

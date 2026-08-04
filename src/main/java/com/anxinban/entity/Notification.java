@@ -13,7 +13,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "app_notification")
+@Table(name = "notification")
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,7 +32,7 @@ public class Notification {
     /** 用户类型 */
     private String userType;
 
-    @Column(name = "type")
+    @Column(name = "notification_type")
     /** 通知类型：intrusion / order / camera / sos / alert */
     private String type;
 
@@ -47,27 +47,30 @@ public class Notification {
     private Boolean isRead = false;
 
     @Column(name = "building")
-    /** 楼栋（intrusion 用） */
+    /** 楼栋 */
     private String building;
 
     @Column(name = "room")
-    /** 房号（intrusion 用） */
+    /** 房号 */
     private String room;
 
-    @Column(name = "work_order_id")
+    @Column(name = "order_id")
     /** 关联工单 ID */
     private String workOrderId;
 
-    @Column(name = "camera_request_id")
-    /** 关联监控申请 ID */
+    @Column(name = "request_id")
+    /** 关联申请 ID */
     private String cameraRequestId;
 
     @Column(name = "elder_id")
     /** 关联老人 ID */
     private String elderId;
 
-    @Column(name = "notify_time")
-    /** 通知时间 */
+    @Column(name = "related_id")
+    /** 关联业务 ID */
+    private String relatedId;
+
+    /** 通知时间（transient，不入库） */
     private LocalDateTime notifyTime;
 
     @Column(name = "created_at")
@@ -243,17 +246,10 @@ public class Notification {
      */
     public void setElderId(String elderId) { this.elderId = elderId; }
 
-    /**
-     * 获取通知时间。
-     *
-     * @return 通知时间
-     */
+    public String getRelatedId() { return relatedId; }
+    public void setRelatedId(String relatedId) { this.relatedId = relatedId; }
+
     public LocalDateTime getNotifyTime() { return notifyTime; }
-    /**
-     * 设置通知时间。
-     *
-     * @param notifyTime 通知时间
-     */
     public void setNotifyTime(LocalDateTime notifyTime) { this.notifyTime = notifyTime; }
 
     /**

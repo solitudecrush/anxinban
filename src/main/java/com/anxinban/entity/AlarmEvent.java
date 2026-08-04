@@ -13,7 +13,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "alert")
+@Table(name = "alarm_event")
 public class AlarmEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -79,8 +79,7 @@ public class AlarmEvent {
     /** 处理备注 */
     private String handleNote;
 
-    @Column(name = "occur_time")
-    /** 告警发生时间 */
+    /** 告警发生时间（transient，与 createdAt 统一） */
     private LocalDateTime occurTime;
 
     @Column(name = "resolved_at")
