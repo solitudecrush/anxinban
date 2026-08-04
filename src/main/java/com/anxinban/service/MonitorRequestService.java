@@ -195,6 +195,7 @@ public class MonitorRequestService {
         dto.setStaffName(entity.getStaffName());
         dto.setStaffPhone(entity.getStaffPhone());
         dto.setReason(entity.getReason());
+        dto.setCameraType(entity.getCameraType());
         dto.setStatus(entity.getStatus());
         dto.setCanView(entity.getCanView());
         dto.setApprovedAt(entity.getApprovedAt() != null ? String.valueOf(entity.getApprovedAt()) : null);
@@ -217,6 +218,7 @@ public class MonitorRequestService {
         entity.setStaffName(dto.getStaffName());
         entity.setStaffPhone(dto.getStaffPhone());
         entity.setReason(dto.getReason());
+        entity.setCameraType(dto.getCameraType());
         entity.setStatus(dto.getStatus());
         entity.setCanView(dto.getCanView() != null ? dto.getCanView() : 0);
         return entity;

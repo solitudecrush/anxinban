@@ -158,6 +158,41 @@ INSERT INTO `alarm_event` VALUES
 ('55','alarm_smoke_003','elder_001','dev_002','smoke','critical','handled','卧室烟雾报警器触发，浓度持续上升','1号楼','1-201','1单元','/uploads/snapshot/alarm_smoke_003.jpg','staff_001','张建国','老人使用电热毯短路冒烟，已断电处理，安排电工检修','1','2025-06-25 23:45:00','2025-06-26 00:20:00','2025-06-26 00:20:00','卧室'),
 ('56','alarm_smoke_004','elder_004','dev_010','smoke','medium','pending','厨房烟感检测到轻微烟雾，可能为烧水壶干烧','4号楼','4-102','4单元','','','','','0','2025-07-01 07:10:00','1970-01-01 00:00:00','2025-07-01 07:10:00','厨房'),
 ('57','alarm_smoke_005','elder_002','dev_006','smoke','high','handled','阳台烟雾传感器触发，检测到有烟味飘入','2号楼','2-301','2单元','','staff_003','王小明','邻居家在楼道烧纸钱，烟味飘入老人家中，已告知物业处理','1','2025-07-03 18:00:00','2025-07-03 18:25:00','2025-07-03 18:25:00','阳台'),
+('58','alarm_smoke_006','elder_003','dev_009','smoke','critical','pending','厨房烟雾浓度急剧升高，疑似燃气泄漏或火灾','3号楼','3-401','3单元','/uploads/snapshot/alarm_smoke_006.jpg','','','','0','2025-07-06 12:35:00','1970-01-01 00:00:00','2025-07-06 12:35:00','厨房');
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `alarm_process` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `process_id` varchar(255) NOT NULL,
+  `alarm_id` varchar(255) NOT NULL,
+  `handler_id` varchar(255) DEFAULT NULL,
+  `handler_type` varchar(255) DEFAULT NULL,
+  `action` varchar(255) DEFAULT NULL COMMENT '处理动作',
+  `result` varchar(255) DEFAULT NULL COMMENT '处理结果',
+  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+  `process_time` datetime DEFAULT NULL COMMENT '处理时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `process_id` (`process_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='告警处理表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `alarm_process` VALUES (1,'proc_001','alarm_003','staff_001','staff','上门核实','confirmed','已确认是访客，非陌生人闯入','2025-05-17 08:30:00'),(2,'proc_002','alarm_004','staff_002','staff','上门检修','resolved','已更换床垫传感器电池，设备恢复在线','2025-05-17 08:00:00'),(3,'proc_003','alarm_002','staff_001','staff','紧急上门','in_progress','正在赶往现场，老人意识清醒','2025-05-17 09:20:00'),(4,'proc_004','alarm_001','staff_003','staff','电话确认','pending','已电话联系老人，老人表示无不适，继续观察','2025-05-17 09:25:00'),(5,'proc_005','alarm_005','staff_002','staff','紧急处理','pending','已赶往现场，烟感已停止报警，正在排查原因','2025-05-17 08:05:00');
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `blood_pressure` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bp_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `systolic` int NOT NULL COMMENT '收缩压',
+  `diastolic` int NOT NULL COMMENT '舒张压',
+  `timestamp` datetime NOT NULL COMMENT '测量时间',
+  `created_at` datetime NOT NULL COMMENT '入库时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bp_id` (`bp_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='血压记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `blood_pressure` VALUES (1,'bp_001','elder_001',135,85,'2025-05-17 08:30:00','2025-05-17 08:31:00'),(2,'bp_002','elder_001',132,84,'2025-05-16 08:30:00','2025-05-16 08:31:00'),(3,'bp_003','elder_002',145,90,'2025-05-17 07:00:00','2025-05-17 07:01:00'),(4,'bp_004','elder_002',148,92,'2025-05-16 07:00:00','2025-05-16 07:01:00'),(5,'bp_005','elder_003',128,82,'2025-05-17 08:00:00','2025-05-17 08:01:00'),(6,'bp_006','elder_003',125,80,'2025-05-16 08:00:00','2025-05-16 08:01:00'),(7,'bp_007','elder_004',138,88,'2025-05-17 07:30:00','2025-05-17 07:31:00'),(8,'bp_008','elder_005',150,95,'2025-05-16 22:00:00','2025-05-16 22:01:00'),(9,'bp_009','elder_004',140,86,'2025-05-16 07:30:00','2025-05-16 07:31:00');
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `camera_request` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `approved_at` bigint DEFAULT NULL,
@@ -209,6 +244,21 @@ CREATE TABLE `cloud_agent` (
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='云端智能体表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `cloud_agent` VALUES (1,'CLOUD-01','cloud_agent','online','2025-05-17 09:55:00','10.0.0.1',17,14,'2025-01-05 08:00:00','2025-05-17 09:55:00'),(2,'CLOUD-02','cloud_agent','online','2025-05-17 09:50:00','10.0.0.2',0,0,'2025-01-05 08:00:00','2025-05-17 09:50:00'),(3,'CLOUD-03','cloud_agent','offline','2025-05-16 18:00:00','10.0.0.3',5,0,'2025-02-01 08:00:00','2025-05-16 18:00:00');
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `companion_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(6) NOT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `emotion` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `emotion_color` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `interaction_time` datetime(6) NOT NULL,
+  `summary` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `device` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `device_id` varchar(255) NOT NULL,
@@ -325,6 +375,24 @@ CREATE TABLE `health_record` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='健康记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `health_record` VALUES (1,'hr_001','elder_001','2024年3月因高血压住院7天','高血压10年,糖尿病5年','对青霉素过敏','降压药,降糖药,阿司匹林','A','需定期监测血糖血压','2025-01-10 09:00:00','2025-05-17 10:00:00',NULL),(2,'hr_002','elder_002','2024年8月因心脏病住院15天','心脏病3年,骨质疏松','无','硝酸甘油,钙片','B','需注意跌倒风险','2025-01-15 10:30:00','2025-05-17 10:00:00',NULL),(3,'hr_003','elder_003','无住院记录','轻度认知障碍','对花粉过敏','银杏叶片','O','记忆力减退需关注','2025-02-01 14:00:00','2025-05-17 10:00:00',NULL),(4,'hr_004','elder_004','2025年1月因糖尿病足住院5天','糖尿病8年,关节炎','无','胰岛素,止痛药','AB','行动不便需辅助','2025-03-01 09:00:00','2025-05-17 10:00:00',NULL),(5,'hr_005','elder_005','2024年12月因脑梗住院30天','脑梗后遗症,高血压','对磺胺类药物过敏','降压药,抗凝药','A','需定期康复训练','2025-03-15 10:00:00','2025-05-17 10:00:00',NULL);
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `health_vital_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(6) NOT NULL,
+  `diastolic` int DEFAULT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `heart_rate` int DEFAULT NULL,
+  `measured_at` datetime(6) NOT NULL,
+  `source` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `spo2` int DEFAULT NULL,
+  `systolic` int DEFAULT NULL,
+  `temperature` decimal(3,1) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `home_control_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -486,6 +554,19 @@ CREATE TABLE `staff_user` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='员工表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `staff_user` VALUES (1,'staff_001','zhangjianguo','张建国','13800138001','123456','supervisor','community_001','/uploads/avatar/staff_001.jpg','2025-01-05 08:00:00','2025-05-17 10:00:00'),(2,'staff_002','lixiuying','李秀英','13800138002','123456','staff','community_001','/uploads/avatar/staff_002.jpg','2025-01-08 09:00:00','2025-05-17 09:30:00'),(3,'staff_003','wangqiang','王强','13800138003','123456','staff','community_001','/uploads/avatar/staff_003.jpg','2025-01-10 10:00:00','2025-05-17 08:00:00'),(4,'staff_004','admin','系统管理员','13800138000','123456','admin','community_001','/uploads/avatar/admin.jpg','2025-01-01 08:00:00','2025-05-17 10:00:00'),(5,'STF-f65acafd','13900001111','李新成','13900001111','123456','staff',NULL,NULL,'2026-06-20 07:55:53','2026-06-20 07:55:53');
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `vlm_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `answer` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `elder_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `item` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `query_time` datetime(6) NOT NULL,
+  `question` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `result` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 CREATE TABLE `work_order` (
@@ -515,6 +596,54 @@ CREATE TABLE `work_order` (
 ) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='工单表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `work_order` VALUES (1,'wo_001','elder_001','设备维修','客厅摄像头画面模糊，需要检修','completed','staff_001','staff_003','李护士','13800138003','2025-05-16 16:00:00','alarm_006','2025-05-16 09:00:00','2025-05-16 16:00:00',NULL,NULL,NULL,NULL,'健康巡检',NULL,NULL),(2,'wo_002','elder_002','紧急处理','老人摔倒，需上门检查','completed','staff_001','staff_001','张建国','13800138001','2025-05-17 09:30:00','sr_002','2025-05-17 09:15:00','2025-05-17 09:30:00','alarm_001',NULL,NULL,NULL,'紧急巡检',NULL,NULL),(3,'wo_003','elder_003','设备巡检','床垫传感器离线，需上门恢复','completed','staff_002','staff_002','王师傅','13800138002','2025-05-17 08:00:00','sr_003','2025-05-16 10:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'设备维修',NULL,NULL),(4,'wo_004','elder_005','紧急处理','手表紧急呼叫未处理，需上门查看','pending','staff_001','','','','1970-01-01 00:00:00','sr_004','2025-05-16 23:00:00','2025-05-16 23:00:00',NULL,NULL,NULL,NULL,'上门护理',NULL,NULL),(5,'wo_005','elder_004','日常关怀','老人情绪低落，需心理疏导','in_progress','staff_003','staff_003','李护士','13800138003','1970-01-01 00:00:00','sr_005','2025-05-17 08:00:00','2025-05-17 08:00:00',NULL,NULL,NULL,NULL,'健康巡检',NULL,NULL),(6,'wo_6720ee14','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_49ea4bef','2026-06-18 13:19:10','2026-06-18 13:19:10',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(7,'wo_626abacd','elder_001','设备检查','测试创建工单','pending','staff_001',NULL,NULL,NULL,'1969-12-31 16:00:00',NULL,'2026-06-18 13:20:35','2026-06-18 13:20:35',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(8,'wo_3645eeb6','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_4276038d','2026-06-18 13:30:38','2026-06-18 13:30:38',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(9,'wo_745829e8','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_32561a97','2026-06-18 13:31:24','2026-06-18 13:31:24',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(10,'wo_a9d6bd15','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_e829cfd8','2026-06-18 13:44:08','2026-06-18 13:44:08',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(11,'wo_21a1cd18','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_0330113f','2026-06-19 01:01:43','2026-06-19 01:01:43',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(12,'wo_4a2d5964','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)、疑似跌倒、长时间静止伴心率异常','待处理','system','','','','1969-12-31 16:00:00','alarm_ee7305b3','2026-06-19 01:06:17','2026-06-19 01:06:17',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(13,'wo_542bd8a9','elder_001','紧急巡检','血氧饱和度88%低于安全阈值92%，心率125次/分超过110次/分的警戒值，同时体温38.5℃偏高。多项指标异常且存在持续恶化风险，结合缺氧和发热状态，提示可能存在急性健康事件。','待处理','system','','','','1969-12-31 16:00:00','alarm_c1cebbe2','2026-06-19 09:41:20','2026-06-19 09:41:20',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(14,'wo_6c343eb4','elder_001','紧急巡检','血氧饱和度严重偏低（88%）、心率过快（125次/分）且体温偏高（38.5℃），多项生命体征同时异常，提示潜在急性健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_b8bde81e','2026-06-19 09:58:58','2026-06-19 09:58:58',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(15,'wo_3e5cd0df','elder_001','紧急巡检','血氧饱和度降至 88%，远低于安全范围；心率持续偏高 125 次/分；体温 38.5℃ 提示发热。多项指标同时严重异常，需立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_bd8b9563','2026-06-19 10:37:39','2026-06-19 10:37:39',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(16,'wo_366d573b','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)','待处理','system','','','','1969-12-31 16:00:00','alarm_2fcab5b6','2026-06-19 11:39:56','2026-06-19 11:39:56',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(17,'wo_1da15558','elder_001','紧急巡检','传感器提示疑似跌倒，老人处于长时间静止状态，同时血氧偏低（91%）、心率偏快（112次/分），存在较高健康风险，需要立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_7d2e5a9e','2026-06-19 12:28:30','2026-06-19 12:28:30',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(18,'wo_d888f1ce','elder_001','紧急巡检','血氧饱和度低至85%，心率过快140次/分，体温偏高38.5℃，存在严重健康隐患，需立即干预。','待处理','system','','','','1969-12-31 16:00:00','alarm_e4295987','2026-06-19 12:53:27','2026-06-19 12:53:27',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(19,'wo_5965d5de','elder_001','紧急巡检','血氧偏低(91%)、心率偏高(112bpm)','待处理','system','','','','1969-12-31 16:00:00','alarm_2ad038bb','2026-06-19 12:54:20','2026-06-19 12:54:20',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(20,'wo_ab8aac4b','elder_001','紧急巡检','传感器提示疑似跌倒，长时间静止，血氧饱和度91%（低于92%），心率112次/分（高于110次/分），存在紧急风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_ae891b50','2026-06-19 13:01:41','2026-06-19 13:01:41',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(21,'wo_33d1ed7f','elder_001','紧急巡检','传感器提示疑似跌倒，且存在长时间静止；生命体征异常：血氧91%（低于92%），心率112次/分（高于110次/分）。综合判断为高风险，需立即关注。','待处理','system','','','','1969-12-31 16:00:00','alarm_dbf96462','2026-06-19 13:13:51','2026-06-19 13:13:51',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(22,'wo_575abe6f','elder_001','紧急巡检','老人疑似跌倒且长时间静止，血氧偏低（91%），心率偏高（112次/分），存在较高健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_c5ee29e8','2026-06-19 13:15:25','2026-06-19 13:15:25',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(23,'wo_402fed35','elder_001','紧急巡检','疑似跌倒后长时间静止，同时血氧低至91%、心率高达112次/分，存在紧急健康风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_367f136d','2026-06-19 13:16:53','2026-06-19 13:16:53',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(24,'wo_cc0aa229','elder_001','紧急巡检','传感器提示疑似跌倒且长时间静止，同时血氧偏低（91%）、心率偏高（112次/分），存在潜在安全风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_c80662f3','2026-06-20 01:23:16','2026-06-20 01:23:16',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(25,'wo_25b4c14b','elder_001','紧急巡检','传感器提示疑似跌倒，处于长时间静止状态，血氧91%低于92%，心率112次/分高于110，综合判断为高风险。','待处理','system','','','','1969-12-31 16:00:00','alarm_ae09954b','2026-06-20 01:24:38','2026-06-20 01:24:38',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(26,'wo_4e040b27','elder_001','紧急巡检','传感器提示疑似跌倒、长时间静止，同时血氧饱和度91%低于正常值、心率112次/分偏高，存在严重健康风险。','已完成','system','staff_001','李工作人员','','2026-06-20 01:25:19','alarm_04629189','2026-06-20 01:25:13','2026-06-20 01:25:19',NULL,NULL,NULL,NULL,NULL,NULL,NULL),(27,'wo_5ad39d29','elder_001','健康关注','','已完成','system','','test','','2026-06-20 01:38:40','','2026-06-20 01:38:40','2026-06-20 01:38:40',NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `heart_rate` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `hr_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `value` int DEFAULT NULL,
+  `unit` varchar(255) DEFAULT NULL,
+  `timestamp` datetime NOT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `hr_id` (`hr_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='心率记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `heart_rate` VALUES (1,'hr_001','elder_001',72,'bpm','2025-05-17 10:00:00','2025-05-17 10:00:00'),(2,'hr_002','elder_001',85,'bpm','2025-05-17 09:00:00','2025-05-17 09:00:00'),(3,'hr_003','elder_001',68,'bpm','2025-05-17 08:00:00','2025-05-17 08:00:00'),(4,'hr_004','elder_002',95,'bpm','2025-05-17 10:00:00','2025-05-17 10:00:00'),(5,'hr_005','elder_003',78,'bpm','2025-05-17 10:00:00','2025-05-17 10:00:00'),(6,'hr_006','elder_004',110,'bpm','2025-05-17 10:00:00','2025-05-17 10:00:00');
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `blood_oxygen` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bo_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `value` decimal(5,1) DEFAULT NULL,
+  `unit` varchar(255) DEFAULT NULL,
+  `timestamp` datetime NOT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bo_id` (`bo_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='血氧记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `blood_oxygen` VALUES (1,'bo_001','elder_001',98.0,'%','2025-05-17 10:00:00','2025-05-17 10:00:00'),(2,'bo_002','elder_001',96.5,'%','2025-05-17 09:00:00','2025-05-17 09:00:00'),(3,'bo_003','elder_001',97.0,'%','2025-05-17 08:00:00','2025-05-17 08:00:00'),(4,'bo_004','elder_002',94.0,'%','2025-05-17 10:00:00','2025-05-17 10:00:00'),(5,'bo_005','elder_003',99.0,'%','2025-05-17 10:00:00','2025-05-17 10:00:00'),(6,'bo_006','elder_004',91.0,'%','2025-05-17 10:00:00','2025-05-17 10:00:00');
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `body_temperature` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bt_id` varchar(255) NOT NULL,
+  `elder_id` varchar(255) NOT NULL,
+  `value` decimal(4,1) DEFAULT NULL,
+  `unit` varchar(255) DEFAULT NULL,
+  `timestamp` datetime NOT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bt_id` (`bt_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='体温记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `body_temperature` VALUES (1,'bt_001','elder_001',36.5,'℃','2025-05-17 10:00:00','2025-05-17 10:00:00'),(2,'bt_002','elder_001',36.8,'℃','2025-05-17 09:00:00','2025-05-17 09:00:00'),(3,'bt_003','elder_001',36.3,'℃','2025-05-17 08:00:00','2025-05-17 08:00:00'),(4,'bt_004','elder_002',37.2,'℃','2025-05-17 10:00:00','2025-05-17 10:00:00'),(5,'bt_005','elder_003',36.1,'℃','2025-05-17 10:00:00','2025-05-17 10:00:00'),(6,'bt_006','elder_004',38.5,'℃','2025-05-17 10:00:00','2025-05-17 10:00:00');
+
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ai_service_record` (

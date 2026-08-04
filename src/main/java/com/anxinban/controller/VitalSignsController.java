@@ -1,10 +1,6 @@
 package com.anxinban.controller;
 
 import com.anxinban.dto.ApiResponse;
-import com.anxinban.entity.BloodOxygen;
-import com.anxinban.entity.BloodPressure;
-import com.anxinban.entity.BodyTemperature;
-import com.anxinban.entity.HeartRate;
 import com.anxinban.service.VitalSignsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -17,6 +13,7 @@ import java.util.Map;
 
 /**
  * 生命体征 REST 控制器 — 心率、血压、血氧、体温独立查询接口。
+ * 全部体征（心率/血氧/体温/血压）统一从 sensor_data 表读取。
  *
  * @author anxinban-team
  * @since 0.0.1-SNAPSHOT
@@ -32,10 +29,10 @@ public class VitalSignsController {
         this.service = service;
     }
 
-    // ==================== 心率 ====================
+    // ==================== 心率（sensor_data） ====================
 
     @GetMapping("/heart-rate/list")
-    public ApiResponse<List<HeartRate>> listHeartRate(
+    public ApiResponse<List<Map<String, Object>>> listHeartRate(
             @RequestParam String elderId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
@@ -46,18 +43,18 @@ public class VitalSignsController {
     }
 
     @GetMapping("/heart-rate/latest")
-    public ApiResponse<HeartRate> latestHeartRate(@RequestParam String elderId) {
-        HeartRate record = service.getLatestHeartRate(elderId);
+    public ApiResponse<Map<String, Object>> latestHeartRate(@RequestParam String elderId) {
+        Map<String, Object> record = service.getLatestHeartRate(elderId);
         if (record == null) {
             return ApiResponse.error(404, "未找到该老人的心率记录");
         }
         return ApiResponse.success(record);
     }
 
-    // ==================== 血压 ====================
+    // ==================== 血压（sensor_data） ====================
 
     @GetMapping("/blood-pressure/list")
-    public ApiResponse<List<BloodPressure>> listBloodPressure(
+    public ApiResponse<List<Map<String, Object>>> listBloodPressure(
             @RequestParam String elderId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
@@ -68,18 +65,18 @@ public class VitalSignsController {
     }
 
     @GetMapping("/blood-pressure/latest")
-    public ApiResponse<BloodPressure> latestBloodPressure(@RequestParam String elderId) {
-        BloodPressure record = service.getLatestBloodPressure(elderId);
+    public ApiResponse<Map<String, Object>> latestBloodPressure(@RequestParam String elderId) {
+        Map<String, Object> record = service.getLatestBloodPressure(elderId);
         if (record == null) {
             return ApiResponse.error(404, "未找到该老人的血压记录");
         }
         return ApiResponse.success(record);
     }
 
-    // ==================== 血氧 ====================
+    // ==================== 血氧（sensor_data） ====================
 
     @GetMapping("/blood-oxygen/list")
-    public ApiResponse<List<BloodOxygen>> listBloodOxygen(
+    public ApiResponse<List<Map<String, Object>>> listBloodOxygen(
             @RequestParam String elderId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
@@ -90,18 +87,18 @@ public class VitalSignsController {
     }
 
     @GetMapping("/blood-oxygen/latest")
-    public ApiResponse<BloodOxygen> latestBloodOxygen(@RequestParam String elderId) {
-        BloodOxygen record = service.getLatestBloodOxygen(elderId);
+    public ApiResponse<Map<String, Object>> latestBloodOxygen(@RequestParam String elderId) {
+        Map<String, Object> record = service.getLatestBloodOxygen(elderId);
         if (record == null) {
             return ApiResponse.error(404, "未找到该老人的血氧记录");
         }
         return ApiResponse.success(record);
     }
 
-    // ==================== 体温 ====================
+    // ==================== 体温（sensor_data） ====================
 
     @GetMapping("/body-temperature/list")
-    public ApiResponse<List<BodyTemperature>> listBodyTemperature(
+    public ApiResponse<List<Map<String, Object>>> listBodyTemperature(
             @RequestParam String elderId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
@@ -112,8 +109,8 @@ public class VitalSignsController {
     }
 
     @GetMapping("/body-temperature/latest")
-    public ApiResponse<BodyTemperature> latestBodyTemperature(@RequestParam String elderId) {
-        BodyTemperature record = service.getLatestBodyTemperature(elderId);
+    public ApiResponse<Map<String, Object>> latestBodyTemperature(@RequestParam String elderId) {
+        Map<String, Object> record = service.getLatestBodyTemperature(elderId);
         if (record == null) {
             return ApiResponse.error(404, "未找到该老人的体温记录");
         }
@@ -127,26 +124,26 @@ public class VitalSignsController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("elderId", elderId);
 
-        HeartRate hr = service.getLatestHeartRate(elderId);
-        data.put("heartRate", hr != null ? hr.getValue() : null);
-        data.put("heartRateUnit", hr != null ? hr.getUnit() : "次/分");
-        data.put("heartRateTime", hr != null ? hr.getTimestamp().toString() : null);
+        Map<String, Object> hr = service.getLatestHeartRate(elderId);
+        data.put("heartRate", hr != null ? hr.get("value") : null);
+        data.put("heartRateUnit", hr != null ? hr.get("unit") : "次/分");
+        data.put("heartRateTime", hr != null ? hr.get("timestamp") : null);
 
-        BloodPressure bp = service.getLatestBloodPressure(elderId);
-        data.put("systolic", bp != null ? bp.getSystolic() : null);
-        data.put("diastolic", bp != null ? bp.getDiastolic() : null);
+        Map<String, Object> bp = service.getLatestBloodPressure(elderId);
+        data.put("systolic", bp != null ? bp.get("systolic") : null);
+        data.put("diastolic", bp != null ? bp.get("diastolic") : null);
         data.put("bloodPressureUnit", "mmHg");
-        data.put("bloodPressureTime", bp != null ? bp.getTimestamp().toString() : null);
+        data.put("bloodPressureTime", bp != null ? bp.get("timestamp") : null);
 
-        BloodOxygen bo = service.getLatestBloodOxygen(elderId);
-        data.put("bloodOxygen", bo != null ? bo.getValue() : null);
-        data.put("bloodOxygenUnit", bo != null ? bo.getUnit() : "%");
-        data.put("bloodOxygenTime", bo != null ? bo.getTimestamp().toString() : null);
+        Map<String, Object> bo = service.getLatestBloodOxygen(elderId);
+        data.put("bloodOxygen", bo != null ? bo.get("value") : null);
+        data.put("bloodOxygenUnit", bo != null ? bo.get("unit") : "%");
+        data.put("bloodOxygenTime", bo != null ? bo.get("timestamp") : null);
 
-        BodyTemperature bt = service.getLatestBodyTemperature(elderId);
-        data.put("bodyTemperature", bt != null ? bt.getValue() : null);
-        data.put("bodyTemperatureUnit", bt != null ? bt.getUnit() : "℃");
-        data.put("bodyTemperatureTime", bt != null ? bt.getTimestamp().toString() : null);
+        Map<String, Object> bt = service.getLatestBodyTemperature(elderId);
+        data.put("bodyTemperature", bt != null ? bt.get("value") : null);
+        data.put("bodyTemperatureUnit", bt != null ? bt.get("unit") : "℃");
+        data.put("bodyTemperatureTime", bt != null ? bt.get("timestamp") : null);
 
         return ApiResponse.success(data);
     }

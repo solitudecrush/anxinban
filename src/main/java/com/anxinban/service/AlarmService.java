@@ -9,26 +9,29 @@ package com.anxinban.service;
 import com.anxinban.dto.AlarmDto;
 import com.anxinban.dto.PageResult;
 import com.anxinban.entity.AlarmEvent;
+import com.anxinban.entity.WorkOrder;
 import com.anxinban.mapper.AlarmEventRepository;
 import com.anxinban.mapper.ElderUserRepository;
+import com.anxinban.mapper.WorkOrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class AlarmService {
     private final AlarmEventRepository alarmEventRepository;
-    /** 数据访问仓库，用于持久化操作 */
     private final ElderUserRepository elderUserRepository;
+    private final WorkOrderRepository workOrderRepository;
 
     @Autowired
-    public AlarmService(AlarmEventRepository alarmEventRepository, ElderUserRepository elderUserRepository) {
+    public AlarmService(AlarmEventRepository alarmEventRepository, ElderUserRepository elderUserRepository,
+                        WorkOrderRepository workOrderRepository) {
         this.alarmEventRepository = alarmEventRepository;
         this.elderUserRepository = elderUserRepository;
+        this.workOrderRepository = workOrderRepository;
     }
 
         /**
@@ -210,6 +213,73 @@ public class AlarmService {
         existing.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(existing);
         return convertToDto(saved);
+    }
+
+        /**
+         * 告警转工单。
+         *
+         * @param alarmId 告警ID
+         * @return 含工单信息的 Map，告警不存在时返回 null
+         */
+    public Map<String, Object> convertToWorkOrder(String alarmId) {
+        AlarmEvent alarm = alarmEventRepository.findByAlarmId(alarmId);
+        if (alarm == null) {
+            return null;
+        }
+
+        // 检查是否已存在关联工单
+        List<WorkOrder> existingOrders = workOrderRepository.findByServiceRequestId(alarm.getAlarmId());
+        if (existingOrders != null && !existingOrders.isEmpty()) {
+            WorkOrder existing = existingOrders.get(0);
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "告警已存在关联工单");
+            result.put("workOrderId", existing.getOrderId());
+            result.put("orderId", existing.getOrderId());
+            result.put("alarmId", alarmId);
+            return result;
+        }
+
+        // 根据告警类型确定工单类型
+        String orderType = "日常关怀";
+        if (alarm.getType() != null) {
+            switch (alarm.getType()) {
+                case "fall": orderType = "紧急巡检"; break;
+                case "health_abnormal": case "heart_rate": case "blood_pressure":
+                case "temperature": orderType = "健康关注"; break;
+                case "smoke": case "intrusion": orderType = "紧急巡检"; break;
+                case "fingerprint-fail": orderType = "设备检查"; break;
+                default: orderType = "日常关怀"; break;
+            }
+        }
+
+        // 创建工单
+        WorkOrder wo = new WorkOrder();
+        wo.setOrderId("wo_" + UUID.randomUUID().toString().substring(0, 8));
+        wo.setElderId(alarm.getElderId());
+        wo.setType(orderType);
+        wo.setDescription(alarm.getDescription() != null ? alarm.getDescription() : "");
+        wo.setStatus("待处理");
+        wo.setCreatorId("system");
+        wo.setHandlerId("");
+        wo.setHandlerName("");
+        wo.setHandlerPhone("");
+        wo.setCompleteTime(LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        wo.setServiceRequestId(alarm.getAlarmId());
+        wo.setCreatedAt(LocalDateTime.now());
+        wo.setUpdatedAt(LocalDateTime.now());
+        WorkOrder saved = workOrderRepository.save(wo);
+
+        // 更新告警状态
+        alarm.setStatus("handled");
+        alarm.setUpdatedAt(LocalDateTime.now());
+        alarmEventRepository.save(alarm);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", "success");
+        result.put("workOrderId", saved.getOrderId());
+        result.put("orderId", saved.getOrderId());
+        result.put("alarmId", alarmId);
+        return result;
     }
 
         /**

@@ -371,9 +371,10 @@ curl -s "http://120.27.129.78:8080/api/elder/elder_001/camera-stream?staffId=sta
 | # | 接口名称 | 方法 | URL | 说明 |
 |---|---------|------|-----|------|
 | 21 | 工作人员列表 | GET | `/api/staff/list` | 按社区查列表 |
-| 22 | 创建工作人员 | POST | `/api/staff` | 创建工作人员 |
-| 23 | 更新工作人员 | PUT | `/api/staff/{staffId}` | 更新工作人员信息 |
-| 24 | 删除工作人员 | DELETE | `/api/staff/{staffId}` | 删除工作人员 |
+| 22 | 工作人员详情 | GET | `/api/staff/{staffId}` | 查询单个员工 |
+| 23 | 创建工作人员 | POST | `/api/staff` | 创建工作人员 |
+| 24 | 更新工作人员 | PUT | `/api/staff/{staffId}` | 更新工作人员信息 |
+| 25 | 删除工作人员 | DELETE | `/api/staff/{staffId}` | 删除工作人员 |
 
 ### 4.1 工作人员列表
 
@@ -381,7 +382,13 @@ curl -s "http://120.27.129.78:8080/api/elder/elder_001/camera-stream?staffId=sta
 curl -s "http://120.27.129.78:8080/api/staff/list?communityId=community_001"
 ```
 
-### 4.2 创建工作人员
+### 4.2 工作人员详情
+
+```bash
+curl -s http://120.27.129.78:8080/api/staff/staff_001
+```
+
+### 4.3 创建工作人员
 
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/staff \
@@ -396,7 +403,7 @@ curl -s -X POST http://120.27.129.78:8080/api/staff \
   }'
 ```
 
-### 4.3 更新工作人员
+### 4.4 更新工作人员
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/staff/staff_003 \
@@ -404,7 +411,7 @@ curl -s -X PUT http://120.27.129.78:8080/api/staff/staff_003 \
   -d '{"role": "supervisor"}'
 ```
 
-### 4.4 删除工作人员
+### 4.5 删除工作人员
 
 ```bash
 curl -s -X DELETE http://120.27.129.78:8080/api/staff/staff_003
@@ -431,12 +438,14 @@ curl -s http://120.27.129.78:8080/api/dashboard/stats
 {
   "code": 200, "message": "success",
   "data": {
-    "elderTotal": 6,
-    "todayAlarmCount": 40,
+    "elderCount": 6,
+    "deviceCount": 17,
+    "alarmCount": 40,
+    "workOrderCount": 27,
+    "staffCount": 5,
     "onlineDeviceCount": 15,
-    "pendingOrderCount": 22,
-    "healthAbnormalCount": 3,
-    "todayIntrusionCount": 2
+    "pendingAlarmCount": 15,
+    "pendingOrderCount": 22
   }
 }
 ```
@@ -466,8 +475,9 @@ curl -s http://120.27.129.78:8080/api/dashboard/summary
 | 32 | 闯入快照 | GET | `/api/alarm/intrusion/{alarmId}/snapshot` | 闯入抓拍图片URL |
 | 33 | 确认告警 | PUT | `/api/alarm/{alarmId}/acknowledge` | 确认收到告警 |
 | 34 | 处理告警 | PUT | `/api/alarm/{alarmId}/resolve` | 解决告警 |
-| 35 | 标记已读 | PUT | `/api/alarm/{alarmId}/read` | 标记告警已读 |
-| 36 | 未读告警数 | GET | `/api/alarm/unread-count?elderId=xxx` | 老人未读告警数 |
+| 35 | 告警转工单 | POST | `/api/alarm/{alarmId}/to-work-order` | 告警转工单 |
+| 36 | 标记已读 | PUT | `/api/alarm/{alarmId}/read` | 标记告警已读 |
+| 37 | 未读告警数 | GET | `/api/alarm/unread-count?elderId=xxx` | 老人未读告警数 |
 
 ### 6.1 创建告警
 
@@ -529,13 +539,32 @@ curl -s -X PUT http://120.27.129.78:8080/api/alarm/alarm_003/resolve \
   -d '{"handler": "staff_001", "handleTime": "2025-05-17 08:30:00", "remark": "已确认是访客"}'
 ```
 
-### 6.6 标记已读
+### 6.6 告警转工单
+
+```bash
+curl -s -X POST http://120.27.129.78:8080/api/alarm/alarm_001/to-work-order
+```
+
+返回示例：
+```json
+{
+  "code": 200, "message": "success",
+  "data": {
+    "message": "success",
+    "workOrderId": "wo_a1b2c3d4",
+    "orderId": "wo_a1b2c3d4",
+    "alarmId": "alarm_001"
+  }
+}
+```
+
+### 6.8 标记已读
 
 ```bash
 curl -s -X PUT http://120.27.129.78:8080/api/alarm/alarm_003/read
 ```
 
-### 6.7 未读告警数
+### 6.9 未读告警数
 
 ```bash
 curl -s "http://120.27.129.78:8080/api/alarm/unread-count?elderId=elder_001"
@@ -570,7 +599,7 @@ curl -s -X POST http://120.27.129.78:8080/api/alarms/alarm_001/to-work-order
 ```bash
 curl -s -X POST http://120.27.129.78:8080/api/alarms/alarm_001/handle \
   -H "Content-Type: application/json" \
-  -d '{"handler_id": "staff_001", "handler_name": "张建国", "handle_note": "已处理"}'
+  -d '{"handler_name": "张建国", "handler": "staff_001", "remark": "已处理"}'
 ```
 
 ---
@@ -591,7 +620,7 @@ curl -s -X POST http://120.27.129.78:8080/api/alarms/alarm_001/handle \
 curl -s "http://120.27.129.78:8080/api/work-order/list?page=1&pageSize=10"
 
 # 按状态筛选
-curl -s "http://120.27.129.78:8080/api/work-order/list?status=待分配&page=1&pageSize=10"
+curl -s "http://120.27.129.78:8080/api/work-order/list?status=待处理&page=1&pageSize=10"
 
 # 按关键词搜索
 curl -s "http://120.27.129.78:8080/api/work-order/list?keyword=跌倒&page=1&pageSize=10"
@@ -603,7 +632,7 @@ curl -s "http://120.27.129.78:8080/api/work-order/list?keyword=跌倒&page=1&pag
 |------|------|------|
 | keyword | String | 关键词搜索 |
 | elderName | String | 老人姓名 |
-| status | String | 状态：待分配/处理中/已完成 |
+| status | String | 状态：待处理/处理中/已完成 |
 | page | int | 页码 |
 | pageSize | int | 每页条数 |
 
@@ -873,25 +902,33 @@ curl -s -X POST http://120.27.129.78:8080/api/device/upload \
   -H "Content-Type: application/json" \
   -d '{
     "elder_id": "elder_001",
+    "device_id": "dev_001",
     "heart_rate": 112,
     "spo2": 91,
     "temperature": 37.4,
+    "systolic": 135,
+    "diastolic": 85,
     "activity_status": "长时间静止",
     "fall_status": "正常",
+    "timestamp": "2025-05-17T10:30:00",
     "location": "1号楼1-201客厅"
   }'
 ```
 
-请求体字段（snake_case格式）：
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| elder_id | String | 是 | 老人ID |
-| heart_rate | Integer | 否 | 心率(bpm) |
-| spo2 | Integer | 否 | 血氧饱和度(%) |
-| temperature | Double | 否 | 体温(℃) |
-| activity_status | String | 否 | 活动状态：行走/坐着/长时间静止等 |
-| fall_status | String | 否 | 跌倒状态：正常/疑似跌倒 |
-| location | String | 否 | 位置描述 |
+请求体字段（支持 snake_case 与 camelCase 双命名）：
+| 字段 | 别名 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| elder_id | elderId | String | 是 | 老人ID |
+| device_id | deviceId | String | 否 | 设备ID，不传则自动查找老人绑定设备 |
+| heart_rate | heartRate | Integer | 否 | 心率(bpm) |
+| spo2 | — | Integer | 否 | 血氧饱和度(%) |
+| temperature | — | Double | 否 | 体温(℃) |
+| systolic | — | Integer | 否 | 收缩压(mmHg) |
+| diastolic | — | Integer | 否 | 舒张压(mmHg) |
+| activity_status | activityStatus | String | 否 | 活动状态：行走/坐着/长时间静止等 |
+| fall_status | fallStatus | String | 否 | 跌倒状态：正常/疑似跌倒 |
+| timestamp | — | String | 否 | 数据采集时间（ISO格式），默认当前时间 |
+| location | — | String | 否 | 位置描述 |
 
 返回示例：
 ```json
@@ -2137,7 +2174,7 @@ curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=compan
 | orderType | String | 工单类型：紧急巡检/健康关注/设备检查/设备维修/上门护理/日常关怀 |
 | type | String | 工单类型(兼容字段) |
 | description | String | 工单描述 |
-| status | String | 状态：待分配/处理中/已完成 |
+| status | String | 状态：待处理/处理中/已完成 |
 | creatorId | String | 创建人ID |
 | handlerId | String | 处理人ID |
 | handlerName | String | 处理人姓名 |
@@ -2179,12 +2216,14 @@ curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=compan
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| accessToken | String | 访问令牌（当前为null） |
-| refreshToken | String | 刷新令牌（当前为null） |
+| accessToken | String | 访问令牌 |
+| token | String | 兼容字段，值与 accessToken 相同 |
+| refreshToken | String | 刷新令牌 |
 | userId | String | 用户ID |
 | name | String | 姓名 |
 | phone | String | 手机号 |
 | role | String | 角色 |
+| userType | String | 用户类型：staff / family |
 | communityId | String | 社区ID |
 | avatar | String | 头像URL |
 
@@ -2197,7 +2236,10 @@ curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=compan
 | health_abnormal | 健康指标异常 |
 | blood_pressure | 血压异常 |
 | emergency-call | 紧急呼叫/SOS |
+| sos | SOS 呼救（手表紧急呼叫） |
 | intrusion | 陌生人闯入 |
+| door_lock | 门锁异常 |
+| door_snapshot | 门锁抓拍 |
 | smoke | 烟雾报警 |
 | temperature | 体温异常 |
 | inactive | 长时间无活动 |
@@ -2233,9 +2275,9 @@ curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=compan
 | 健康检查 | 2 |
 | 认证授权 | 7 |
 | 老人管理 | 11 |
-| 工作人员 | 4 |
+| 工作人员 | 5 |
 | 仪表盘 | 3 |
-| 告警管理 | 9 |
+| 告警管理 | 10 |
 | 告警管理-兼容 | 5 |
 | 工单管理 | 5 |
 | 工单管理-兼容 | 4 |
@@ -2267,12 +2309,12 @@ curl -s "http://120.27.129.78:8080/api/ai-service/record/list?serviceType=compan
 | 健康详情(音乐/陪伴/找物/情绪) | 5 |
 | AI补充 | 2 |
 | AI服务记录 | 4 |
-| **总计** | **182** |
+| **总计** | **184** |
 
 ---
 
 > **文档版本**: v3.2
 > **生成日期**: 2026-07-31
-> **对应数据库**: `anxinban` (35张生产表)
+> **对应数据库**: `anxinban` (27张生产表，2026-07-31 精简去重)
 > **SQL脚本**: `anxinban-db-full-20260704.sql`
 > **框架**: Spring Boot 2.7, Java 17, MySQL 8.0

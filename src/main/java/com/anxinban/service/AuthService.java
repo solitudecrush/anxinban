@@ -56,11 +56,13 @@ public class AuthService {
         }
         LoginResponse response = new LoginResponse();
         response.setAccessToken("token-" + UUID.randomUUID());
+        response.setToken(response.getAccessToken());
         response.setRefreshToken("refresh-" + UUID.randomUUID());
         response.setUserId(staff.getStaffId());
         response.setName(staff.getName());
         response.setPhone(staff.getPhone());
         response.setRole(staff.getRole());
+        response.setUserType("staff");
         response.setCommunityId(staff.getCommunityId());
         response.setAvatar(staff.getAvatar());
         return response;
@@ -82,11 +84,13 @@ public class AuthService {
         }
         LoginResponse response = new LoginResponse();
         response.setAccessToken("token-" + UUID.randomUUID());
+        response.setToken(response.getAccessToken());
         response.setRefreshToken("refresh-" + UUID.randomUUID());
         response.setUserId(family.getFamilyId());
         response.setName(family.getName());
         response.setPhone(family.getPhone());
         response.setRole("family");
+        response.setUserType("family");
         response.setAvatar(family.getAvatar());
         return response;
     }
@@ -140,11 +144,13 @@ public class AuthService {
             staffUserRepository.save(staff);
             LoginResponse response = new LoginResponse();
             response.setAccessToken("token-" + UUID.randomUUID());
+            response.setToken(response.getAccessToken());
             response.setRefreshToken("refresh-" + UUID.randomUUID());
             response.setUserId(staff.getStaffId());
             response.setName(staff.getName());
             response.setPhone(staff.getPhone());
             response.setRole(staff.getRole());
+            response.setUserType("staff");
             return response;
         } else if ("family".equals(request.getUserType())) {
             if (familyUserRepository.findByPhone(request.getPhone()) != null) {
@@ -162,11 +168,13 @@ public class AuthService {
             familyUserRepository.save(family);
             LoginResponse response = new LoginResponse();
             response.setAccessToken("token-" + UUID.randomUUID());
+            response.setToken(response.getAccessToken());
             response.setRefreshToken("refresh-" + UUID.randomUUID());
             response.setUserId(family.getFamilyId());
             response.setName(family.getName());
             response.setPhone(family.getPhone());
             response.setRole("family");
+            response.setUserType("family");
             return response;
         }
         // elder 及其他类型不支持注册

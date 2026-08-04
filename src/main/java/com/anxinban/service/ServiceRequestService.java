@@ -140,7 +140,7 @@ public class ServiceRequestService {
     public ServiceRequestDto convertToOrder(String requestId, String orderId) {
         ServiceRequest existing = serviceRequestRepository.findByRequestId(requestId);
         if (existing == null) return null;
-        existing.setStatus("converted");
+        existing.setStatus("approved");
         existing.setConvertedWorkOrderId(orderId);
         existing.setUpdatedAt(LocalDateTime.now());
         ServiceRequest saved = serviceRequestRepository.save(existing);

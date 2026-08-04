@@ -43,7 +43,7 @@ public class WorkOrderService {
         if (entity.getOrderId() == null || entity.getOrderId().isEmpty()) {
             entity.setOrderId("wo_" + java.util.UUID.randomUUID().toString().substring(0, 8));
         }
-        entity.setStatus(dto.getStatus() == null ? "待分配" : dto.getStatus());
+        entity.setStatus(dto.getStatus() == null ? "待处理" : dto.getStatus());
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         // 未传 completeTime 时使用默认值，避免 NOT NULL 约束

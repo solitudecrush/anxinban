@@ -10,12 +10,11 @@ import com.anxinban.dto.HealthAnalysisDto;
 import com.anxinban.dto.HealthLatestDto;
 import com.anxinban.dto.HealthTrendDto;
 import com.anxinban.entity.BloodOxygen;
-import com.anxinban.entity.BloodPressure;
+import com.anxinban.entity.SensorData;
 import com.anxinban.entity.BodyTemperature;
 import com.anxinban.entity.HeartRate;
-import com.anxinban.entity.SensorData;
 import com.anxinban.mapper.BloodOxygenRepository;
-import com.anxinban.mapper.BloodPressureRepository;
+import com.anxinban.mapper.SensorDataRepository;
 import com.anxinban.mapper.BodyTemperatureRepository;
 import com.anxinban.mapper.HeartRateRepository;
 import com.anxinban.mapper.SensorDataRepository;
@@ -28,14 +27,16 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Service
 public class HealthService {
     private final SensorDataRepository sensorDataRepository;
-    /** 血压 */
-    private final BloodPressureRepository bloodPressureRepository;
     /** 心率 */
     private final HeartRateRepository heartRateRepository;
     /** 血氧 */
@@ -45,12 +46,10 @@ public class HealthService {
 
     @Autowired
     public HealthService(SensorDataRepository sensorDataRepository,
-                         BloodPressureRepository bloodPressureRepository,
                          HeartRateRepository heartRateRepository,
                          BloodOxygenRepository bloodOxygenRepository,
                          BodyTemperatureRepository bodyTemperatureRepository) {
         this.sensorDataRepository = sensorDataRepository;
-        this.bloodPressureRepository = bloodPressureRepository;
         this.heartRateRepository = heartRateRepository;
         this.bloodOxygenRepository = bloodOxygenRepository;
         this.bodyTemperatureRepository = bodyTemperatureRepository;
@@ -107,13 +106,14 @@ public class HealthService {
             }
         }
 
-        BloodPressure latestBp = bloodPressureRepository.findFirstByElderIdOrderByTimestampDesc(elderId);
-        if (latestBp != null) {
-            dto.setSystolic(latestBp.getSystolic());
-            dto.setDiastolic(latestBp.getDiastolic());
-            if (dto.getUpdateTime() == null) {
-                dto.setUpdateTime(latestBp.getTimestamp().toString());
-            }
+        // 血压：从 sensor_data 中 blood_pressure_sys/dia 获取最新配对值
+        SensorData latestSys = getLatestSensor(elderId, "blood_pressure_sys");
+        SensorData latestDia = getLatestSensor(elderId, "blood_pressure_dia");
+        if (latestSys != null) dto.setSystolic(latestSys.getValue() != null ? latestSys.getValue().intValue() : null);
+        if (latestDia != null) dto.setDiastolic(latestDia.getValue() != null ? latestDia.getValue().intValue() : null);
+        if (dto.getUpdateTime() == null) {
+            if (latestSys != null) dto.setUpdateTime(latestSys.getTimestamp().toString());
+            else if (latestDia != null) dto.setUpdateTime(latestDia.getTimestamp().toString());
         }
 
         // 血氧：优先从独立表 blood_oxygen 读取，fallback 到 sensor_data
@@ -221,13 +221,28 @@ public class HealthService {
         List<HealthTrendDto.HealthTrendItemDto> items = new ArrayList<>();
 
         if ("blood_pressure".equals(type)) {
-            List<BloodPressure> bps = bloodPressureRepository.findByElderIdAndTimestampBetween(elderId, start, end);
-            bps.sort(Comparator.comparing(BloodPressure::getTimestamp));
-            for (BloodPressure bp : bps) {
+            List<SensorData> bpData = sensorDataRepository.findByElderId(elderId).stream()
+                    .filter(s -> ("blood_pressure_sys".equals(s.getSensorType()) || "blood_pressure_dia".equals(s.getSensorType())))
+                    .filter(s -> s.getTimestamp() != null && !s.getTimestamp().isBefore(start) && !s.getTimestamp().isAfter(end))
+                    .sorted(Comparator.comparing(SensorData::getTimestamp))
+                    .collect(Collectors.toList());
+            // 按时间戳配对
+            Map<String, Integer> sysMap = new LinkedHashMap<>();
+            Map<String, Integer> diaMap = new LinkedHashMap<>();
+            Map<String, String> timeMap = new LinkedHashMap<>();
+            for (SensorData s : bpData) {
+                String key = s.getTimestamp().toString().substring(0, 19);
+                if ("blood_pressure_sys".equals(s.getSensorType())) sysMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
+                else diaMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
+                timeMap.putIfAbsent(key, s.getTimestamp().toString());
+            }
+            Set<String> keys = new TreeSet<>(sysMap.keySet());
+            keys.addAll(diaMap.keySet());
+            for (String key : keys) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
-                item.setTime(bp.getTimestamp().toString());
-                item.setSystolic(bp.getSystolic());
-                item.setDiastolic(bp.getDiastolic());
+                item.setTime(timeMap.getOrDefault(key, ""));
+                item.setSystolic(sysMap.get(key));
+                item.setDiastolic(diaMap.get(key));
                 items.add(item);
             }
         } else if ("heart_rate".equals(type)) {
@@ -659,5 +674,15 @@ public class HealthService {
         dto.setSummary(summary);
         dto.setSuggestion(suggestion);
         return dto;
+    }
+
+    /**
+     * 从 sensor_data 中获取指定类型的最新一条记录。
+     */
+    private SensorData getLatestSensor(String elderId, String sensorType) {
+        return sensorDataRepository.findByElderId(elderId).stream()
+                .filter(s -> sensorType.equals(s.getSensorType()))
+                .max(Comparator.comparing(SensorData::getTimestamp, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null);
     }
 }

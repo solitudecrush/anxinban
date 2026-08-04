@@ -12,8 +12,14 @@ public class LoginResponse {
     /** 访问令牌（Access Token），用于后续请求的身份认证，建议设置较短有效期 */
     private String accessToken;
 
+    /** 兼容字段，值与 accessToken 相同，供 Web 前端使用 */
+    private String token;
+
     /** 刷新令牌（Refresh Token），用于 accessToken 过期后换取新的令牌，建议设置较长有效期 */
     private String refreshToken;
+
+    /** 用户类型：staff / family */
+    private String userType;
 
     /** 当前登录用户的唯一标识 */
     private String userId;
@@ -49,6 +55,14 @@ public class LoginResponse {
      */
     public void setAccessToken(String accessToken) {
         this.accessToken = accessToken;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
     }
 
     /**
@@ -139,6 +153,14 @@ public class LoginResponse {
      */
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getUserType() {
+        return userType;
+    }
+
+    public void setUserType(String userType) {
+        this.userType = userType;
     }
 
     /**

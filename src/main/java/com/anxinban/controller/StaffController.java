@@ -51,6 +51,21 @@ public class StaffController {
     }
 
     /**
+     * 查询单个员工详情。
+     *
+     * @param staffId 员工ID
+     * @return 员工信息
+     */
+    @GetMapping("/{staffId}")
+    public ApiResponse<StaffDto> getStaff(@PathVariable String staffId) {
+        StaffUser entity = staffUserRepository.findByStaffId(staffId);
+        if (entity == null) {
+            return ApiResponse.error(404, "工作人员不存在");
+        }
+        return ApiResponse.success(convertToDto(entity));
+    }
+
+    /**
      * 新增接口，处理 POST  请求。
      *
      * @param dto dto 参数

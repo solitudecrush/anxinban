@@ -45,6 +45,20 @@ public class AlarmController {
         return ApiResponse.created(saved);
     }
     /**
+     * 告警转工单接口。
+     *
+     * @param alarmId 告警ID
+     * @return 生成的工单信息
+     */
+    @PostMapping("/{alarmId}/to-work-order")
+    public ApiResponse<Map<String, Object>> convertToWorkOrder(@PathVariable String alarmId) {
+        Map<String, Object> result = alarmService.convertToWorkOrder(alarmId);
+        if (result == null) {
+            return ApiResponse.error(404, "告警不存在: " + alarmId);
+        }
+        return ApiResponse.success(result);
+    }
+    /**
      * 查询接口，处理 GET /{alarmId} 请求。
      *
      * @param alarmId alarmId 参数

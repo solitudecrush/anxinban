@@ -21,8 +21,10 @@ public class MonitorRequestDto {
     private String staffName;
     /** 手机号 */
     private String staffPhone;
-    /** 字段含义待补充 */
+    /** 申请原因 */
     private String reason;
+    /** 摄像头类型：door / living / bedroom */
+    private String cameraType;
     /** 状态标识 */
     private String status;
     /** 是否允许查看监控：1=允许，0=不允许 */
@@ -160,6 +162,14 @@ public class MonitorRequestDto {
      */
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public String getCameraType() {
+        return cameraType;
+    }
+
+    public void setCameraType(String cameraType) {
+        this.cameraType = cameraType;
     }
 
     /**

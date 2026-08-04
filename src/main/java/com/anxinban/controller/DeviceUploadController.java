@@ -83,23 +83,37 @@ public class DeviceUploadController {
             return ApiResponse.error(404, "老人不存在: " + request.getElderId());
         }
 
-        // 2. 查找该老人绑定的设备（优先手环/健康类设备）
-        List<Device> devices = deviceRepository.findByElderId(request.getElderId());
+        // 2. 查找设备：优先使用请求中传入的 deviceId
         String deviceId;
-        if (devices != null && !devices.isEmpty()) {
-            Device healthDevice = devices.stream()
-                    .filter(d -> d.getType() != null &&
-                            (d.getType().contains("手环") || d.getType().contains("手錶")))
-                    .findFirst()
-                    .orElse(devices.get(0));
-            deviceId = healthDevice.getDeviceId();
+        if (request.getDeviceId() != null && !request.getDeviceId().isEmpty()) {
+            deviceId = request.getDeviceId();
         } else {
-            // 无设备时使用占位 ID，仍可记录数据
-            deviceId = "dev_auto_" + request.getElderId();
+            List<Device> devices = deviceRepository.findByElderId(request.getElderId());
+            if (devices != null && !devices.isEmpty()) {
+                Device healthDevice = devices.stream()
+                        .filter(d -> d.getType() != null &&
+                                (d.getType().contains("手环") || d.getType().contains("手錶")))
+                        .findFirst()
+                        .orElse(devices.get(0));
+                deviceId = healthDevice.getDeviceId();
+            } else {
+                deviceId = "dev_auto_" + request.getElderId();
+            }
         }
 
-        // 3. 写入 sensor_data
-        LocalDateTime now = LocalDateTime.now();
+        // 3. 时间戳：优先使用请求中的 timestamp，否则用当前时间
+        LocalDateTime now;
+        if (request.getTimestamp() != null && !request.getTimestamp().isEmpty()) {
+            try {
+                now = LocalDateTime.parse(request.getTimestamp().substring(0, 19));
+            } catch (Exception e) {
+                now = LocalDateTime.now();
+            }
+        } else {
+            now = LocalDateTime.now();
+        }
+
+        // 4. 写入 sensor_data
         List<SensorData> savedSensors = new ArrayList<>();
 
         if (request.getHeartRate() != null) {
@@ -113,6 +127,14 @@ public class DeviceUploadController {
         if (request.getTemperature() != null) {
             savedSensors.add(saveSensor(request.getElderId(), deviceId, "temperature",
                     request.getTemperature().doubleValue(), "℃", now));
+        }
+        if (request.getSystolic() != null) {
+            savedSensors.add(saveSensor(request.getElderId(), deviceId, "blood_pressure_sys",
+                    request.getSystolic().doubleValue(), "mmHg", now));
+        }
+        if (request.getDiastolic() != null) {
+            savedSensors.add(saveSensor(request.getElderId(), deviceId, "blood_pressure_dia",
+                    request.getDiastolic().doubleValue(), "mmHg", now));
         }
         if (request.getActivityStatus() != null && !request.getActivityStatus().isEmpty()) {
             savedSensors.add(saveSensor(request.getElderId(), deviceId, "activity_status",

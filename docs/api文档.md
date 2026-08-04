@@ -51,7 +51,7 @@
 | **文档文件** | 请分发 `docs/api文档.md`（v2.2）作为接口对接规范；详细参考见 `docs/anxinban-api-reference-manual-v3.1.md` |
 | **接口基址** | `http://{host}:{port}/api`（默认端口以部署环境为准） |
 | **联调注意** | 实现局限见 **§23**；全量路径见 **§24** |
-| **数据库脚本** | 生产环境最新导出 `docs/anxinban-db-full-20260704.sql`（35张表）；旧版参考 `docs/db-schema.sql` |
+| **数据库脚本** | 生产环境最新导出 `docs/anxinban-db-full-20260704.sql`（27张表，精简去重）；旧版参考 `docs/db-schema.sql` |
 | **API测试文档** | 详见 `docs/api-testing-doc.md`（v2.0，36个接口） |
 
 ---
@@ -168,11 +168,13 @@
 | 字段 | 说明 | 类型 |
 | --- | --- | --- |
 | accessToken | 访问令牌 | String |
+| token | 兼容字段，值与 accessToken 相同，供 Web 前端使用 | String |
 | refreshToken | 刷新令牌 | String |
 | userId | 用户业务ID | String |
 | name | 姓名 | String |
 | phone | 手机号 | String |
 | role | 角色 | String |
+| userType | 用户类型（staff / family） | String |
 | communityId | 社区ID | String |
 | avatar | 头像URL | String |
 
@@ -234,13 +236,15 @@
 | --- | --- | --- | --- |
 | `heart_rate` | 心率（bpm） | `72` | 直接返回 |
 | `temperature` | 体温（℃） | `36.5` | 直接返回 |
-| `blood_pressure_sys` | 收缩压（mmHg，仅存 sensor_data） | `125` | 不映射到 HealthLatestDto |
-| `blood_pressure_dia` | 舒张压（mmHg，仅存 sensor_data） | `82` | 不映射到 HealthLatestDto |
-| `blood_oxygen` | 血氧饱和度（%） | `98` | 直接返回 |
+| `blood_pressure_sys` | 收缩压（mmHg） | `125` | 与 dia 按时间戳配对返回 |
+| `blood_pressure_dia` | 舒张压（mmHg） | `82` | 与 sys 按时间戳配对返回 |
+| `spo2` | 血氧饱和度（%） | `98` | 直接返回 |
 | `insomnia` | 失眠等级（0-3） | `0` | `0`→`无`，`1`→`轻度`，`2`→`中度`，`3`→`重度` |
 | `sleep_time` | 入睡时间（小时，支持小数） | `22.5` | `22.5`→`22:30` |
+| `activity_status` | 活动状态（1行走/2坐着/3静止） | `1` | 反向映射为中文 |
+| `fall_status` | 跌倒状态（0正常/1疑似/2跌倒） | `0` | 反向映射为中文 |
 
-> **血压说明**：`HealthLatestDto` 中的 `systolic`/`diastolic` 来自独立表 `blood_pressure`，**不是**由 `sensor_data` 中的 `blood_pressure_sys`/`blood_pressure_dia` 自动汇总。当前无写入 `blood_pressure` 表的 HTTP 接口，硬件若上报 `blood_pressure_sys`/`blood_pressure_dia` 仅存入 `sensor_data`，不会出现在最新健康接口中。
+> **血压说明**：收缩压(`blood_pressure_sys`)和舒张压(`blood_pressure_dia`)以相同时间戳存入 `sensor_data`，读取时按时间戳自动配对还原为血压记录。硬件只需在采集血压时写入两条 sensor_data 即可。
 
 ### 3.5 设备控制命令 Command（DeviceDto 内嵌）
 
@@ -928,7 +932,7 @@
 | page | 页码（默认1） | 否 |
 | pageSize | 每页大小（默认20） | 否 |
 
-> Web端状态枚举：`pending`（待处理）、`converted`（已转工单）、`rejected`（已拒绝）
+> Web端状态枚举：`pending`（待处理）、`approved`（已转工单）、`rejected`（已拒绝）
 
 - **响应**：`PageResult<ServiceRequestDto>`
 
@@ -1133,12 +1137,14 @@
 
 | 字段 | 说明 | 类型 |
 | --- | --- | --- |
-| elderTotal | 老人总数 | Number |
-| todayAlarmCount | 今日告警数 | Number |
+| elderCount | 老人总数 | Number |
+| deviceCount | 设备总数 | Number |
+| alarmCount | 告警总数 | Number |
+| workOrderCount | 工单总数 | Number |
+| staffCount | 员工总数 | Number |
 | onlineDeviceCount | 在线设备数 | Number |
+| pendingAlarmCount | 待处理告警数 | Number |
 | pendingOrderCount | 待处理工单数 | Number |
-| healthAbnormalCount | 今日健康异常老人数 | Number |
-| todayIntrusionCount | 今日闯入告警数 | Number |
 
 ### 13.2 获取楼栋列表
 
@@ -1687,12 +1693,12 @@ flowchart LR
 | completed | 已完成 |
 | ignored | 已拒绝 |
 
-### 21.5 服务申请状态（Web端，与App端一致）
+### 21.5 服务申请状态（Web端）
 
 | 编码 | 说明 |
 | --- | --- |
 | pending | 待处理 |
-| converted | 已转工单 |
+| approved | 已转工单 |
 | rejected | 已拒绝 |
 
 ### 21.6 监控申请状态
@@ -2072,12 +2078,20 @@ flowchart LR
 
 ### 31.9 告警分类汇总
 
-告警记录表（`alarm_event`）按 `alarm_type` 分为以下五类：
+告警记录表（`alarm_event`）按 `alarm_type` 分为以下类型：
 
 | alarm_type | 说明 | 示例 |
 | --- | --- | --- |
-| `sos` | SOS 呼救 | 手表紧急呼叫触发 |
+| `heart_rate` | 心率异常 | 心率持续偏高/偏低 |
 | `fall` | 跌倒检测 | 摄像头/传感器检测到跌倒 |
+| `health_abnormal` | 健康异常 | 心率/血氧/体温综合异常 |
+| `blood_pressure` | 血压异常 | 收缩压/舒张压异常 |
+| `emergency-call` | 紧急呼叫 | 手表紧急呼叫触发 |
+| `sos` | SOS 呼救 | 手表紧急呼叫触发 |
+| `intrusion` | 陌生人闯入 | 摄像头检测到陌生人 |
 | `door_lock` | 门锁异常 | 指纹识别失败、陌生人闯入 |
-| `health_abnormal` | 健康异常 | 心率/血氧/体温异常 |
+| `door_snapshot` | 门锁抓拍 | 门锁异常时抓拍 |
 | `smoke` | 烟雾异常 | 烟感检测到烟雾浓度超标 |
+| `temperature` | 体温异常 | 体温偏高/偏低 |
+| `inactive` | 长时间无活动 | 老人长时间未检测到活动 |
+| `fingerprint-fail` | 指纹验证失败 | 指纹识别失败 |
