@@ -171,7 +171,8 @@ public class VitalSignsService {
         for (SensorData s : sensors) {
             if (s.getTimestamp() == null) continue;
             if (start != null && end != null && (s.getTimestamp().isBefore(start) || s.getTimestamp().isAfter(end))) continue;
-            String key = s.getTimestamp().toString().substring(0, 19);
+            String ts = s.getTimestamp().toString();
+            String key = ts.length() >= 19 ? ts.substring(0, 19) : ts;
             if ("blood_pressure_sys".equals(s.getSensorType())) {
                 systolicMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
             } else if ("blood_pressure_dia".equals(s.getSensorType())) {

@@ -45,6 +45,18 @@ public class SensorData {
     /** 时间戳 */
     private LocalDateTime timestamp;
 
+    @Column(name = "daily_tag", length = 50)
+    /** 日维度标签 */
+    private String dailyTag;
+
+    @Column(name = "is_peak")
+    /** 是否为当日应激尖峰时刻 */
+    private Boolean isPeak = false;
+
+    @Column(name = "measurement_source", length = 20)
+    /** 测量来源 */
+    private String measurementSource;
+
     @Column(name = "created_at")
     /** 记录创建时间 */
     private LocalDateTime createdAt;
@@ -140,6 +152,15 @@ public class SensorData {
      * @param isAbnormal 字段含义待补充
      */
     public void setIsAbnormal(Boolean isAbnormal) { this.isAbnormal = isAbnormal; }
+
+    public String getDailyTag() { return dailyTag; }
+    public void setDailyTag(String dailyTag) { this.dailyTag = dailyTag; }
+
+    public Boolean getIsPeak() { return isPeak != null && isPeak; }
+    public void setIsPeak(Boolean isPeak) { this.isPeak = isPeak; }
+
+    public String getMeasurementSource() { return measurementSource; }
+    public void setMeasurementSource(String measurementSource) { this.measurementSource = measurementSource; }
 
     /**
      * 获取时间戳。

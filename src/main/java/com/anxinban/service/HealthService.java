@@ -9,8 +9,9 @@ package com.anxinban.service;
 import com.anxinban.dto.HealthAnalysisDto;
 import com.anxinban.dto.HealthLatestDto;
 import com.anxinban.dto.HealthTrendDto;
+import com.anxinban.entity.ElderDailyStats;
 import com.anxinban.entity.SensorData;
-import com.anxinban.mapper.SensorDataRepository;
+import com.anxinban.mapper.ElderDailyStatsRepository;
 import com.anxinban.mapper.SensorDataRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,13 +32,15 @@ import java.util.stream.Collectors;
 @Service
 public class HealthService {
     private final SensorDataRepository sensorDataRepository;
+    private final ElderDailyStatsRepository dailyStatsRepository;
     /** 心率 */
     /** 血氧 */
     /** 体温 */
 
     @Autowired
-    public HealthService(SensorDataRepository sensorDataRepository) {
+    public HealthService(SensorDataRepository sensorDataRepository, ElderDailyStatsRepository dailyStatsRepository) {
         this.sensorDataRepository = sensorDataRepository;
+        this.dailyStatsRepository = dailyStatsRepository;
     }
 
         /**
@@ -185,11 +188,21 @@ public class HealthService {
                 break;
         }
 
-        List<HealthTrendDto.HealthTrendItemDto> items = queryHistoryData(elderId, type, start, end);
+        List<HealthTrendDto.HealthTrendItemDto> items;
 
-        // 填补空缺时间点：确保所有预期时间槽位都有数据（插值填充）
-        List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
-        dto.setData(filledItems);
+        // 周/月报走聚合表 elder_daily_stats（禁止查原始秒级数据）
+        // 血压例外：需 sys/dia 配对，仍走 sensor_data
+        if (!"day".equals(period) && !"blood_pressure".equals(type)) {
+            items = queryDailyStats(elderId, type, start.toLocalDate(), end.toLocalDate());
+            // daily_stats 已聚合，无需填补
+            dto.setData(items);
+        } else {
+            // Day 或血压：查 sensor_data 原始数据
+            items = queryHistoryData(elderId, type, start, end);
+            // 填补空缺时间点
+            List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
+            dto.setData(filledItems);
+        }
         return dto;
     }
 
@@ -218,7 +231,8 @@ public class HealthService {
             Map<String, Integer> diaMap = new LinkedHashMap<>();
             Map<String, String> timeMap = new LinkedHashMap<>();
             for (SensorData s : bpData) {
-                String key = s.getTimestamp().toString().substring(0, 19);
+                String ts = s.getTimestamp() != null ? s.getTimestamp().toString() : "";
+                String key = ts.length() >= 19 ? ts.substring(0, 19) : ts;
                 if ("blood_pressure_sys".equals(s.getSensorType())) sysMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
                 else diaMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
                 timeMap.putIfAbsent(key, s.getTimestamp().toString());
@@ -369,6 +383,31 @@ public class HealthService {
      * @param end      时间范围结束
      * @return 填补后的完整数据列表
      */
+        /**
+         * 从 elder_daily_stats 聚合表读取周/月维度的健康数据。
+         * 仅用于 temperature / heart_rate / blood_oxygen，血压走 sensor_data。
+         */
+        private List<HealthTrendDto.HealthTrendItemDto> queryDailyStats(
+                        String elderId, String type, LocalDate start, LocalDate end) {
+                List<HealthTrendDto.HealthTrendItemDto> items = new java.util.ArrayList<>();
+                List<ElderDailyStats> stats = dailyStatsRepository
+                                .findByElderIdAndStatDateBetweenOrderByStatDateAsc(elderId, start, end);
+                for (ElderDailyStats s : stats) {
+                        HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
+                        item.setTime(s.getStatDate().toString());
+                        if ("heart_rate".equals(type)) {
+                                item.setValue(s.getAvgHr() != null ? s.getAvgHr().doubleValue() : null);
+                        } else if ("blood_oxygen".equals(type)) {
+                                item.setValue(s.getAvgSpo2() != null ? s.getAvgSpo2().doubleValue() : null);
+                        } else if ("temperature".equals(type)) {
+                                item.setValue(s.getAvgTemp() != null ? s.getAvgTemp().doubleValue() : null);
+                        }
+                        items.add(item);
+                }
+                return items;
+        }
+
+
     private List<HealthTrendDto.HealthTrendItemDto> fillGaps(
             List<HealthTrendDto.HealthTrendItemDto> rawItems,
             String type, String period,
@@ -426,7 +465,10 @@ public class HealthService {
                     // 只有后面的数据：使用后面的值
                     copyItemValues(filled, after, type);
                 }
-                // 如果前后都没有数据，保持 null 值（前端显示为 0 或空）
+                // 如果前后都没有数据，跳过该槽位，不生成幽灵数据点
+                if (before == null && after == null) {
+                    continue;
+                }
                 result.add(filled);
             }
         }
