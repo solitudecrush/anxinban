@@ -1,13 +1,16 @@
 package com.anxinban.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Immutable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 老人每日健康统计聚合表 — 周报/月报直接查询此表，不直接查询传感器原始数据。
+ * 老人每日健康统计 VIEW — 从 sensor_data 实时聚合，零冗余，永远同步。
+ * 底层为 MySQL VIEW: CREATE VIEW elder_daily_stats AS SELECT ... FROM sensor_data GROUP BY elder_id, stat_date
  */
 @Entity
+@Immutable
 @Table(name = "elder_daily_stats")
 public class ElderDailyStats {
     @Id
