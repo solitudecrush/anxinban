@@ -5,10 +5,12 @@ import com.anxinban.dto.DeviceUploadRequest;
 import com.anxinban.entity.AlarmEvent;
 import com.anxinban.entity.Device;
 import com.anxinban.entity.ElderUser;
+import com.anxinban.entity.Notification;
 import com.anxinban.entity.SensorData;
 import com.anxinban.mapper.AlarmEventRepository;
 import com.anxinban.mapper.DeviceRepository;
 import com.anxinban.mapper.ElderUserRepository;
+import com.anxinban.mapper.NotificationRepository;
 import com.anxinban.mapper.SensorDataRepository;
 import com.anxinban.entity.AiAnalysisRecord;
 import com.anxinban.service.AiAnalysisRecordService;
@@ -56,6 +58,9 @@ public class DeviceUploadController {
 
     @Autowired
     private AlarmEventRepository alarmEventRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private AiForwardService aiForwardService;
@@ -216,6 +221,9 @@ public class DeviceUploadController {
 
             AlarmEvent savedAlarm = alarmEventRepository.save(alarm);
             alarmId = savedAlarm.getAlarmId();
+
+            // 同步创建通知，确保在消息中心可见
+            createAlarmNotification(savedAlarm, request.getElderId());
 
             log.info("自动生成告警: alarmId={}, elderId={}, level={}, reason={}, source={}",
                     alarmId, request.getElderId(), alarmLevel, riskReason, source);
@@ -448,6 +456,47 @@ public class DeviceUploadController {
             }
         }
         return "health_abnormal";
+    }
+
+    /**
+     * 为告警同步创建通知记录（确保在消息中心可见）。
+     */
+    private void createAlarmNotification(AlarmEvent alarm, String elderId) {
+        try {
+            Notification notification = new Notification();
+            notification.setNotificationId("notif_" + alarm.getAlarmId());
+            notification.setUserId(elderId);
+            notification.setUserType("family");
+            notification.setType("alert");
+            notification.setTitle(mapAlarmTypeToTitle(alarm.getType()));
+            String desc = alarm.getDescription();
+            notification.setContent(desc != null && !desc.isEmpty() ? desc : "暂无详情");
+            notification.setIsRead(false);
+            notification.setRoom(alarm.getRoomNumber());
+            notification.setElderId(alarm.getElderId());
+            notification.setNotifyTime(alarm.getOccurTime() != null ? alarm.getOccurTime() : LocalDateTime.now());
+            notification.setCreatedAt(LocalDateTime.now());
+            notificationRepository.save(notification);
+        } catch (Exception e) {
+            log.warn("创建告警通知失败（不影响上传接口）: alarmId={}, error={}", alarm.getAlarmId(), e.getMessage());
+        }
+    }
+
+    private String mapAlarmTypeToTitle(String alarmType) {
+        if (alarmType == null) return "新告警通知";
+        switch (alarmType) {
+            case "smoke": return "烟雾告警";
+            case "fall": return "跌倒告警";
+            case "fall-detection": return "摔倒检测告警";
+            case "health_abnormal": return "健康异常告警";
+            case "inactive": return "长时间无活动告警";
+            case "night-leave-bed": return "夜间离床告警";
+            case "intrusion": return "闯入告警";
+            case "fingerprint-fail": return "指纹识别失败告警";
+            case "stranger": return "陌生人闯入告警";
+            case "emergency-call": return "紧急呼叫告警";
+            default: return "新告警通知";
+        }
     }
 
     private SensorData saveSensor(String elderId, String deviceId, String type, Double value, String unit, LocalDateTime now) {

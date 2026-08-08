@@ -124,26 +124,31 @@ public class VitalSignsController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("elderId", elderId);
 
+        // 检测时间统一使用当前时间前推的上一个整点（如19:22→19:00，8:02→8:00）
+        String detectionTime = LocalDateTime.now()
+                .withMinute(0).withSecond(0).withNano(0)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
         Map<String, Object> hr = service.getLatestHeartRate(elderId);
         data.put("heartRate", hr != null ? hr.get("value") : null);
         data.put("heartRateUnit", hr != null ? hr.get("unit") : "次/分");
-        data.put("heartRateTime", hr != null ? hr.get("timestamp") : null);
+        data.put("heartRateTime", hr != null ? detectionTime : null);
 
         Map<String, Object> bp = service.getLatestBloodPressure(elderId);
         data.put("systolic", bp != null ? bp.get("systolic") : null);
         data.put("diastolic", bp != null ? bp.get("diastolic") : null);
         data.put("bloodPressureUnit", "mmHg");
-        data.put("bloodPressureTime", bp != null ? bp.get("timestamp") : null);
+        data.put("bloodPressureTime", bp != null ? detectionTime : null);
 
         Map<String, Object> bo = service.getLatestBloodOxygen(elderId);
         data.put("bloodOxygen", bo != null ? bo.get("value") : null);
         data.put("bloodOxygenUnit", bo != null ? bo.get("unit") : "%");
-        data.put("bloodOxygenTime", bo != null ? bo.get("timestamp") : null);
+        data.put("bloodOxygenTime", bo != null ? detectionTime : null);
 
         Map<String, Object> bt = service.getLatestBodyTemperature(elderId);
         data.put("bodyTemperature", bt != null ? bt.get("value") : null);
         data.put("bodyTemperatureUnit", bt != null ? bt.get("unit") : "℃");
-        data.put("bodyTemperatureTime", bt != null ? bt.get("timestamp") : null);
+        data.put("bodyTemperatureTime", bt != null ? detectionTime : null);
 
         return ApiResponse.success(data);
     }

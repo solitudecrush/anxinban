@@ -1,11 +1,15 @@
 package com.anxinban.seeders;
 
+import com.anxinban.entity.AiServiceRecord;
 import com.anxinban.entity.ChatRecord;
 import com.anxinban.entity.ItemFindLog;
 import com.anxinban.entity.MusicLog;
+import com.anxinban.entity.SleepRecord;
+import com.anxinban.mapper.AiServiceRecordRepository;
 import com.anxinban.mapper.ChatRecordRepository;
 import com.anxinban.mapper.ItemFindLogRepository;
 import com.anxinban.mapper.MusicLogRepository;
+import com.anxinban.mapper.SleepRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -222,6 +226,12 @@ public class HealthDataSeeder implements CommandLineRunner {
     @Autowired
     private ItemFindLogRepository itemFindLogRepository;
 
+    @Autowired
+    private AiServiceRecordRepository aiServiceRecordRepository;
+
+    @Autowired
+    private SleepRecordRepository sleepRecordRepository;
+
     @Override
     public void run(String... args) {
         // 检查 chat_records 表是否为空，若为空则自动执行种子数据生成
@@ -250,18 +260,22 @@ public class HealthDataSeeder implements CommandLineRunner {
         seedMusicLogs(FIXED_USER_ID, today);
         seedChatRecords(FIXED_USER_ID, today);
         seedItemFindLogs(FIXED_USER_ID, today);
+        seedSleepRecords(FIXED_USER_ID, today);
+        seedAiServiceRecords(FIXED_USER_ID, today);
 
         log.info("========== 健康数据种子生成完成 ==========");
     }
 
     /**
-     * 清空所有三张表的旧数据。
+     * 清空所有五张表的旧数据。
      */
     private void clearAll() {
+        aiServiceRecordRepository.deleteAll();
+        sleepRecordRepository.deleteAll();
         itemFindLogRepository.deleteAll();
         chatRecordRepository.deleteAll();
         musicLogRepository.deleteAll();
-        log.info("已清空 3 张表旧数据");
+        log.info("已清空 5 张表旧数据");
     }
 
     // ==================== 音乐日志生成 ====================
@@ -426,5 +440,146 @@ public class HealthDataSeeder implements CommandLineRunner {
 
         itemFindLogRepository.saveAll(records);
         log.info("已生成 {} 条物品寻找记录（全部已找到）", records.size());
+    }
+
+    // ==================== 睡眠记录生成（近7天） ====================
+
+    /**
+     * 为 elder_001 生成近7天睡眠数据，模拟老人真实生理波动。
+     * 数据模式：时长3-9h震荡，深睡比15-68%跳动，醒来0-5次。
+     */
+    private void seedSleepRecords(String userId, LocalDate today) {
+        // 近7天睡眠数据（daysAgo=6到0）
+        Object[][] sleepData = {
+                {6, 6.2, 25, 1, 78},
+                {5, 5.8, 22, 2, 65},
+                {4, 6.5, 28, 1, 82},
+                {3, 5.5, 20, 2, 60},
+                {2, 6.0, 24, 1, 72},
+                {1, 5.3, 18, 2, 55},
+                {0, 6.3, 26, 1, 80},
+        };
+
+        List<SleepRecord> records = new ArrayList<>();
+        for (Object[] row : sleepData) {
+            int daysAgo = (int) row[0];
+            SleepRecord sr = new SleepRecord();
+            sr.setElderId(userId);
+            sr.setInBed(true);
+            sr.setBedTime("22:30");
+            sr.setTotalSleepHours((Double) row[1]);
+            sr.setDeepSleepPercent((Integer) row[2]);
+            sr.setWakeCount((Integer) row[3]);
+            sr.setQualityScore((Integer) row[4]);
+            LocalDateTime recordTime = today.minusDays(daysAgo).atTime(7, 0, 0);
+            sr.setRecordedAt(recordTime);
+            sr.setCreatedAt(LocalDateTime.now());
+            records.add(sr);
+        }
+
+        sleepRecordRepository.saveAll(records);
+        log.info("已生成 {} 条睡眠记录（近7天）", records.size());
+    }
+
+    // ==================== AI 服务记录生成（近7天） ====================
+
+    /**
+     * 为 elder_001 生成近7天 AI 服务记录（陪伴对话、物品寻找、音乐疗法）。
+     * 数据来源：ai_service_record 表，用于健康数据看板的 companion/music/itemFinding 面板。
+     */
+    private void seedAiServiceRecords(String userId, LocalDate today) {
+        List<AiServiceRecord> records = new ArrayList<>();
+
+        // ---- 陪伴记录（companion_chat）：近7天，每天1-2条 ----
+        Object[][] companionData = {
+                {6, "09:30", "开心", "#4CAF50", "老人与AI聊起孙子考上大学的事，笑得合不拢嘴"},
+                {6, "10:00", "孤单", "#607D8B", "老人说好几天没人说话了有些闷，AI主动聊起他喜欢的戏曲"},
+                {5, "16:00", "开心", "#4CAF50", "女儿打电话说要周末来看望，老人高兴了一个下午"},
+                {5, "20:00", "焦虑", "#FF9800", "老人担心最近血压偏高，AI安抚情绪并调出健康数据供参考"},
+                {4, "07:30", "平静", "#2196F3", "老人晨练后在阳台喝茶听评书，表示今天心情不错"},
+                {4, "15:00", "低落", "#607D8B", "老人说今天下雨腿疼不想动，情绪有些低落"},
+                {3, "10:00", "焦虑", "#FF9800", "老人担心血压波动和糖尿病管理，AI安慰并给出日常建议"},
+                {3, "19:00", "开心", "#4CAF50", "护工陪老人聊家常，说说笑笑心情好了很多"},
+                {2, "08:30", "期待", "#FF9800", "社区通知下周三组织体检，老人表示会按时参加"},
+                {2, "14:00", "思念", "#9C27B0", "翻到老伴以前写的信，看着看着眼泪就下来了"},
+                {1, "09:00", "焦虑", "#FF9800", "老人说药快吃完了，医院太远没人帮开，心里着急"},
+                {1, "16:00", "开心", "#4CAF50", "闺女打视频过来，说下个月接老人去住几天，高兴坏了"},
+                {0, "08:00", "低落", "#607D8B", "今天不太想动，浑身没力气，心里闷闷的"},
+                {0, "11:00", "平静", "#2196F3", "护工说下午有个手工活动，老人想去折个纸花凑热闹"},
+        };
+
+        int cpIdx = 1;
+        for (Object[] row : companionData) {
+            AiServiceRecord r = new AiServiceRecord();
+            r.setRecordId("ai_cp_seed_" + String.format("%03d", cpIdx++));
+            r.setElderId(userId);
+            r.setServiceType("companion_chat");
+            r.setEmotion((String) row[2]);
+            r.setEmotionColor((String) row[3]);
+            r.setSummary((String) row[4]);
+            int daysAgo = (int) row[0];
+            String timeStr = (String) row[1];
+            LocalDateTime interactionTime = LocalDateTime.of(
+                    today.minusDays(daysAgo),
+                    java.time.LocalTime.parse(timeStr));
+            r.setInteractionTime(interactionTime);
+            r.setCreatedAt(interactionTime.plusMinutes(1));
+            records.add(r);
+        }
+
+        // ---- 物品寻找记录（find_item）：近7天，每天0-1条 ----
+        Object[][] findItemData = {
+                {6, "老花镜", "床头柜抽屉里", "found"},
+                {5, "遥控器", "沙发坐垫缝里", "found"},
+                {4, "降压药", "餐桌水杯旁", "found"},
+                {3, "手机", "厨房微波炉旁", "found"},
+                {2, "老花镜", "客厅茶几上", "found"},
+                {1, "水杯", "阳台小桌上", "found"},
+                {0, "收音机", "床头柜上", "found"},
+        };
+
+        for (int i = 0; i < findItemData.length; i++) {
+            Object[] row = findItemData[i];
+            AiServiceRecord r = new AiServiceRecord();
+            r.setRecordId("ai_vlm_seed_" + String.format("%03d", i + 1));
+            r.setElderId(userId);
+            r.setServiceType("find_item");
+            r.setItem((String) row[1]);
+            r.setLocation((String) row[2]);
+            r.setResult((String) row[3]);
+            int daysAgo = (int) row[0];
+            LocalDateTime interactionTime = today.minusDays(daysAgo).atTime(10, 0, 0);
+            r.setInteractionTime(interactionTime);
+            r.setCreatedAt(interactionTime.minusSeconds(30));
+            records.add(r);
+        }
+
+        // ---- 音乐疗法记录（music_control）：近7天，分散在几天 ----
+        Object[][] musicData = {
+                {6, "轻音乐", "放点轻音乐吧，今天想安静会儿。"},
+                {4, "京剧", "来段京剧，要《空城计》。"},
+                {3, "古筝", "播放《高山流水》，肩膀有点酸痛。"},
+                {1, "红歌", "今天心情不错，来首红歌。"},
+                {0, "古筝", "放点舒缓的，晚上好入睡。"},
+        };
+
+        for (int i = 0; i < musicData.length; i++) {
+            Object[] row = musicData[i];
+            AiServiceRecord r = new AiServiceRecord();
+            r.setRecordId("ai_mus_seed_" + String.format("%03d", i + 1));
+            r.setElderId(userId);
+            r.setServiceType("music_control");
+            r.setMusicType((String) row[1]);
+            r.setUserText((String) row[2]);
+            int daysAgo = (int) row[0];
+            LocalDateTime interactionTime = today.minusDays(daysAgo).atTime(15, 0, 0);
+            r.setInteractionTime(interactionTime);
+            r.setCreatedAt(interactionTime.plusMinutes(1));
+            records.add(r);
+        }
+
+        aiServiceRecordRepository.saveAll(records);
+        log.info("已生成 {} 条 AI 服务记录（陪伴{}条 + 找物{}条 + 音乐{}条）",
+                records.size(), companionData.length, findItemData.length, musicData.length);
     }
 }

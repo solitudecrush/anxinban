@@ -479,7 +479,17 @@ public class MqttMessageConsumer implements MqttMessageListener {
             case "fingerprint-fail": return "指纹识别失败告警";
             case "stranger": return "陌生人闯入告警";
             case "fall-detection": return "摔倒检测告警";
+            case "fall": return "跌倒告警";
             case "emergency-call": return "紧急呼叫告警";
+            case "health_abnormal": return "健康异常告警";
+            case "inactive": return "长时间无活动告警";
+            case "night-leave-bed": return "夜间离床告警";
+            case "intrusion": return "闯入告警";
+            case "heart_rate": return "心率异常告警";
+            case "blood_pressure": return "血压异常告警";
+            case "temperature": return "体温异常告警";
+            case "sos": return "SOS紧急求助";
+            case "device_offline": return "设备离线告警";
             default: return "新告警通知";
         }
     }

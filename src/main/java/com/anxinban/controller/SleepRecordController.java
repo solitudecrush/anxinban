@@ -70,6 +70,7 @@ public class SleepRecordController {
         data.put("bed_time", latest.getBedTime());
         data.put("wake_count", latest.getWakeCount() != null ? latest.getWakeCount() : 0);
         data.put("quality_score", latest.getQualityScore() != null ? latest.getQualityScore() : 0);
+        data.put("total_sleep_hours", latest.getTotalSleepHours());
         data.put("deep_sleep_percent", latest.getDeepSleepPercent());
         data.put("insomnia_level", mapInsomniaLevel(latest.getQualityScore()));
         data.put("recorded_at", latest.getRecordedAt() != null ? latest.getRecordedAt().toString() : null);

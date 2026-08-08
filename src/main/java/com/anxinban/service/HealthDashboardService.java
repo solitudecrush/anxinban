@@ -20,7 +20,16 @@ import java.util.stream.Collectors;
 
 /**
  * 健康数据看板服务 — 聚合睡眠分析、陪伴记录、音乐疗法、物品寻找四项数据，
- * 并生成描述性总结语（基于 if-else 规则，无需调用大模型）。
+ * 并生成描述性总结语（基于规则计算，无需调用大模型）。
+ *
+ * <p>数据来源对照：</p>
+ * <ul>
+ *   <li>睡眠面板 → sleep_record 表（近7天）</li>
+ *   <li>陪伴面板-情绪统计 → chat_records 表（近7天）</li>
+ *   <li>陪伴面板-摘要记录 → ai_service_record 表（service_type=companion_chat，近7天）</li>
+ *   <li>音乐面板 → ai_service_record 表（service_type=music_control，近7天）</li>
+ *   <li>物品寻找面板 → ai_service_record 表（service_type=find_item，近7天）</li>
+ * </ul>
  *
  * @author anxinban-team
  * @since 0.0.1-SNAPSHOT
@@ -46,7 +55,7 @@ public class HealthDashboardService {
     }
 
     /**
-     * 构建健康数据看板全部数据。
+     * 构建健康数据看板全部数据（近7天）。
      *
      * @param elderId 老人 ID，用于查询各数据表
      * @return 包含四个面板的完整看板数据
@@ -65,7 +74,7 @@ public class HealthDashboardService {
     /**
      * 构建睡眠分析面板。
      *
-     * <p>查询近 7 天数据，基于最新一条生成描述性总结语。</p>
+     * <p>查询近 7 天数据，基于7天平均值生成描述性总结语。</p>
      */
     private SleepPanel buildSleepPanel(String elderId) {
         SleepPanel panel = new SleepPanel();
@@ -87,50 +96,75 @@ public class HealthDashboardService {
 
         // 如果没有数据，返回空列表和默认文案
         if (items.isEmpty()) {
-            panel.setSummary("暂无近7天睡眠数据，请佩戴睡眠监测设备");
+            panel.setSummary("暂无近7天睡眠数据，请安装睡眠监测设备");
             panel.setRecords(Collections.emptyList());
             return panel;
         }
 
-        // 取最新一条（最后一条即最新，因为已按日期升序）
-        SleepDayItem latest = items.get(items.size() - 1);
-        panel.setSummary(generateSleepSummary(latest));
+        // 基于近7天平均值生成总结语
+        panel.setSummary(generateSleepSummary(items));
         panel.setRecords(items);
         return panel;
     }
 
     /**
-     * 根据最新睡眠数据生成描述性总结语。
+     * 根据近7天睡眠数据生成描述性总结语。
      *
-     * <p>规则（仅依赖最新一天数据，用 if-else 判断）：</p>
+     * <p>基于7天平均值进行判断：</p>
      * <ul>
-     *   <li>总时长 > 7h → "昨晚睡得不错，时长充足"</li>
-     *   <li>总时长 < 5h → "昨晚睡眠偏少，建议白天小憩"</li>
-     *   <li>总时长 >= 5h 且 <= 7h → "昨晚睡眠时长一般"</li>
-     *   <li>深睡占比 > 40% → 追加"深度睡眠质量较高"</li>
+     *   <li>avgSleep >= 7h 且 avgDeep >= 30% → "近7天睡眠质量良好…"</li>
+     *   <li>avgSleep < 5h → "近7天睡眠严重不足…"</li>
+     *   <li>中间状态 → "近7天睡眠质量一般…"</li>
      * </ul>
      */
-    private String generateSleepSummary(SleepDayItem latest) {
+    private String generateSleepSummary(List<SleepDayItem> items) {
+        double avgSleep = items.stream()
+                .filter(i -> i.getTotalSleepHours() != null)
+                .mapToDouble(SleepDayItem::getTotalSleepHours)
+                .average().orElse(0);
+        double avgDeep = items.stream()
+                .filter(i -> i.getDeepSleepPercent() != null)
+                .mapToInt(SleepDayItem::getDeepSleepPercent)
+                .average().orElse(0);
+        int totalWake = items.stream()
+                .filter(i -> i.getWakeCount() != null)
+                .mapToInt(SleepDayItem::getWakeCount)
+                .sum();
+
         StringBuilder sb = new StringBuilder();
+        sb.append("近7天睡眠");
 
-        Double hours = latest.getTotalSleepHours();
-        Integer deepPercent = latest.getDeepSleepPercent();
-
-        if (hours != null) {
-            if (hours > 7.0) {
-                sb.append("昨晚睡得不错，时长充足");
-            } else if (hours < 5.0) {
-                sb.append("昨晚睡眠偏少，建议白天小憩");
-            } else {
-                sb.append("昨晚睡眠时长一般");
-            }
+        if (avgSleep >= 7.0 && avgDeep >= 30) {
+            sb.append("质量良好");
+        } else if (avgSleep < 5.0) {
+            sb.append("严重不足");
         } else {
-            sb.append("暂无睡眠时长数据");
+            sb.append("质量一般");
         }
 
-        if (deepPercent != null && deepPercent > 40) {
-            if (sb.length() > 0) sb.append("，");
-            sb.append("深度睡眠质量较高");
+        sb.append(String.format("，平均睡眠时长约 %.1f 小时", avgSleep));
+
+        if (avgDeep < 25) {
+            sb.append("，深睡占比偏低");
+        } else if (avgDeep >= 35) {
+            sb.append("，深睡比例较好");
+        }
+
+        if (totalWake > 14) {
+            sb.append("，夜间醒来较为频繁");
+        } else if (totalWake <= 7) {
+            sb.append("，夜间醒来次数较少");
+        }
+
+        sb.append("。");
+
+        // 追加建议
+        if (avgSleep < 6.0) {
+            sb.append("建议控制晚间饮水量、保持卧室温度适宜，必要时咨询医生。");
+        } else if (avgDeep < 20) {
+            sb.append("建议睡前避免咖啡因摄入，可尝试助眠白噪音。");
+        } else {
+            sb.append("请继续保持规律的作息习惯。");
         }
 
         return sb.toString();
@@ -141,74 +175,108 @@ public class HealthDashboardService {
     /**
      * 构建陪伴记录面板。
      *
-     * <p>数据源已统一为 chat_records 表（情绪标签仅6种：开心、平静、低落、焦虑、孤单、思念）。
-     * 查询近 30 天陪伴对话记录，基于情绪标签分布生成总结语。</p>
+     * <p>情绪统计（emotionStats + summary）来自 chat_records 表（近7天），
+     * 摘要记录（recentRecords）来自 ai_service_record 表（companion_chat，近7天，含AI摘要）。
+     * 这样双重数据源确保：统计数据更细粒度，摘要记录更具可读性。</p>
      */
     private CompanionPanel buildCompanionPanel(String elderId) {
         CompanionPanel panel = new CompanionPanel();
-
-        // chat_records.user_id 存储的是老人 ID，直接使用 elderId 查询
-        LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+        LocalDate sevenDaysAgo = LocalDate.now().minusDays(7);
         LocalDate today = LocalDate.now();
-        List<ChatRecord> recentRecords = chatRecordRepository
-                .findByUserIdAndDateBetweenOrderByDateAsc(elderId, thirtyDaysAgo, today);
 
-        if (recentRecords.isEmpty()) {
-            panel.setSummary("暂无近期陪伴记录");
+        // ===== 情绪统计：来自 chat_records（近7天） =====
+        List<ChatRecord> chatRecords = chatRecordRepository
+                .findByUserIdAndDateBetweenOrderByDateAsc(elderId, sevenDaysAgo, today);
+
+        if (chatRecords.isEmpty()) {
+            panel.setSummary("暂无近7天陪伴记录");
             panel.setEmotionStats(Collections.emptyMap());
             panel.setRecentRecords(Collections.emptyList());
             return panel;
         }
 
-        // 情绪标签分布统计（仅统计新规范6种情绪标签）
-        Map<String, Long> emotionStats = recentRecords.stream()
+        // 情绪标签分布统计
+        Map<String, Long> emotionStats = chatRecords.stream()
                 .filter(r -> r.getEmotion() != null && !r.getEmotion().isEmpty())
                 .collect(Collectors.groupingBy(ChatRecord::getEmotion, Collectors.counting()));
 
         panel.setEmotionStats(emotionStats);
         panel.setSummary(generateCompanionSummary(emotionStats));
 
-        // 最近 5 条（按日期倒序），使用新规范情绪标签和颜色映射
-        List<CompanionItem> recentItems = recentRecords.stream()
-                .sorted(Comparator.comparing(ChatRecord::getDate,
+        // ===== 摘要记录：来自 ai_service_record（companion_chat，近7天，含AI摘要） =====
+        List<AiServiceRecord> companionRecords = aiServiceRecordService
+                .listByElderAndType(elderId, "companion_chat");
+        LocalDateTime sevenDaysAgoDt = sevenDaysAgo.atStartOfDay();
+        List<CompanionItem> recentItems = companionRecords.stream()
+                .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgoDt))
+                .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(5)
                 .map(r -> new CompanionItem(
-                        r.getDate() != null ? r.getDate().format(DATE_FMT) : "",
-                        r.getMessage() != null ? (r.getMessage().length() > 30
-                                ? r.getMessage().substring(0, 30) + "..." : r.getMessage()) : "",
+                        r.getInteractionTime() != null ? r.getInteractionTime().format(DATE_FMT) : "",
+                        r.getSummary() != null ? r.getSummary() : "",
                         r.getEmotion() != null ? r.getEmotion() : "",
                         getEmotionColor(r.getEmotion())))
                 .collect(Collectors.toList());
+
+        // 若 ai_service_record 无数据，回退到 chat_records（取 message 前30字作为摘要）
+        if (recentItems.isEmpty()) {
+            recentItems = chatRecords.stream()
+                    .sorted(Comparator.comparing(ChatRecord::getDate,
+                            Comparator.nullsLast(Comparator.reverseOrder())))
+                    .limit(14)
+                    .map(r -> new CompanionItem(
+                            r.getDate() != null ? r.getDate().format(DATE_FMT) : "",
+                            r.getMessage() != null ? (r.getMessage().length() > 30
+                                    ? r.getMessage().substring(0, 30) + "..." : r.getMessage()) : "",
+                            r.getEmotion() != null ? r.getEmotion() : "",
+                            getEmotionColor(r.getEmotion())))
+                    .collect(Collectors.toList());
+        }
 
         panel.setRecentRecords(recentItems);
         return panel;
     }
 
     /**
-     * 新规范情绪标签 → 颜色映射。
-     * 仅6种情绪：开心、平静、低落、焦虑、孤单、思念
+     * 情绪标签 → 颜色映射。
+     * 覆盖 ai_service_record 中的15种情绪 + chat_records 中的6种情绪。
      */
     private String getEmotionColor(String emotion) {
         if (emotion == null) return "#999999";
         switch (emotion) {
-            case "开心": return "#52C41A";
-            case "平静": return "#1890FF";
-            case "低落": return "#722ED1";
-            case "焦虑": return "#FF4D4F";
-            case "孤单": return "#FA8C16";
-            case "思念": return "#EB2F96";
+            // 正向情绪
+            case "开心": return "#4CAF50";
+            case "满足": return "#4CAF50";
+            case "感动": return "#E91E63";
+            case "自豪": return "#4CAF50";
+            case "期待": return "#FF9800";
+            case "安心": return "#8BC34A";
+            case "温暖": return "#4CAF50";
+            case "欣慰": return "#8BC34A";
+            case "放松": return "#00BCD4";
+            // 中性情绪
+            case "平静": return "#2196F3";
+            // 负向情绪
+            case "低落": return "#607D8B";
+            case "焦虑": return "#FF9800";
+            case "孤单": return "#9C27B0";
+            case "思念": return "#9C27B0";
+            case "疲惫": return "#795548";
+            case "着急": return "#FF5722";
+            case "恐惧": return "#F44336";
+            case "困惑": return "#FF9800";
             default:    return "#999999";
         }
     }
 
     /**
-     * 根据情绪标签分布生成陪伴总结语。
+     * 根据情绪标签分布生成陪伴总结语（基于 chat_records 近7天数据）。
      *
-     * <p>规则（新规范仅6种情绪标签）：</p>
+     * <p>规则：</p>
      * <ul>
-     *   <li>如果"开心+平静"正面情绪占比 > 60% → "最近情绪稳定，状态良好"</li>
-     *   <li>如果"焦虑+低落+孤单+思念"负面情绪占比 > 0 → "近期情绪有波动，建议多视频通话"</li>
+     *   <li>找到占比最高的情绪，描述主要情绪状态</li>
+     *   <li>如果"开心+平静"正面情绪占比 > 50% → "情绪整体平稳"</li>
+     *   <li>如果"焦虑+低落+孤单+思念"负向情绪占比 > 50% → "近期情绪有波动"</li>
      *   <li>其他 → "情绪状态有待关注"</li>
      * </ul>
      */
@@ -216,9 +284,14 @@ public class HealthDashboardService {
         long total = emotionStats.values().stream().mapToLong(Long::longValue).sum();
         if (total == 0) return "暂无情绪数据";
 
-        // 新规范：仅6种情绪标签
-        Set<String> positiveEmotions = Set.of("开心", "平静");
-        Set<String> negativeEmotions = Set.of("低落", "焦虑", "孤单", "思念");
+        // 找到占比最高的情绪
+        String topEmotion = emotionStats.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse("未知");
+
+        Set<String> positiveEmotions = Set.of("开心", "平静", "满足", "感动", "自豪", "期待", "安心", "温暖", "欣慰", "放松");
+        Set<String> negativeEmotions = Set.of("低落", "焦虑", "孤单", "思念", "疲惫", "着急", "恐惧", "困惑");
 
         long positiveCount = emotionStats.entrySet().stream()
                 .filter(e -> positiveEmotions.contains(e.getKey()))
@@ -231,14 +304,25 @@ public class HealthDashboardService {
                 .sum();
 
         double positiveRatio = (double) positiveCount / total;
+        double negativeRatio = (double) negativeCount / total;
 
-        if (negativeCount > 0) {
-            return "近期情绪有波动，建议多视频通话";
-        } else if (positiveRatio >= 0.6) {
-            return "最近情绪稳定，状态良好";
+        StringBuilder sb = new StringBuilder();
+        sb.append("近7天情绪以").append(topEmotion).append("为主");
+
+        if (positiveRatio >= 0.5) {
+            sb.append("，情绪整体平稳，状态良好");
+        } else if (negativeRatio >= 0.5) {
+            sb.append("，主要表现为对健康的担忧");
+            if (topEmotion.equals("焦虑")) {
+                sb.append("，建议增加陪伴频次，适当进行社交活动");
+            } else if (topEmotion.equals("低落")) {
+                sb.append("，建议多视频通话，鼓励参与社区活动");
+            }
         } else {
-            return "情绪状态有待关注，建议多加陪伴";
+            sb.append("，情绪状态有待关注，建议多加陪伴");
         }
+
+        return sb.toString();
     }
 
     // ==================== 三、音乐疗法 ====================
@@ -246,7 +330,8 @@ public class HealthDashboardService {
     /**
      * 构建音乐疗法面板。
      *
-     * <p>查询近 7 天音乐控制记录，基于是否有播放记录生成总结语。</p>
+     * <p>查询近 7 天音乐控制记录（ai_service_record，service_type=music_control），
+     * 基于播放次数生成总结语。</p>
      */
     private MusicPanel buildMusicPanel(String elderId) {
         MusicPanel panel = new MusicPanel();
@@ -261,13 +346,15 @@ public class HealthDashboardService {
 
         // 生成总结语
         if (recentRecords.isEmpty()) {
-            panel.setSummary("近一周未使用音乐疗法，可尝试播放助眠白噪音");
+            panel.setSummary("近7天未使用音乐疗法，可尝试播放助眠白噪音帮助放松");
             panel.setRecentRecords(Collections.emptyList());
         } else {
-            panel.setSummary("近期有听音乐放松，继续保持");
+            int totalMinutes = recentRecords.size() * 20; // 每次默认20分钟
+            panel.setSummary(String.format("近7天共进行音乐疗法 %d 次，累计约 %d 分钟，继续保持每日聆听习惯",
+                    recentRecords.size(), totalMinutes));
             List<MusicItem> items = recentRecords.stream()
                     .map(r -> new MusicItem(
-                            r.getInteractionTime() != null ? r.getInteractionTime().format(DATETIME_FMT) : "",
+                            r.getInteractionTime() != null ? r.getInteractionTime().format(DATE_FMT) : "",
                             r.getMusicType() != null ? r.getMusicType() : "未知",
                             r.getUserText() != null ? r.getUserText() : ""))
                     .collect(Collectors.toList());
@@ -282,18 +369,20 @@ public class HealthDashboardService {
     /**
      * 构建物品寻找面板。
      *
-     * <p>只显示最近 5 次寻找记录。</p>
+     * <p>查询近 7 天寻找记录（ai_service_record，service_type=find_item），
+     * 按时间倒序显示最近记录。</p>
      */
     private ItemFindingPanel buildItemFindingPanel(String elderId) {
         ItemFindingPanel panel = new ItemFindingPanel();
 
         List<AiServiceRecord> allRecords = aiServiceRecordService.listByElderAndType(elderId, "find_item");
+        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(7).atStartOfDay();
         List<ItemFindingItem> items = allRecords.stream()
+                .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgo))
                 .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(5)
                 .map(r -> new ItemFindingItem(
-                        r.getInteractionTime() != null ? r.getInteractionTime().format(DATETIME_FMT) : "",
+                        r.getInteractionTime() != null ? r.getInteractionTime().format(DATE_FMT) : "",
                         r.getItem() != null ? r.getItem() : "未知",
                         r.getLocation() != null ? r.getLocation() : "未知",
                         r.getResult() != null ? r.getResult() : "未知"))

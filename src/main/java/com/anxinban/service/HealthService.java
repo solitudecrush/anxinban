@@ -52,12 +52,17 @@ public class HealthService {
         HealthLatestDto dto = new HealthLatestDto();
         dto.setElderId(elderId);
 
+        // 检测时间统一使用当前时间前推的上一个整点
+        String detectionTime = java.time.LocalDateTime.now()
+                .withMinute(0).withSecond(0).withNano(0)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
         // 体温：优先从独立表 body_temperature 读取，fallback 到 sensor_data
         SensorData latestBt = getLatestSensor(elderId, "temperature");
         if (latestBt != null) {
             if (latestBt != null) {
                 dto.setTemperature(latestBt.getValue());
-                dto.setUpdateTime(latestBt.getTimestamp().toString());
+                dto.setUpdateTime(detectionTime);
             }
         } else {
             // 尝试多种 sensor_type：DeviceUpload 用 "temperature"，MQTT 用 "body-temperature"
@@ -69,7 +74,7 @@ public class HealthService {
                     .collect(Collectors.toList());
             if (!tempList.isEmpty()) {
                 dto.setTemperature(tempList.get(0).getValue());
-                dto.setUpdateTime(tempList.get(0).getTimestamp().toString());
+                dto.setUpdateTime(detectionTime);
             }
         }
 
@@ -78,7 +83,7 @@ public class HealthService {
         if (latestHr != null) {
             dto.setHeartRate(latestHr.getValue() != null ? latestHr.getValue().intValue() : null);
             if (dto.getUpdateTime() == null) {
-                dto.setUpdateTime(latestHr.getTimestamp().toString());
+                dto.setUpdateTime(detectionTime);
             }
         } else {
             // 尝试多种 sensor_type：DeviceUpload 用 "heart_rate"，MQTT 用 "heart-rate"
@@ -91,7 +96,7 @@ public class HealthService {
             if (!hrList.isEmpty()) {
                 dto.setHeartRate(hrList.get(0).getValue().intValue());
                 if (dto.getUpdateTime() == null) {
-                    dto.setUpdateTime(hrList.get(0).getTimestamp().toString());
+                    dto.setUpdateTime(detectionTime);
                 }
             }
         }
@@ -102,8 +107,7 @@ public class HealthService {
         if (latestSys != null) dto.setSystolic(latestSys.getValue() != null ? latestSys.getValue().intValue() : null);
         if (latestDia != null) dto.setDiastolic(latestDia.getValue() != null ? latestDia.getValue().intValue() : null);
         if (dto.getUpdateTime() == null) {
-            if (latestSys != null) dto.setUpdateTime(latestSys.getTimestamp().toString());
-            else if (latestDia != null) dto.setUpdateTime(latestDia.getTimestamp().toString());
+            if (latestSys != null || latestDia != null) dto.setUpdateTime(detectionTime);
         }
 
         // 血氧：优先从独立表 blood_oxygen 读取，fallback 到 sensor_data
@@ -111,7 +115,7 @@ public class HealthService {
         if (latestBo != null) {
             dto.setBloodOxygen(latestBo.getValue() != null ? latestBo.getValue().intValue() : null);
             if (dto.getUpdateTime() == null) {
-                dto.setUpdateTime(latestBo.getTimestamp().toString());
+                dto.setUpdateTime(detectionTime);
             }
         } else {
             // 尝试多种 sensor_type：DeviceUpload 用 "spo2"，MQTT 用 "blood-oxygen"
@@ -125,7 +129,7 @@ public class HealthService {
             if (!boList.isEmpty()) {
                 dto.setBloodOxygen(boList.get(0).getValue().intValue());
                 if (dto.getUpdateTime() == null) {
-                    dto.setUpdateTime(boList.get(0).getTimestamp().toString());
+                    dto.setUpdateTime(detectionTime);
                 }
             }
         }
@@ -138,7 +142,7 @@ public class HealthService {
         if (!sleepList.isEmpty()) {
             dto.setInsomnia(mapInsomniaLevel(sleepList.get(0).getValue()));
             if (dto.getUpdateTime() == null) {
-                dto.setUpdateTime(sleepList.get(0).getTimestamp().toString());
+                dto.setUpdateTime(detectionTime);
             }
         }
 
@@ -190,9 +194,8 @@ public class HealthService {
 
         List<HealthTrendDto.HealthTrendItemDto> items;
 
-        // 周/月报走聚合表 elder_daily_stats（禁止查原始秒级数据）
-        // 血压例外：需 sys/dia 配对，仍走 sensor_data
-        if (!"day".equals(period) && !"blood_pressure".equals(type)) {
+        // 周/月报走聚合 VIEW elder_daily_stats（全部体征统一，零冗余）
+        if (!"day".equals(period)) {
             items = queryDailyStats(elderId, type, start.toLocalDate(), end.toLocalDate());
             // daily_stats 已聚合，无需填补
             dto.setData(items);
@@ -401,6 +404,9 @@ public class HealthService {
                                 item.setValue(s.getAvgSpo2() != null ? s.getAvgSpo2().doubleValue() : null);
                         } else if ("temperature".equals(type)) {
                                 item.setValue(s.getAvgTemp() != null ? s.getAvgTemp().doubleValue() : null);
+                        } else if ("blood_pressure".equals(type)) {
+                                item.setSystolic(s.getAvgSystolic() != null ? s.getAvgSystolic().intValue() : null);
+                                item.setDiastolic(s.getAvgDiastolic() != null ? s.getAvgDiastolic().intValue() : null);
                         }
                         items.add(item);
                 }

@@ -32,6 +32,12 @@ public class ElderDailyStats {
     @Column(name = "avg_temp", precision = 4, scale = 2)
     private BigDecimal avgTemp;
 
+    @Column(name = "avg_systolic", precision = 5, scale = 1)
+    private BigDecimal avgSystolic;
+
+    @Column(name = "avg_diastolic", precision = 5, scale = 1)
+    private BigDecimal avgDiastolic;
+
     @Column(name = "max_hr")
     private Integer maxHr;
 
@@ -56,6 +62,10 @@ public class ElderDailyStats {
     public void setAvgSpo2(BigDecimal avgSpo2) { this.avgSpo2 = avgSpo2; }
     public BigDecimal getAvgTemp() { return avgTemp; }
     public void setAvgTemp(BigDecimal avgTemp) { this.avgTemp = avgTemp; }
+    public BigDecimal getAvgSystolic() { return avgSystolic; }
+    public void setAvgSystolic(BigDecimal avgSystolic) { this.avgSystolic = avgSystolic; }
+    public BigDecimal getAvgDiastolic() { return avgDiastolic; }
+    public void setAvgDiastolic(BigDecimal avgDiastolic) { this.avgDiastolic = avgDiastolic; }
     public Integer getMaxHr() { return maxHr; }
     public void setMaxHr(Integer maxHr) { this.maxHr = maxHr; }
     public Integer getMinSpo2() { return minSpo2; }
