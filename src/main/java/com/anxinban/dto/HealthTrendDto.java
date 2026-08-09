@@ -98,9 +98,9 @@ public class HealthTrendDto {
     /** 数值 */
         private Double value;
     /** 收缩压 */
-        private Integer systolic;
+        private Double systolic;
     /** 舒张压 */
-        private Integer diastolic;
+        private Double diastolic;
 
     /**
      * 获取字段含义待补充。
@@ -143,7 +143,7 @@ public class HealthTrendDto {
      *
      * @return 收缩压
      */
-        public Integer getSystolic() {
+        public Double getSystolic() {
             return systolic;
         }
 
@@ -152,7 +152,7 @@ public class HealthTrendDto {
      *
      * @param systolic 收缩压
      */
-        public void setSystolic(Integer systolic) {
+        public void setSystolic(Double systolic) {
             this.systolic = systolic;
         }
 
@@ -161,7 +161,7 @@ public class HealthTrendDto {
      *
      * @return 舒张压
      */
-        public Integer getDiastolic() {
+        public Double getDiastolic() {
             return diastolic;
         }
 
@@ -170,7 +170,7 @@ public class HealthTrendDto {
      *
      * @param diastolic 舒张压
      */
-        public void setDiastolic(Integer diastolic) {
+        public void setDiastolic(Double diastolic) {
             this.diastolic = diastolic;
         }
     }

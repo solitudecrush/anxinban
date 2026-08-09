@@ -1,5 +1,6 @@
 package com.anxinban.dto;
 
+import java.util.List;
 
 /**
  * Sos 数据传输对象（DTO），用于层与层之间的数据传递。
@@ -23,6 +24,10 @@ public class SosDto {
     private String handlerId;
     /** 字段含义待补充 */
     private String handledTime;
+    /** 短信接收人列表 */
+    private List<SmsRecipient> smsRecipients;
+    /** 预填短信内容 */
+    private String smsContent;
 
     /**
      * 获取唯一标识，主键。
@@ -148,5 +153,87 @@ public class SosDto {
      */
     public void setHandledTime(String handledTime) {
         this.handledTime = handledTime;
+    }
+
+    /**
+     * 获取短信接收人列表。
+     *
+     * @return 短信接收人列表
+     */
+    public List<SmsRecipient> getSmsRecipients() {
+        return smsRecipients;
+    }
+
+    /**
+     * 设置短信接收人列表。
+     *
+     * @param smsRecipients 短信接收人列表
+     */
+    public void setSmsRecipients(List<SmsRecipient> smsRecipients) {
+        this.smsRecipients = smsRecipients;
+    }
+
+    /**
+     * 获取预填短信内容。
+     *
+     * @return 预填短信内容
+     */
+    public String getSmsContent() {
+        return smsContent;
+    }
+
+    /**
+     * 设置预填短信内容。
+     *
+     * @param smsContent 预填短信内容
+     */
+    public void setSmsContent(String smsContent) {
+        this.smsContent = smsContent;
+    }
+
+    /**
+     * 短信接收人信息。
+     */
+    public static class SmsRecipient {
+        /** 联系人姓名 */
+        private String name;
+        /** 联系人电话 */
+        private String phone;
+
+        /**
+         * 获取联系人姓名。
+         *
+         * @return 联系人姓名
+         */
+        public String getName() {
+            return name;
+        }
+
+        /**
+         * 设置联系人姓名。
+         *
+         * @param name 联系人姓名
+         */
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        /**
+         * 获取联系人电话。
+         *
+         * @return 联系人电话
+         */
+        public String getPhone() {
+            return phone;
+        }
+
+        /**
+         * 设置联系人电话。
+         *
+         * @param phone 联系人电话
+         */
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
     }
 }

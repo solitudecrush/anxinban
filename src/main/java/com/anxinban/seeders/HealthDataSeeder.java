@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 健康数据模拟种子脚本 — 为 music_logs / chat_records / item_find_logs
@@ -234,26 +235,125 @@ public class HealthDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // 检查 chat_records 表是否为空，若为空则自动执行种子数据生成
-        // 避免每次启动都重建数据：仅在无数据时初始化
-        long count = chatRecordRepository.count();
-        if (count == 0) {
-            log.info("chat_records 表为空，自动执行种子数据初始化...");
-            seed();
+        long chatCount = chatRecordRepository.count();
+        long aiCount = aiServiceRecordRepository.count();
+        long sleepCount = sleepRecordRepository.count();
+        long musicCount = musicLogRepository.count();
+        long itemCount = itemFindLogRepository.count();
+
+        boolean anyEmpty = (chatCount == 0 || aiCount == 0 || sleepCount == 0
+                || musicCount == 0 || itemCount == 0);
+        boolean anyStale = !anyEmpty && isAnyTableStale();
+
+        if (anyEmpty) {
+            log.info("检测到空表 — chat={}, ai={}, sleep={}, music={}, item={}。执行种子数据初始化...",
+                    chatCount, aiCount, sleepCount, musicCount, itemCount);
+            seedMissingTables();
+        } else if (anyStale) {
+            log.info("检测到数据过期（>30天），清空全部 5 张表后重新生成...");
+            clearAll();
+            seed(); // 全量重新生成
         } else {
-            log.info("chat_records 表已有 {} 条记录，跳过自动初始化。" +
-                    " 如需重建数据请调用 POST /api/seed/health", count);
+            log.info("5 张表数据正常 — chat={}, ai={}, sleep={}, music={}, item={}。跳过初始化。" +
+                    " 如需刷新请调用 POST /api/seed/health",
+                    chatCount, aiCount, sleepCount, musicCount, itemCount);
+        }
+    }
+
+    /**
+     * 检查任意一张表的最新数据是否距今超过 30 天。
+     * 5 张表全部检查，只要有一张过期就返回 true。
+     */
+    private boolean isAnyTableStale() {
+        return isTableStale("ai_service_record") || isTableStale("sleep_record")
+                || isTableStale("chat_records") || isTableStale("music_logs")
+                || isTableStale("item_find_logs");
+    }
+
+    /**
+     * 检查指定表的最新记录是否距今超过 30 天。
+     */
+    private boolean isTableStale(String tableName) {
+        try {
+            java.time.LocalDate latestDate = null;
+            switch (tableName) {
+                case "ai_service_record": {
+                    List<AiServiceRecord> all = aiServiceRecordRepository.findAll();
+                    if (all.isEmpty()) return true;
+                    latestDate = all.stream()
+                            .map(AiServiceRecord::getInteractionTime)
+                            .filter(Objects::nonNull)
+                            .map(java.time.LocalDateTime::toLocalDate)
+                            .max(LocalDate::compareTo)
+                            .orElse(null);
+                    break;
+                }
+                case "sleep_record": {
+                    List<SleepRecord> all = sleepRecordRepository.findAll();
+                    if (all.isEmpty()) return true;
+                    latestDate = all.stream()
+                            .map(SleepRecord::getRecordedAt)
+                            .filter(Objects::nonNull)
+                            .map(java.time.LocalDateTime::toLocalDate)
+                            .max(LocalDate::compareTo)
+                            .orElse(null);
+                    break;
+                }
+                case "chat_records": {
+                    List<ChatRecord> all = chatRecordRepository.findAll();
+                    if (all.isEmpty()) return true;
+                    latestDate = all.stream()
+                            .map(ChatRecord::getDate)
+                            .filter(Objects::nonNull)
+                            .max(LocalDate::compareTo)
+                            .orElse(null);
+                    break;
+                }
+                case "music_logs": {
+                    List<MusicLog> all = musicLogRepository.findAll();
+                    if (all.isEmpty()) return true;
+                    latestDate = all.stream()
+                            .map(MusicLog::getDate)
+                            .filter(Objects::nonNull)
+                            .max(LocalDate::compareTo)
+                            .orElse(null);
+                    break;
+                }
+                case "item_find_logs": {
+                    List<ItemFindLog> all = itemFindLogRepository.findAll();
+                    if (all.isEmpty()) return true;
+                    latestDate = all.stream()
+                            .map(ItemFindLog::getDate)
+                            .filter(Objects::nonNull)
+                            .max(LocalDate::compareTo)
+                            .orElse(null);
+                    break;
+                }
+                default:
+                    return false;
+            }
+            if (latestDate == null) return true;
+            long daysSinceLatest = java.time.temporal.ChronoUnit.DAYS.between(latestDate, LocalDate.now());
+            if (daysSinceLatest > 30) {
+                log.info("表 {} 最新数据日期={}，距今 {} 天，判定为过期", tableName, latestDate, daysSinceLatest);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            log.warn("检查表 {} 数据新鲜度失败: {}", tableName, e.getMessage());
+            return false;
         }
     }
 
     /**
      * 执行全量种子数据生成（先清空再插入，保证幂等）。
+     * <p>注意：此方法会清空所有 5 张表并重新生成。通过 POST /api/seed/health 调用时使用。</p>
      */
     public void seed() {
         LocalDate today = LocalDate.now();
         log.info("========== 开始生成健康数据种子（{}天，基准日期={}）==========", TOTAL_DAYS, today);
 
-        // 清空旧数据
+        // 清空旧数据（全部表）
         clearAll();
 
         // 生成各表数据
@@ -264,6 +364,45 @@ public class HealthDataSeeder implements CommandLineRunner {
         seedAiServiceRecords(FIXED_USER_ID, today);
 
         log.info("========== 健康数据种子生成完成 ==========");
+    }
+
+    /**
+     * 仅补充缺失表的数据（不清空已有数据的表）。
+     * 每张表独立检查，互不影响。
+     */
+    private void seedMissingTables() {
+        LocalDate today = LocalDate.now();
+        boolean seeded = false;
+
+        if (chatRecordRepository.count() == 0) {
+            log.info("chat_records 为空，自动补充...");
+            seedChatRecords(FIXED_USER_ID, today);
+            seeded = true;
+        }
+        if (musicLogRepository.count() == 0) {
+            log.info("music_logs 为空，自动补充...");
+            seedMusicLogs(FIXED_USER_ID, today);
+            seeded = true;
+        }
+        if (itemFindLogRepository.count() == 0) {
+            log.info("item_find_logs 为空，自动补充...");
+            seedItemFindLogs(FIXED_USER_ID, today);
+            seeded = true;
+        }
+        if (aiServiceRecordRepository.count() == 0) {
+            log.info("ai_service_record 为空，自动补充...");
+            seedAiServiceRecords(FIXED_USER_ID, today);
+            seeded = true;
+        }
+        if (sleepRecordRepository.count() == 0) {
+            log.info("sleep_record 为空，自动补充...");
+            seedSleepRecords(FIXED_USER_ID, today);
+            seeded = true;
+        }
+
+        if (seeded) {
+            log.info("========== 缺失表种子数据补充完成 ==========");
+        }
     }
 
     /**

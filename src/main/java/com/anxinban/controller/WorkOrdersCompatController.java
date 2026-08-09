@@ -185,6 +185,7 @@ public class WorkOrdersCompatController {
             AlarmEvent alarm = alarmEventRepository.findByAlarmId(linkedAlarmId);
             if (alarm != null) {
                 item.put("alarm_type", alarm.getType() != null ? alarm.getType() : "");
+                item.put("alarm_type_label", alarm.getType() != null ? mapAlarmTypeToLabel(alarm.getType()) : "未知告警");
                 item.put("alarm_risk_level", alarm.getRiskLevel() != null ? alarm.getRiskLevel() : "");
                 String alarmLocation = alarm.getLocation() != null && !alarm.getLocation().isEmpty()
                         ? alarm.getLocation()
@@ -253,5 +254,27 @@ public class WorkOrdersCompatController {
         public void setHandlerId(String handlerId) { this.handlerId = handlerId; }
         public String getHandlerName() { return handlerName; }
         public void setHandlerName(String handlerName) { this.handlerName = handlerName; }
+    }
+
+    private String mapAlarmTypeToLabel(String alarmType) {
+        if (alarmType == null) return "未知告警";
+        switch (alarmType) {
+            case "smoke": return "烟雾告警";
+            case "fall": return "跌倒告警";
+            case "fall-detection": return "摔倒检测告警";
+            case "health_abnormal": return "健康异常";
+            case "inactive": return "长时间无活动";
+            case "night-leave-bed": return "夜间离床";
+            case "intrusion": return "闯入告警";
+            case "fingerprint-fail": return "指纹识别失败";
+            case "stranger": return "陌生人闯入";
+            case "emergency-call": return "紧急呼叫";
+            case "heart_rate": return "心率异常";
+            case "blood_pressure": return "血压异常";
+            case "temperature": return "体温异常";
+            case "sos": return "SOS紧急求助";
+            case "device_offline": return "设备离线";
+            default: return alarmType;
+        }
     }
 }

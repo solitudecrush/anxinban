@@ -23,6 +23,9 @@ public class AlarmDto {
     /** 告警类型，如 FALL、SOS、ABNORMAL_VITALS 等，必填，示例：FALL */
     private String alarmType;
 
+    /** 告警类型中文标签，如 跌倒告警、SOS紧急求助、健康异常，供前端直接展示 */
+    private String alarmTypeLabel;
+
     /** 告警严重程度，如 HIGH、MEDIUM、LOW，必填，示例：HIGH */
     private String severity;
 
@@ -150,6 +153,14 @@ public class AlarmDto {
      */
     public void setAlarmType(String alarmType) {
         this.alarmType = alarmType;
+    }
+
+    public String getAlarmTypeLabel() {
+        return alarmTypeLabel;
+    }
+
+    public void setAlarmTypeLabel(String alarmTypeLabel) {
+        this.alarmTypeLabel = alarmTypeLabel;
     }
 
     /**

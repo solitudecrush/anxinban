@@ -293,6 +293,7 @@ public class AlarmService {
         dto.setElderId(entity.getElderId());
         dto.setDeviceId(entity.getDeviceId());
         dto.setAlarmType(entity.getType());
+        dto.setAlarmTypeLabel(mapAlarmTypeToLabel(entity.getType()));
         dto.setSeverity(entity.getRiskLevel());
         dto.setDescription(entity.getDescription() != null && !entity.getDescription().isEmpty() ? entity.getDescription() : "暂无详情");
         dto.setStatus(entity.getStatus());
@@ -315,6 +316,31 @@ public class AlarmService {
             }
         }
         return dto;
+    }
+
+    /**
+     * 告警类型英文 → 中文标签映射。
+     */
+    private String mapAlarmTypeToLabel(String alarmType) {
+        if (alarmType == null) return "未知告警";
+        switch (alarmType) {
+            case "smoke": return "烟雾告警";
+            case "fall": return "跌倒告警";
+            case "fall-detection": return "摔倒检测告警";
+            case "health_abnormal": return "健康异常";
+            case "inactive": return "长时间无活动";
+            case "night-leave-bed": return "夜间离床";
+            case "intrusion": return "闯入告警";
+            case "fingerprint-fail": return "指纹识别失败";
+            case "stranger": return "陌生人闯入";
+            case "emergency-call": return "紧急呼叫";
+            case "heart_rate": return "心率异常";
+            case "blood_pressure": return "血压异常";
+            case "temperature": return "体温异常";
+            case "sos": return "SOS紧急求助";
+            case "device_offline": return "设备离线";
+            default: return alarmType;
+        }
     }
 
         /**

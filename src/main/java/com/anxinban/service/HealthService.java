@@ -194,17 +194,18 @@ public class HealthService {
 
         List<HealthTrendDto.HealthTrendItemDto> items;
 
-        // 周/月报走聚合 VIEW elder_daily_stats（全部体征统一，零冗余）
-        if (!"day".equals(period)) {
+        if ("blood_pressure".equals(type) && !"day".equals(period)) {
+            // 血压 week/month：sensor_data 按日聚合（不走 fillGaps，与 SQL AVG 一致）
+            items = queryDailyBloodPressure(elderId, start.toLocalDate(), end.toLocalDate());
+            dto.setData(items);
+        } else if (!"day".equals(period)) {
+            // 心率/血氧/体温 week/month：走 VIEW
             items = queryDailyStats(elderId, type, start.toLocalDate(), end.toLocalDate());
-            // daily_stats 已聚合，无需填补
             dto.setData(items);
         } else {
-            // Day 或血压：查 sensor_data 原始数据
+            // Day：查 sensor_data 原始数据 + fillGaps 插值
             items = queryHistoryData(elderId, type, start, end);
-            // 填补空缺时间点
-            List<HealthTrendDto.HealthTrendItemDto> filledItems = fillGaps(items, type, period, start, end);
-            dto.setData(filledItems);
+            dto.setData(fillGaps(items, type, period, start, end));
         }
         return dto;
     }
@@ -230,14 +231,14 @@ public class HealthService {
                     .sorted(Comparator.comparing(SensorData::getTimestamp))
                     .collect(Collectors.toList());
             // 按时间戳配对
-            Map<String, Integer> sysMap = new LinkedHashMap<>();
-            Map<String, Integer> diaMap = new LinkedHashMap<>();
+            Map<String, Double> sysMap = new LinkedHashMap<>();
+            Map<String, Double> diaMap = new LinkedHashMap<>();
             Map<String, String> timeMap = new LinkedHashMap<>();
             for (SensorData s : bpData) {
                 String ts = s.getTimestamp() != null ? s.getTimestamp().toString() : "";
                 String key = ts.length() >= 19 ? ts.substring(0, 19) : ts;
-                if ("blood_pressure_sys".equals(s.getSensorType())) sysMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
-                else diaMap.put(key, s.getValue() != null ? s.getValue().intValue() : null);
+                if ("blood_pressure_sys".equals(s.getSensorType())) sysMap.put(key, s.getValue());
+                else diaMap.put(key, s.getValue());
                 timeMap.putIfAbsent(key, s.getTimestamp().toString());
             }
             Set<String> keys = new TreeSet<>(sysMap.keySet());
@@ -245,8 +246,8 @@ public class HealthService {
             for (String key : keys) {
                 HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
                 item.setTime(timeMap.getOrDefault(key, ""));
-                item.setSystolic(sysMap.get(key));
-                item.setDiastolic(diaMap.get(key));
+                item.setSystolic(sysMap.get(key) != null ? Math.round(sysMap.get(key) * 10.0) / 10.0 : null);
+                item.setDiastolic(diaMap.get(key) != null ? Math.round(diaMap.get(key) * 10.0) / 10.0 : null);
                 items.add(item);
             }
         } else if ("heart_rate".equals(type)) {
@@ -387,8 +388,42 @@ public class HealthService {
      * @return 填补后的完整数据列表
      */
         /**
-         * 从 elder_daily_stats 聚合表读取周/月维度的健康数据。
-         * 仅用于 temperature / heart_rate / blood_oxygen，血压走 sensor_data。
+	/**
+	 * 从 sensor_data 按日聚合血压数据（week/month 用，与 SQL AVG 结果完全一致）。
+	 */
+	private List<HealthTrendDto.HealthTrendItemDto> queryDailyBloodPressure(
+			String elderId, java.time.LocalDate start, java.time.LocalDate end) {
+		java.util.Map<java.time.LocalDate, java.util.List<Integer>> sysMap = new java.util.LinkedHashMap<>();
+		java.util.Map<java.time.LocalDate, java.util.List<Integer>> diaMap = new java.util.LinkedHashMap<>();
+		for (com.anxinban.entity.SensorData s : sensorDataRepository.findByElderId(elderId)) {
+			if (s.getTimestamp() == null) continue;
+			java.time.LocalDate d = s.getTimestamp().toLocalDate();
+			if (d.isBefore(start) || d.isAfter(end)) continue;
+			if ("blood_pressure_sys".equals(s.getSensorType()))
+				sysMap.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(s.getValue() != null ? s.getValue().intValue() : 0);
+			else if ("blood_pressure_dia".equals(s.getSensorType()))
+				diaMap.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(s.getValue() != null ? s.getValue().intValue() : 0);
+		}
+		java.util.List<HealthTrendDto.HealthTrendItemDto> items = new java.util.ArrayList<>();
+		java.util.Set<java.time.LocalDate> allDates = new java.util.TreeSet<>(sysMap.keySet());
+		allDates.addAll(diaMap.keySet());
+		for (java.time.LocalDate d : allDates) {
+			HealthTrendDto.HealthTrendItemDto item = new HealthTrendDto.HealthTrendItemDto();
+			item.setTime(d.toString());
+			java.util.List<Integer> sv = sysMap.get(d);
+			java.util.List<Integer> dv = diaMap.get(d);
+			if (sv != null && !sv.isEmpty())
+				item.setSystolic(sv.stream().mapToInt(Integer::intValue).average().orElse(0.0));
+			if (dv != null && !dv.isEmpty())
+				item.setDiastolic(dv.stream().mapToInt(Integer::intValue).average().orElse(0.0));
+			items.add(item);
+		}
+		return items;
+	}
+
+
+         /** 从 elder_daily_stats VIEW 读取周/月维度的心率/血氧/体温日均数据。
+         * 血压走 sensor_data 原始配对（VIEW 不含血压字段）。
          */
         private List<HealthTrendDto.HealthTrendItemDto> queryDailyStats(
                         String elderId, String type, LocalDate start, LocalDate end) {
@@ -405,8 +440,8 @@ public class HealthService {
                         } else if ("temperature".equals(type)) {
                                 item.setValue(s.getAvgTemp() != null ? s.getAvgTemp().doubleValue() : null);
                         } else if ("blood_pressure".equals(type)) {
-                                item.setSystolic(s.getAvgSystolic() != null ? s.getAvgSystolic().intValue() : null);
-                                item.setDiastolic(s.getAvgDiastolic() != null ? s.getAvgDiastolic().intValue() : null);
+                                item.setSystolic(s.getAvgSystolic() != null ? s.getAvgSystolic().doubleValue() : null);
+                                item.setDiastolic(s.getAvgDiastolic() != null ? s.getAvgDiastolic().doubleValue() : null);
                         }
                         items.add(item);
                 }
@@ -488,8 +523,8 @@ public class HealthService {
     private void copyItemValues(HealthTrendDto.HealthTrendItemDto target,
                                  HealthTrendDto.HealthTrendItemDto source, String type) {
         if ("blood_pressure".equals(type)) {
-            target.setSystolic(source.getSystolic());
-            target.setDiastolic(source.getDiastolic());
+            target.setSystolic(source.getSystolic() != null ? source.getSystolic().doubleValue() : null);
+            target.setDiastolic(source.getDiastolic() != null ? source.getDiastolic().doubleValue() : null);
         } else {
             target.setValue(source.getValue());
         }
@@ -503,23 +538,23 @@ public class HealthService {
                                   HealthTrendDto.HealthTrendItemDto after, String type) {
         // 使用简单的均值插值（前后等权重）
         if ("blood_pressure".equals(type)) {
-            Integer sysBefore = before.getSystolic();
-            Integer sysAfter = after.getSystolic();
-            Integer diaBefore = before.getDiastolic();
-            Integer diaAfter = after.getDiastolic();
+            Double sysBefore = before.getSystolic();
+            Double sysAfter = after.getSystolic();
+            Double diaBefore = before.getDiastolic();
+            Double diaAfter = after.getDiastolic();
             if (sysBefore != null && sysAfter != null) {
-                target.setSystolic((sysBefore + sysAfter) / 2);
+                target.setSystolic(((sysBefore != null ? sysBefore.intValue() : 0) + (sysAfter != null ? sysAfter.intValue() : 0)) / 2.0);
             } else if (sysBefore != null) {
-                target.setSystolic(sysBefore);
+                target.setSystolic(sysBefore != null ? sysBefore.doubleValue() : null);
             } else if (sysAfter != null) {
-                target.setSystolic(sysAfter);
+                target.setSystolic(sysAfter != null ? sysAfter.doubleValue() : null);
             }
             if (diaBefore != null && diaAfter != null) {
-                target.setDiastolic((diaBefore + diaAfter) / 2);
+                target.setDiastolic(((diaBefore != null ? diaBefore.intValue() : 0) + (diaAfter != null ? diaAfter.intValue() : 0)) / 2.0);
             } else if (diaBefore != null) {
-                target.setDiastolic(diaBefore);
+                target.setDiastolic(diaBefore != null ? diaBefore.doubleValue() : null);
             } else if (diaAfter != null) {
-                target.setDiastolic(diaAfter);
+                target.setDiastolic(diaAfter != null ? diaAfter.doubleValue() : null);
             }
         } else {
             Double vBefore = before.getValue();
@@ -541,13 +576,13 @@ public class HealthService {
             List<HealthTrendDto.HealthTrendItemDto> items, String type) {
         HealthTrendDto.HealthTrendItemDto result = new HealthTrendDto.HealthTrendItemDto();
         if ("blood_pressure".equals(type)) {
-            int sysSum = 0, diaSum = 0, sysCount = 0, diaCount = 0;
+            double sysSum = 0, diaSum = 0, sysCount = 0, diaCount = 0;
             for (HealthTrendDto.HealthTrendItemDto item : items) {
-                if (item.getSystolic() != null) { sysSum += item.getSystolic(); sysCount++; }
-                if (item.getDiastolic() != null) { diaSum += item.getDiastolic(); diaCount++; }
+                if (item.getSystolic() != null) { sysSum += item.getSystolic() != null ? item.getSystolic().intValue() : 0; sysCount++; }
+                if (item.getDiastolic() != null) { diaSum += item.getDiastolic() != null ? item.getDiastolic().intValue() : 0; diaCount++; }
             }
-            if (sysCount > 0) result.setSystolic(sysSum / sysCount);
-            if (diaCount > 0) result.setDiastolic(diaSum / diaCount);
+            if (sysCount > 0) result.setSystolic(sysCount > 0 ? sysSum / sysCount : null);
+            if (diaCount > 0) result.setDiastolic(diaCount > 0 ? diaSum / diaCount : null);
         } else {
             double sum = 0;
             int count = 0;

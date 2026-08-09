@@ -10,6 +10,8 @@ import com.anxinban.dto.NotificationDto;
 import com.anxinban.dto.PageResult;
 import com.anxinban.dto.ServiceRequestDto;
 import com.anxinban.entity.ServiceRequest;
+import com.anxinban.entity.WorkOrder;
+import com.anxinban.mapper.WorkOrderRepository;
 import com.anxinban.mapper.ElderUserRepository;
 import com.anxinban.mapper.FamilyUserRepository;
 import com.anxinban.mapper.ServiceRequestRepository;
@@ -28,14 +30,20 @@ public class ServiceRequestService {
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final ServiceRequestRepository serviceRequestRepository;
+    private final WorkOrderRepository workOrderRepository;
     private final FamilyUserRepository familyUserRepository;
     /** 数据访问仓库，用于持久化操作 */
     private final ElderUserRepository elderUserRepository;
     private final NotificationService notificationService;
 
     @Autowired
-    public ServiceRequestService(ServiceRequestRepository serviceRequestRepository, FamilyUserRepository familyUserRepository, ElderUserRepository elderUserRepository, NotificationService notificationService) {
+    public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
+                                  WorkOrderRepository workOrderRepository,
+                                  FamilyUserRepository familyUserRepository,
+                                  ElderUserRepository elderUserRepository,
+                                  NotificationService notificationService) {
         this.serviceRequestRepository = serviceRequestRepository;
+        this.workOrderRepository = workOrderRepository;
         this.familyUserRepository = familyUserRepository;
         this.elderUserRepository = elderUserRepository;
         this.notificationService = notificationService;
@@ -143,6 +151,24 @@ public class ServiceRequestService {
         existing.setStatus("approved");
         existing.setConvertedWorkOrderId(orderId);
         existing.setUpdatedAt(LocalDateTime.now());
+
+        // 创建工单（前端生成编号，后端入库）
+        WorkOrder wo = new WorkOrder();
+        wo.setOrderId(orderId);
+        wo.setElderId(existing.getElderId());
+        wo.setType(existing.getType() != null ? existing.getType() : "日常关怀");
+        wo.setDescription(existing.getContent() != null ? existing.getContent() : "");
+        wo.setStatus("待处理");
+        wo.setCreatorId(existing.getFamilyId());
+        wo.setHandlerId("");
+        wo.setHandlerName("");
+        wo.setHandlerPhone("");
+        wo.setCompleteTime(LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        wo.setServiceRequestId(requestId);
+        wo.setCreatedAt(LocalDateTime.now());
+        wo.setUpdatedAt(LocalDateTime.now());
+        workOrderRepository.save(wo);
+
         ServiceRequest saved = serviceRequestRepository.save(existing);
         return convertToDto(saved);
     }

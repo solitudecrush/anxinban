@@ -6,11 +6,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * 全局异常处理器。
@@ -65,6 +69,32 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 缺少必填文件上传 part → 400。
+     */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseBody
+    public ApiResponse<?> handleMissingPart(MissingServletRequestPartException ex) {
+        log.warn("缺少文件上传 part: {}", ex.getMessage());
+        return ApiResponse.error(400, "缺少必填文件: " + ex.getRequestPartName());
+    }
+
+    /**
+     * Bean Validation（@Valid）校验失败 → 400。
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseBody
+    public ApiResponse<?> handleValidation(MethodArgumentNotValidException ex) {
+        String msg = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("请求参数校验失败");
+        log.warn("参数校验失败: {}", msg);
+        return ApiResponse.error(400, msg);
+    }
+
+    /**
      * 请求参数类型转换失败（如期望数字却传了字符串）→ 400。
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -82,6 +112,17 @@ public class GlobalExceptionHandler {
     public ApiResponse<?> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         log.warn("不支持的 HTTP 方法: {}", ex.getMessage());
         return ApiResponse.error(405, "不支持的请求方法: " + ex.getMethod());
+    }
+
+    /**
+     * 文件上传大小超限 → 413。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    @ResponseBody
+    public ApiResponse<?> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        log.warn("文件上传超限: {}", ex.getMessage());
+        return ApiResponse.error(413, "文件大小超出限制，单文件最大 10MB");
     }
 
     /**

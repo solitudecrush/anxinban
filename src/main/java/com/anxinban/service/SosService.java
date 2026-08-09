@@ -7,24 +7,40 @@ package com.anxinban.service;
  * @since 0.0.1-SNAPSHOT
  */
 import com.anxinban.dto.SosDto;
+import com.anxinban.dto.SosDto.SmsRecipient;
+import com.anxinban.entity.ElderUser;
+import com.anxinban.entity.EmergencyContact;
 import com.anxinban.entity.SosRecord;
+import com.anxinban.mapper.ElderUserRepository;
+import com.anxinban.mapper.EmergencyContactRepository;
 import com.anxinban.mapper.SosRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class SosService {
-    /** 字段含义待补充 */
+    private static final DateTimeFormatter SMS_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final SosRecordRepository sosRecordRepository;
+    private final ElderUserRepository elderUserRepository;
+    private final EmergencyContactRepository emergencyContactRepository;
+    private final AmapGeocodeService amapGeocodeService;
 
     @Autowired
-    public SosService(SosRecordRepository sosRecordRepository) {
+    public SosService(SosRecordRepository sosRecordRepository,
+                      ElderUserRepository elderUserRepository,
+                      EmergencyContactRepository emergencyContactRepository,
+                      AmapGeocodeService amapGeocodeService) {
         this.sosRecordRepository = sosRecordRepository;
+        this.elderUserRepository = elderUserRepository;
+        this.emergencyContactRepository = emergencyContactRepository;
+        this.amapGeocodeService = amapGeocodeService;
     }
 
         /**
@@ -41,7 +57,62 @@ public class SosService {
         entity.setLocation(dto.getLocation());
         entity.setCreatedAt(LocalDateTime.now());
         SosRecord saved = sosRecordRepository.save(entity);
-        return convertToDto(saved);
+        SosDto result = convertToDto(saved);
+
+        // 拼接短信内容
+        buildSmsInfo(result, dto.getElderId(), dto.getLocation());
+
+        return result;
+    }
+
+    /**
+     * 构建短信信息：查询老人资料和紧急联系人，拼接短信内容。
+     */
+    private void buildSmsInfo(SosDto dto, String elderId, String location) {
+        // 查询老人信息
+        ElderUser elder = elderUserRepository.findByElderId(elderId);
+        String elderName = elder != null ? elder.getName() : "";
+        Integer elderAge = elder != null ? elder.getAge() : null;
+
+        // 查询紧急联系人列表
+        List<EmergencyContact> contacts = emergencyContactRepository.findByElderIdOrderBySortOrderAsc(elderId);
+        List<SmsRecipient> recipients = new ArrayList<>();
+        if (contacts != null) {
+            for (EmergencyContact c : contacts) {
+                SmsRecipient r = new SmsRecipient();
+                r.setName(c.getName());
+                r.setPhone(c.getPhone());
+                recipients.add(r);
+            }
+        }
+        // 如果紧急联系人为空，尝试使用老人档案中的家属电话
+        if (recipients.isEmpty() && elder != null) {
+            String familyPhone = elder.getFamilyPhone();
+            if (familyPhone != null && !familyPhone.isBlank()) {
+                SmsRecipient r = new SmsRecipient();
+                r.setName("家属");
+                r.setPhone(familyPhone);
+                recipients.add(r);
+            }
+        }
+        dto.setSmsRecipients(recipients);
+
+        // 拼接短信内容
+        String triggerTime = dto.getTriggerTime() != null ? dto.getTriggerTime() : LocalDateTime.now().format(SMS_TIME_FORMATTER);
+        String positionDesc = amapGeocodeService.getApproximateLocation(location);
+
+        StringBuilder sms = new StringBuilder();
+        sms.append("【银龄智护紧急求助】\n");
+        sms.append("老人 ");
+        sms.append(elderName != null && !elderName.isBlank() ? elderName : "未知");
+        if (elderAge != null) {
+            sms.append("（").append(elderAge).append("岁）");
+        }
+        sms.append("于 ").append(triggerTime).append(" 触发紧急求助！\n");
+        sms.append("位置：").append(positionDesc).append("\n");
+        sms.append("请尽快确认老人安全！");
+
+        dto.setSmsContent(sms.toString());
     }
 
         /**
