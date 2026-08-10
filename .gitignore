@@ -70,3 +70,5 @@ uploads/avatars/*.jpg
 uploads/avatars/*.png
 uploads/avatars/*.jpeg
 !uploads/avatars/default.png
+app.log
+*.log
