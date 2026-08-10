@@ -334,7 +334,8 @@ public class HealthDataSeeder implements CommandLineRunner {
             }
             if (latestDate == null) return true;
             long daysSinceLatest = java.time.temporal.ChronoUnit.DAYS.between(latestDate, LocalDate.now());
-            if (daysSinceLatest > 30) {
+            // 看板展示窗口为近7天，超过7天即判定过期，留1天缓冲（>8天触发）
+            if (daysSinceLatest > 8) {
                 log.info("表 {} 最新数据日期={}，距今 {} 天，判定为过期", tableName, latestDate, daysSinceLatest);
                 return true;
             }
