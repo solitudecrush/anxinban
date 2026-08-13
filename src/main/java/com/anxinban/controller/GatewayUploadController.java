@@ -2,7 +2,9 @@ package com.anxinban.controller;
 
 import com.anxinban.dto.ApiResponse;
 import com.anxinban.dto.PageResult;
+import com.anxinban.entity.AlarmEvent;
 import com.anxinban.entity.FileMetadata;
+import com.anxinban.mapper.AlarmEventRepository;
 import com.anxinban.mapper.FileMetadataRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,8 +19,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -27,8 +27,8 @@ import java.util.*;
  * 网关图片上传控制器 — 专门接收网关设备通过 HTTP 上传的监控抓拍/门禁抓拍图片。
  *
  * <p>与前端管理端上传接口 {@link FileUploadController} 分离，提供独立的网关上传通道。
- * 上传的图片存储到 {@code {uploadRoot}/snapshots/yyyy-MM-dd/} 目录，
- * 同时将元数据写入 file_metadata 表。</p>
+ * 上传的图片存储到 {@code {uploadRoot}/snapshot/} 目录，
+ * 与告警 snapshotUrl 路径保持一致。</p>
  *
  * <h3>接口</h3>
  * <ul>
@@ -52,10 +52,13 @@ public class GatewayUploadController {
     private String allowedTypesConfig;
 
     private final FileMetadataRepository fileMetadataRepository;
+    private final AlarmEventRepository alarmEventRepository;
 
     @Autowired
-    public GatewayUploadController(FileMetadataRepository fileMetadataRepository) {
+    public GatewayUploadController(FileMetadataRepository fileMetadataRepository,
+                                   AlarmEventRepository alarmEventRepository) {
         this.fileMetadataRepository = fileMetadataRepository;
+        this.alarmEventRepository = alarmEventRepository;
     }
 
     // ==================== 上传接口 ====================
@@ -82,16 +85,16 @@ public class GatewayUploadController {
      * @param cameraId  摄像头 ID（可选）
      * @param timestamp 抓拍时间 ISO 8601（可选，不传使用服务器当前时间）
      * @param alarmType 关联告警类型（可选）
+     * @param alarmId   告警 ID（可选，传了就把 fileUrl 写入该告警的 snapshotUrl）
      * @return 上传结果（fileId, fileUrl, fileSize, createdAt）
      */
     @PostMapping("/upload-image")
     public ApiResponse<Map<String, Object>> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam("elderId") String elderId,
-            @RequestParam(value = "gatewayId", required = false) String gatewayId,
-            @RequestParam(value = "cameraId", required = false) String cameraId,
             @RequestParam(value = "timestamp", required = false) String timestamp,
-            @RequestParam(value = "alarmType", required = false) String alarmType) {
+            @RequestParam(value = "alarmType", required = false) String alarmType,
+            @RequestParam(value = "alarmId", required = false) String alarmId) {
 
         // 1. 校验文件非空
         if (file.isEmpty()) {
@@ -108,28 +111,65 @@ public class GatewayUploadController {
         // 3. 生成文件名和路径
         String originalName = file.getOriginalFilename();
         String ext = extractExtension(originalName, contentType);
-        String fileId = "file_" + UUID.randomUUID().toString().substring(0, 8);
-        String dateDir = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE); // yyyy-MM-dd
-        String relativePath = "/uploads/snapshots/" + dateDir + "/" + fileId + ext;
+        String fileId = "file_" + UUID.randomUUID().toString().substring(0, 12);
+        String relativePath = "/uploads/snapshot/" + fileId + ext;
 
         // 4. 解析抓拍时间
         LocalDateTime snapshotTime = parseSnapshotTime(timestamp);
 
+        Path targetPath = null;
         try {
             // 5. 确保目录存在
-            Path targetDir = Paths.get(uploadRoot, "snapshots", dateDir);
+            Path targetDir = Paths.get(uploadRoot, "snapshot");
             Files.createDirectories(targetDir);
 
-            // 6. 保存文件
-            Path targetPath = targetDir.resolve(fileId + ext);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            // 6. 保存文件到磁盘（不使用 REPLACE_EXISTING，fileId 12位确保不冲突）
+            targetPath = targetDir.resolve(fileId + ext);
+            Files.copy(file.getInputStream(), targetPath);
 
-            // 7. 写入元数据
+            // 7. 先创建/更新告警（告警是核心数据，优先保证）
+            String newAlarmId = alarmId;
+            if (alarmId != null && !alarmId.isEmpty()) {
+                AlarmEvent alarm = alarmEventRepository.findByAlarmId(alarmId);
+                if (alarm != null) {
+                    alarm.setSnapshotUrl(relativePath);
+                    alarm.setUpdatedAt(LocalDateTime.now());
+                    alarmEventRepository.save(alarm);
+                    log.info("告警关联图片: alarmId={}, snapshotUrl={}", alarmId, relativePath);
+                }
+            } else {
+                // 自动创建门锁异常告警
+                newAlarmId = "alarm_" + UUID.randomUUID().toString().substring(0, 8);
+                AlarmEvent alarm = new AlarmEvent();
+                alarm.setAlarmId(newAlarmId);
+                alarm.setElderId(elderId);
+                alarm.setDeviceId("");
+                alarm.setType(alarmType != null && !alarmType.isEmpty() ? alarmType : "door_lock");
+                alarm.setRiskLevel("high");
+                alarm.setStatus("pending");
+                alarm.setDescription(alarmType != null && alarmType.equals("intrusion") ? "闯入告警抓拍" : "门锁异常抓拍");
+                alarm.setBuilding("");
+                alarm.setRoomNumber("");
+                alarm.setUnit("");
+                alarm.setLocation("");
+                alarm.setSnapshotUrl(relativePath);
+                alarm.setHandlerId("");
+                alarm.setHandlerName("");
+                alarm.setHandleNote("");
+                alarm.setOccurTime(snapshotTime);
+                alarm.setHandleTime(LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+                alarm.setIsRead(false);
+                alarm.setAppNotified(false);
+                alarm.setCreatedAt(LocalDateTime.now());
+                alarm.setUpdatedAt(LocalDateTime.now());
+                alarmEventRepository.save(alarm);
+                log.info("自动创建告警: alarmId={}, elderId={}, type={}, snapshotUrl={}", newAlarmId, elderId, alarm.getType(), relativePath);
+            }
+
+            // 8. 写入文件元数据（告警已确保存在，元数据失败不影响核心数据）
             FileMetadata meta = new FileMetadata();
             meta.setFileId(fileId);
             meta.setElderId(elderId);
-            meta.setGatewayId(gatewayId != null && !gatewayId.isEmpty() ? gatewayId : null);
-            meta.setCameraId(cameraId != null && !cameraId.isEmpty() ? cameraId : null);
             meta.setOriginalName(originalName);
             meta.setFilePath(relativePath);
             meta.setFileSize(file.getSize());
@@ -139,19 +179,29 @@ public class GatewayUploadController {
             meta.setCreatedAt(LocalDateTime.now());
             fileMetadataRepository.save(meta);
 
-            log.info("网关图片上传成功: fileId={}, elderId={}, size={}, path={}", fileId, elderId, file.getSize(), relativePath);
-
-            // 8. 构建响应
+            // 9. 构建响应
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("fileId", fileId);
             data.put("fileUrl", relativePath);
             data.put("fileSize", file.getSize());
+            data.put("alarmId", newAlarmId);
             data.put("createdAt", meta.getCreatedAt().toString());
             return ApiResponse.success(data);
 
         } catch (IOException e) {
+            // 文件写入失败，尝试清理
+            if (targetPath != null) {
+                try { Files.deleteIfExists(targetPath); } catch (IOException ignored) {}
+            }
             log.error("网关图片保存失败: elderId={}, error={}", elderId, e.getMessage(), e);
             return ApiResponse.error(500, "文件保存失败: " + e.getMessage());
+        } catch (Exception e) {
+            // 数据库操作失败，清理已写入的磁盘文件
+            if (targetPath != null) {
+                try { Files.deleteIfExists(targetPath); } catch (IOException ignored) {}
+            }
+            log.error("网关数据保存失败: elderId={}, error={}", elderId, e.getMessage(), e);
+            return ApiResponse.error(500, "数据保存失败: " + e.getMessage());
         }
     }
 

@@ -28,11 +28,13 @@ public class ElderController {
     private final ElderUserRepository elderUserRepository;
     /** 数据访问仓库，用于持久化操作 */
     private final FamilyUserRepository familyUserRepository;
+    private final SimulatedVitalSignsService simulatedVitalSignsService;
 
     @Autowired
     public ElderController(ElderService elderService, HealthService healthService, DeviceService deviceService,
                            AlarmService alarmService, WorkOrderService workOrderService, MonitorRequestService monitorRequestService,
-                           ElderUserRepository elderUserRepository, FamilyUserRepository familyUserRepository) {
+                           ElderUserRepository elderUserRepository, FamilyUserRepository familyUserRepository,
+                           SimulatedVitalSignsService simulatedVitalSignsService) {
         this.elderService = elderService;
         this.healthService = healthService;
         this.deviceService = deviceService;
@@ -41,6 +43,7 @@ public class ElderController {
         this.monitorRequestService = monitorRequestService;
         this.elderUserRepository = elderUserRepository;
         this.familyUserRepository = familyUserRepository;
+        this.simulatedVitalSignsService = simulatedVitalSignsService;
     }
 
     /**
@@ -165,14 +168,15 @@ public class ElderController {
 
     /**
      * 查询接口，处理 GET /{elderId}/health/realtime 请求。
+     * App 首页四体征数据源：返回模拟数据，每 2 秒小幅波动一次，
+     * updateTime 与数值同组同步刷新。
      *
      * @param elderId elderId 参数
      * @return 处理结果
      */
     @GetMapping("/{elderId}/health/realtime")
     public ApiResponse<HealthLatestDto> getElderRealtimeHealth(@PathVariable String elderId) {
-        HealthLatestDto dto = healthService.getLatestHealth(elderId);
-        return ApiResponse.success(dto);
+        return ApiResponse.success(simulatedVitalSignsService.getRealtimeHealth(elderId));
     }
 
     @GetMapping("/{elderId}/health/history")

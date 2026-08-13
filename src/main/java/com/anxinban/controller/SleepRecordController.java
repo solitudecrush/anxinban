@@ -37,9 +37,13 @@ public class SleepRecordController {
 
     @GetMapping("/list")
     public ApiResponse<List<SleepRecord>> list(
-            @RequestParam String elderId,
+            @RequestParam(required = false) String elderId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        // Web 端社区总览：不带 elderId 时返回全部老人的睡眠记录（最新在前）
+        if (elderId == null || elderId.isEmpty()) {
+            return ApiResponse.success(service.listAll());
+        }
         if (start != null && end != null) {
             return ApiResponse.success(service.listByElderAndDateRange(elderId, start, end));
         }

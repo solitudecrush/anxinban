@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 安心伴智慧家居后端应用主启动类。
@@ -27,6 +28,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 })
 @EnableConfigurationProperties(MqttProperties.class)
 @EnableAsync
+@EnableScheduling
 public class AnxinbanApplication {
 
     /**

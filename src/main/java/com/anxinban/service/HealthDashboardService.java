@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>睡眠面板 → sleep_record 表（近7天）</li>
  *   <li>陪伴面板-情绪统计 → chat_records 表（近7天）</li>
- *   <li>陪伴面板-摘要记录 → ai_service_record 表（service_type=companion_chat，近7天）</li>
+ *   <li>陪伴面板-摘要记录 → chat_records 表（近7天，与详情页同源）</li>
  *   <li>音乐面板 → ai_service_record 表（service_type=music_control，近7天）</li>
  *   <li>物品寻找面板 → ai_service_record 表（service_type=find_item，近7天）</li>
  * </ul>
@@ -79,8 +79,8 @@ public class HealthDashboardService {
     private SleepPanel buildSleepPanel(String elderId) {
         SleepPanel panel = new SleepPanel();
 
-        // 查询近 7 天睡眠记录（从7天前到此刻）
-        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(7).atStartOfDay();
+        // 查询近 7 天睡眠记录（窗口与详情页一致：今天-6 起）
+        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(6).atStartOfDay();
         LocalDateTime now = LocalDateTime.now();
         List<SleepRecord> records = sleepRecordRepository
                 .findByElderIdAndRecordedAtBetween(elderId, sevenDaysAgo, now);
@@ -175,16 +175,15 @@ public class HealthDashboardService {
     /**
      * 构建陪伴记录面板。
      *
-     * <p>情绪统计（emotionStats + summary）来自 chat_records 表（近7天），
-     * 摘要记录（recentRecords）来自 ai_service_record 表（companion_chat，近7天，含AI摘要）。
-     * 这样双重数据源确保：统计数据更细粒度，摘要记录更具可读性。</p>
+     * <p>情绪统计（emotionStats + summary）和摘要记录（recentRecords）
+     * 均来自 chat_records 表（近7天），与详情页 /api/health/companion/detail 同源同窗口。</p>
      */
     private CompanionPanel buildCompanionPanel(String elderId) {
         CompanionPanel panel = new CompanionPanel();
-        LocalDate sevenDaysAgo = LocalDate.now().minusDays(7);
+        LocalDate sevenDaysAgo = LocalDate.now().minusDays(6);
         LocalDate today = LocalDate.now();
 
-        // ===== 情绪统计：来自 chat_records（近7天） =====
+        // ===== 情绪统计：来自 chat_records（近7天，窗口与详情页一致：今天-6 起） =====
         List<ChatRecord> chatRecords = chatRecordRepository
                 .findByUserIdAndDateBetweenOrderByDateAsc(elderId, sevenDaysAgo, today);
 
@@ -203,35 +202,18 @@ public class HealthDashboardService {
         panel.setEmotionStats(emotionStats);
         panel.setSummary(generateCompanionSummary(emotionStats));
 
-        // ===== 摘要记录：来自 ai_service_record（companion_chat，近7天，含AI摘要） =====
-        List<AiServiceRecord> companionRecords = aiServiceRecordService
-                .listByElderAndType(elderId, "companion_chat");
-        LocalDateTime sevenDaysAgoDt = sevenDaysAgo.atStartOfDay();
-        List<CompanionItem> recentItems = companionRecords.stream()
-                .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgoDt))
-                .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
+        // ===== 摘要记录：与详情页同源同窗口，直接来自 chat_records（近7天，取 message 前30字） =====
+        List<CompanionItem> recentItems = chatRecords.stream()
+                .sorted(Comparator.comparing(ChatRecord::getDate,
                         Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(14)
                 .map(r -> new CompanionItem(
-                        r.getInteractionTime() != null ? r.getInteractionTime().format(DATE_FMT) : "",
-                        r.getSummary() != null ? r.getSummary() : "",
+                        r.getDate() != null ? r.getDate().format(DATE_FMT) : "",
+                        r.getMessage() != null ? (r.getMessage().length() > 30
+                                ? r.getMessage().substring(0, 30) + "..." : r.getMessage()) : "",
                         r.getEmotion() != null ? r.getEmotion() : "",
                         getEmotionColor(r.getEmotion())))
                 .collect(Collectors.toList());
-
-        // 若 ai_service_record 无数据，回退到 chat_records（取 message 前30字作为摘要）
-        if (recentItems.isEmpty()) {
-            recentItems = chatRecords.stream()
-                    .sorted(Comparator.comparing(ChatRecord::getDate,
-                            Comparator.nullsLast(Comparator.reverseOrder())))
-                    .limit(14)
-                    .map(r -> new CompanionItem(
-                            r.getDate() != null ? r.getDate().format(DATE_FMT) : "",
-                            r.getMessage() != null ? (r.getMessage().length() > 30
-                                    ? r.getMessage().substring(0, 30) + "..." : r.getMessage()) : "",
-                            r.getEmotion() != null ? r.getEmotion() : "",
-                            getEmotionColor(r.getEmotion())))
-                    .collect(Collectors.toList());
-        }
 
         panel.setRecentRecords(recentItems);
         return panel;
@@ -337,11 +319,13 @@ public class HealthDashboardService {
         MusicPanel panel = new MusicPanel();
 
         List<AiServiceRecord> allRecords = aiServiceRecordService.listByElderAndType(elderId, "music_control");
-        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(7).atStartOfDay();
+        // 窗口与详情页一致：今天-6 起
+        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(6).atStartOfDay();
         List<AiServiceRecord> recentRecords = allRecords.stream()
                 .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgo))
                 .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(5) // 卡片只呈现最近 5 条
                 .collect(Collectors.toList());
 
         // 生成总结语
@@ -376,7 +360,8 @@ public class HealthDashboardService {
         ItemFindingPanel panel = new ItemFindingPanel();
 
         List<AiServiceRecord> allRecords = aiServiceRecordService.listByElderAndType(elderId, "find_item");
-        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(7).atStartOfDay();
+        // 窗口与详情页一致：今天-6 起
+        LocalDateTime sevenDaysAgo = LocalDate.now().minusDays(6).atStartOfDay();
         List<ItemFindingItem> items = allRecords.stream()
                 .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgo))
                 .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,

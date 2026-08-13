@@ -28,14 +28,6 @@ public class FileMetadata {
     @Column(name = "elder_id", length = 64)
     private String elderId;
 
-    /** 网关设备 ID */
-    @Column(name = "gateway_id", length = 64)
-    private String gatewayId;
-
-    /** 摄像头 ID（区分多路摄像头） */
-    @Column(name = "camera_id", length = 64)
-    private String cameraId;
-
     /** 原始文件名 */
     @Column(name = "original_name", length = 255)
     private String originalName;
@@ -74,12 +66,6 @@ public class FileMetadata {
 
     public String getElderId() { return elderId; }
     public void setElderId(String elderId) { this.elderId = elderId; }
-
-    public String getGatewayId() { return gatewayId; }
-    public void setGatewayId(String gatewayId) { this.gatewayId = gatewayId; }
-
-    public String getCameraId() { return cameraId; }
-    public void setCameraId(String cameraId) { this.cameraId = cameraId; }
 
     public String getOriginalName() { return originalName; }
     public void setOriginalName(String originalName) { this.originalName = originalName; }

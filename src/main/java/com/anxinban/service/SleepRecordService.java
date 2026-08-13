@@ -46,6 +46,17 @@ public class SleepRecordService {
         return repository.findByElderIdOrderByRecordedAtDesc(elderId);
     }
 
+    /**
+     * 查询全部老人的睡眠记录（最新在前）。
+     * 供 Web 端社区总览使用（不带 elderId 的全量查询）。
+     */
+    public List<SleepRecord> listAll() {
+        List<SleepRecord> list = repository.findAll();
+        list.sort(Comparator.comparing(SleepRecord::getRecordedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
+    }
+
     public List<SleepRecord> listByElderAndDateRange(String elderId, LocalDateTime start, LocalDateTime end) {
         List<SleepRecord> list = repository.findByElderIdAndRecordedAtBetween(elderId, start, end);
         list.sort(Comparator.comparing(SleepRecord::getRecordedAt));

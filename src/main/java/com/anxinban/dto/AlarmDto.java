@@ -65,6 +65,9 @@ public class AlarmDto {
     /** 告警现场快照图片 URL，示例：https://example.com/snap/xxx.jpg */
     private String snapshotUrl;
 
+    /** 是否已被 APP 自动处理（拨号+短信），false = 未处理，true = 已处理 */
+    private Boolean appNotified;
+
     /**
      * 获取唯一标识，主键。
      *
@@ -395,5 +398,23 @@ public class AlarmDto {
      */
     public void setSnapshotUrl(String snapshotUrl) {
         this.snapshotUrl = snapshotUrl;
+    }
+
+    /**
+     * 获取 APP 自动通知状态。
+     *
+     * @return APP 自动通知状态
+     */
+    public Boolean getAppNotified() {
+        return appNotified;
+    }
+
+    /**
+     * 设置 APP 自动通知状态。
+     *
+     * @param appNotified APP 自动通知状态
+     */
+    public void setAppNotified(Boolean appNotified) {
+        this.appNotified = appNotified;
     }
 }

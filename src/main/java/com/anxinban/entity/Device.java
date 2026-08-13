@@ -36,6 +36,10 @@ public class Device {
     /** 设备名称 */
     private String name;
 
+    @Column(name = "device_name")
+    /** 设备显示名称（app 端展示用） */
+    private String deviceName;
+
     /** 位置信息 */
     private String location;
 
@@ -135,6 +139,19 @@ public class Device {
      * @param name 设备名称
      */
     public void setName(String name) { this.name = name; }
+
+    /**
+     * 获取设备显示名称。
+     *
+     * @return 设备显示名称
+     */
+    public String getDeviceName() { return deviceName; }
+    /**
+     * 设置设备显示名称。
+     *
+     * @param deviceName 设备显示名称
+     */
+    public void setDeviceName(String deviceName) { this.deviceName = deviceName; }
 
     /**
      * 获取位置信息。

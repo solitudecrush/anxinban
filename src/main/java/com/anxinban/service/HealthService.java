@@ -52,10 +52,8 @@ public class HealthService {
         HealthLatestDto dto = new HealthLatestDto();
         dto.setElderId(elderId);
 
-        // 检测时间统一使用当前时间前推的上一个整点
-        String detectionTime = java.time.LocalDateTime.now()
-                .withMinute(0).withSecond(0).withNano(0)
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        // 检测时间：取各体征最新记录的真实时间戳
+        String detectionTime = null;
 
         // 体温：优先从独立表 body_temperature 读取，fallback 到 sensor_data
         SensorData latestBt = getLatestSensor(elderId, "temperature");
@@ -154,6 +152,18 @@ public class HealthService {
         if (!sleepTimeList.isEmpty()) {
             dto.setSleepTime(mapSleepTime(sleepTimeList.get(0).getValue()));
         }
+
+        // 从已读取的传感器记录中取最新时间戳作为检测时间
+        if (latestBt != null && (detectionTime == null || latestBt.getTimestamp().isAfter(java.time.LocalDateTime.parse(detectionTime.substring(0,19).replace(' ','T')))))
+            detectionTime = latestBt.getTimestamp().toString();
+        if (latestHr != null && (detectionTime == null || latestHr.getTimestamp().isAfter(java.time.LocalDateTime.parse(detectionTime.substring(0,19).replace(' ','T')))))
+            detectionTime = latestHr.getTimestamp().toString();
+        if (latestBo != null && (detectionTime == null || latestBo.getTimestamp().isAfter(java.time.LocalDateTime.parse(detectionTime.substring(0,19).replace(' ','T')))))
+            detectionTime = latestBo.getTimestamp().toString();
+        if (latestSys != null && (detectionTime == null || latestSys.getTimestamp().isAfter(java.time.LocalDateTime.parse(detectionTime.substring(0,19).replace(' ','T')))))
+            detectionTime = latestSys.getTimestamp().toString();
+        if (detectionTime != null)
+            dto.setUpdateTime(detectionTime);
 
         return dto;
     }

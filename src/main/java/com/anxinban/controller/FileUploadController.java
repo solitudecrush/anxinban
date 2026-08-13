@@ -158,14 +158,14 @@ public class FileUploadController {
             return ApiResponse.error(400, "文件不能为空");
         }
         try {
-            Path snapshotDir = Paths.get(uploadRoot, "snapshots");
+            Path snapshotDir = Paths.get(uploadRoot, "snapshot");
             Files.createDirectories(snapshotDir);
 
             String filename = "snapshot-" + UUID.randomUUID().toString().substring(0, 8) + ".jpg";
             Path targetPath = snapshotDir.resolve(filename);
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            String url = "/uploads/snapshots/" + filename;
+            String url = "/uploads/snapshot/" + filename;
             return ApiResponse.success(Map.of("url", url));
         } catch (IOException e) {
             return ApiResponse.error(500, "快照保存失败: " + e.getMessage());

@@ -90,6 +90,10 @@ public class AlarmEvent {
     /** 是否已读 */
     private Boolean isRead = false;
 
+    @Column(name = "app_notified", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    /** 是否已被 APP 自动处理（拨号+短信），false = 未处理，true = 已处理 */
+    private Boolean appNotified = false;
+
     @Column(name = "created_at")
     /** 创建时间 */
     private LocalDateTime createdAt;
@@ -345,6 +349,19 @@ public class AlarmEvent {
      * @param isRead 是否已读
      */
     public void setIsRead(Boolean isRead) { this.isRead = isRead; }
+
+    /**
+     * 获取 APP 自动通知状态。
+     *
+     * @return APP 自动通知状态
+     */
+    public Boolean getAppNotified() { return appNotified; }
+    /**
+     * 设置 APP 自动通知状态。
+     *
+     * @param appNotified APP 自动通知状态
+     */
+    public void setAppNotified(Boolean appNotified) { this.appNotified = appNotified; }
 
     /**
      * 获取创建时间。

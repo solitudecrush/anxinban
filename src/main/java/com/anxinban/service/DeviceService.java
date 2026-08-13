@@ -205,7 +205,10 @@ public class DeviceService {
         dto.setDeviceId(entity.getDeviceId());
         dto.setElderId(entity.getElderId());
         dto.setType(entity.getType());
-        dto.setName(entity.getName());
+        // 名称优先取 device_name（app 端展示用），为空时回退到 name
+        String displayName = entity.getDeviceName() != null && !entity.getDeviceName().isEmpty()
+                ? entity.getDeviceName() : entity.getName();
+        dto.setName(displayName);
         // location 字段可能未持久化到数据库，用 room 作为回退
         String loc = entity.getLocation();
         dto.setLocation(loc != null && !loc.isEmpty() ? loc : entity.getRoom());

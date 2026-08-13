@@ -203,4 +203,13 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
      * @return 符合条件的告警事件分页结果
      */
     Page<AlarmEvent> findByStatus(String alarmStatus, Pageable pageable);
+
+    /**
+     * 查询指定老人、指定类型中尚未被 APP 自动通知的告警，按告警发生时间降序排列。
+     *
+     * @param elderId 老人 ID
+     * @param types   告警类型列表，例如 ["sos", "emergency-call"]
+     * @return 未通知的告警事件列表（按 occurTime 降序）；无记录时返回空列表
+     */
+    List<AlarmEvent> findByElderIdAndTypeInAndAppNotifiedFalseOrderByOccurTimeDesc(String elderId, List<String> types);
 }

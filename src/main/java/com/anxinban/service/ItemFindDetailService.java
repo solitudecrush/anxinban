@@ -37,7 +37,7 @@ public class ItemFindDetailService {
 
     /**
      * 查询时间范围内的物品寻找记录（来自 ai_service_record）：
-     * - list: 按日期升序排列的历史记录
+     * - list: 按时间倒序排列的历史记录（最新在最上面）
      * - totalCount: 总记录数
      * - successRate: 成功率（找到的次数/总次数）
      *
@@ -51,12 +51,13 @@ public class ItemFindDetailService {
         LocalDateTime startDt = startDate.atStartOfDay();
         LocalDateTime endDt = endDate.plusDays(1).atStartOfDay();
 
-        // 过滤时间范围内的记录
+        // 过滤时间范围内的记录（按时间倒序：最新记录在最上面）
         List<AiServiceRecord> records = allRecords.stream()
                 .filter(r -> r.getInteractionTime() != null
                         && !r.getInteractionTime().isBefore(startDt)
                         && r.getInteractionTime().isBefore(endDt))
-                .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime))
+                .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         int totalCount = records.size();

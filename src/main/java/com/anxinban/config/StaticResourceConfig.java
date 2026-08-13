@@ -17,7 +17,7 @@ import java.nio.file.Paths;
  *
  * <p>映射关系：{@code /uploads/**} → 文件系统 {@code {app.upload.dir}/}</p>
  *
- * <p>启动时自动创建 uploads/avatars 和 uploads/snapshots 子目录，
+ * <p>启动时自动创建 uploads/avatars 和 uploads/snapshot 子目录，
  * 并生成默认头像。</p>
  *
  * @author 安心伴开发团队
@@ -36,7 +36,7 @@ public class StaticResourceConfig implements WebMvcConfigurer {
         // 确保上传目录及子目录存在
         try {
             Files.createDirectories(uploadPath.resolve("avatars"));
-            Files.createDirectories(uploadPath.resolve("snapshots"));
+            Files.createDirectories(uploadPath.resolve("snapshot"));
 
             // 生成默认头像（若不存在）
             Path defaultAvatar = uploadPath.resolve("avatars").resolve("default.png");

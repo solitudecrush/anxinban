@@ -155,6 +155,41 @@ public class AlarmController {
         long count = alarmService.getUnreadCount(elderId);
         return ApiResponse.success(Map.of("count", count));
     }
+
+    /**
+     * 查询待 APP 自动处理的 SOS 告警。
+     * APP 每 3 秒轮询此接口，发现未处理告警后自动拨号+短信。
+     *
+     * @param elderId 老人 ID（必填）
+     * @param minutes 时间窗口（分钟），只返回最近 N 分钟内的告警，默认 30
+     * @return 符合条件的 SOS 告警列表
+     */
+    @GetMapping("/sos/pending")
+    public ApiResponse<PageResult<AlarmDto>> listPendingSosAlarms(
+            @RequestParam String elderId,
+            @RequestParam(defaultValue = "30") int minutes) {
+        if (elderId == null || elderId.isEmpty()) {
+            return ApiResponse.error(400, "elderId is required");
+        }
+        PageResult<AlarmDto> result = alarmService.listPendingSosAlarms(elderId, minutes);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 标记告警已被 APP 自动通知。幂等：重复调用返回 200，状态不变。
+     *
+     * @param alarmId 告警 ID
+     * @return 更新后的 AlarmDto
+     */
+    @PutMapping("/{alarmId}/app-notified")
+    public ApiResponse<AlarmDto> markAppNotified(@PathVariable String alarmId) {
+        AlarmDto alarm = alarmService.markAppNotified(alarmId);
+        if (alarm == null) {
+            return ApiResponse.error(404, "告警不存在: " + alarmId);
+        }
+        return ApiResponse.success(alarm);
+    }
+
     public static class AlarmHandleRequest {
         private String handler;
         private String handleTime;

@@ -46,6 +46,7 @@ public class AlarmService {
         AlarmEvent entity = convertToEntity(alarm);
         entity.setStatus(alarm.getStatus() == null ? "pending" : alarm.getStatus());
         entity.setIsRead(alarm.getIsRead() != null ? alarm.getIsRead() : false);
+        entity.setOccurTime(alarm.getOccurTime() != null ? LocalDateTime.parse(alarm.getOccurTime().substring(0, 19)) : LocalDateTime.now());
         entity.setCreatedAt(alarm.getOccurTime() != null ? LocalDateTime.parse(alarm.getOccurTime().substring(0, 19)) : LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         AlarmEvent saved = alarmEventRepository.save(entity);
@@ -215,6 +216,43 @@ public class AlarmService {
         return convertToDto(saved);
     }
 
+    /**
+     * 查询待 APP 自动处理的 SOS 告警。
+     *
+     * @param elderId 老人 ID
+     * @param minutes 时间窗口（分钟），只返回最近 N 分钟内的告警
+     * @return 分页结果，包含符合条件的 AlarmDto 列表
+     */
+    public PageResult<AlarmDto> listPendingSosAlarms(String elderId, int minutes) {
+        List<String> types = List.of("sos", "emergency-call");
+        List<AlarmEvent> entities = alarmEventRepository
+                .findByElderIdAndTypeInAndAppNotifiedFalseOrderByOccurTimeDesc(elderId, types);
+
+        // 时间窗口过滤：忽略超过 N 分钟的旧告警
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(minutes);
+        List<AlarmDto> dtos = entities.stream()
+                .filter(e -> e.getOccurTime() != null && e.getOccurTime().isAfter(cutoff))
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+
+        return new PageResult<>(dtos, dtos.size(), 1, dtos.size());
+    }
+
+    /**
+     * 标记告警已被 APP 自动通知。幂等：重复调用无副作用。
+     *
+     * @param alarmId 告警 ID
+     * @return 更新后的 AlarmDto，告警不存在返回 null
+     */
+    public AlarmDto markAppNotified(String alarmId) {
+        AlarmEvent existing = alarmEventRepository.findByAlarmId(alarmId);
+        if (existing == null) return null;
+        existing.setAppNotified(true);
+        existing.setUpdatedAt(LocalDateTime.now());
+        AlarmEvent saved = alarmEventRepository.save(existing);
+        return convertToDto(saved);
+    }
+
         /**
          * 告警转工单。
          *
@@ -309,6 +347,7 @@ public class AlarmService {
         dto.setRoomNumber(entity.getRoomNumber());
         dto.setUnit(entity.getUnit());
         dto.setSnapshotUrl(entity.getSnapshotUrl());
+        dto.setAppNotified(entity.getAppNotified());
         if (entity.getElderId() != null) {
             var elder = elderUserRepository.findByElderId(entity.getElderId());
             if (elder != null) {
