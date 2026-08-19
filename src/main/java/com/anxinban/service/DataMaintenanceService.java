@@ -15,7 +15,7 @@ import java.util.*;
  * <h3>功能</h3>
  * <ul>
  *   <li><b>时间推移</b>：超过 30 天的记录自动推移到 7 天前（保持时/分/秒）</li>
- *   <li><b>每小时上限</b>：高频表每小时最多保留 5 条，超出删最早</li>
+ *   <li><b>每小时上限</b>：高频表每小时最多保留 30 条，超出删最早</li>
  * </ul>
  *
  * @author anxinban-team
@@ -194,12 +194,12 @@ public class DataMaintenanceService {
         }
     }
 
-    /** 每小时最多保留条数 */
-    private static final int MAX_PER_HOUR = 5;
+    /** 每小时最多保留条数（调大以容纳昼夜节律曲线数据 + 设备上报） */
+    private static final int MAX_PER_HOUR = 30;
 
     /**
      * 每 1 分钟执行一次每小时上限检查。
-     * 删除各高频表中每个小时超出 5 条的最旧记录。
+     * 删除各高频表中每个小时超出 30 条的最旧记录。
      */
     @Scheduled(fixedRate = 60_000)
     public void trimPerHourData() {
