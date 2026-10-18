@@ -325,10 +325,9 @@ public class HealthDashboardService {
                 .filter(r -> r.getInteractionTime() != null && r.getInteractionTime().isAfter(sevenDaysAgo))
                 .sorted(Comparator.comparing(AiServiceRecord::getInteractionTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(5) // 卡片只呈现最近 5 条
                 .collect(Collectors.toList());
 
-        // 生成总结语
+        // 生成总结语（计数用全量窗口记录，展示只取最近 5 条）
         if (recentRecords.isEmpty()) {
             panel.setSummary("近7天未使用音乐疗法，可尝试播放助眠白噪音帮助放松");
             panel.setRecentRecords(Collections.emptyList());
@@ -337,6 +336,7 @@ public class HealthDashboardService {
             panel.setSummary(String.format("近7天共进行音乐疗法 %d 次，累计约 %d 分钟，继续保持每日聆听习惯",
                     recentRecords.size(), totalMinutes));
             List<MusicItem> items = recentRecords.stream()
+                    .limit(5) // 卡片只呈现最近 5 条
                     .map(r -> new MusicItem(
                             r.getInteractionTime() != null ? r.getInteractionTime().format(DATE_FMT) : "",
                             r.getMusicType() != null ? r.getMusicType() : "未知",
